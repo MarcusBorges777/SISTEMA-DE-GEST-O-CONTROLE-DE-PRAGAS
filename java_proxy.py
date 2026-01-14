@@ -1,164 +1,197 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Proxy Python para integração Flask -> Java Spring Boot
-Redireciona requisições de geração de documentos para o backend Java
+MÓDULO DESATIVADO - Backend Java não será mais utilizado.
+
+Este proxy foi desativado como parte da Fase 1 de refatoração.
+A geração de documentos será feita 100% em Python usando:
+- docxtpl para templates DOCX
+- Fila assíncrona para processamento em background
+
+Motivos da desativação:
+1. Complexidade desnecessária (dual-stack Python/Java)
+2. Overhead de comunicação HTTP entre processos
+3. Dificuldade de deploy (duas aplicações)
+4. Python já faz tudo que o Java fazia (POI-TL ~ docxtpl)
+
+NOTA: Este arquivo mantém a interface original para compatibilidade,
+mas todas as funções agora retornam erro informando a desativação.
 """
 
-import requests
 import logging
-from flask import jsonify
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# URL base do backend Java
-JAVA_BACKEND_URL = "http://localhost:8080/api"
+# =============================================================================
+# CONSTANTES
+# =============================================================================
+
+JAVA_BACKEND_DISABLED = True
+JAVA_BACKEND_URL = "http://localhost:8080/api"  # DESATIVADO
+
+DEPRECATION_MESSAGE = """
+[AVISO] Backend Java DESATIVADO.
+
+A geração de documentos agora é feita 100% em Python.
+Use as funções do módulo document_generator.py em vez deste proxy.
+
+Se você está vendo esta mensagem, atualize seu código:
+  - Antigo: java_proxy.gerar_laudo_via_java(data, tipo)
+  - Novo:   document_generator.gerar_laudo(data, tipo)
+"""
+
+
+# =============================================================================
+# EXCEÇÃO CUSTOMIZADA
+# =============================================================================
+
+class JavaBackendDisabledError(Exception):
+    """Exceção levantada quando se tenta usar o backend Java desativado."""
+
+    def __init__(self, message: str = DEPRECATION_MESSAGE):
+        self.message = message
+        super().__init__(self.message)
+
+
+# =============================================================================
+# CLASSE PROXY (DESATIVADA)
+# =============================================================================
 
 class JavaDocumentProxy:
-    """Proxy para comunicação com o backend Java"""
+    """
+    DESATIVADO - Proxy para comunicação com o backend Java.
+
+    Esta classe foi mantida para compatibilidade, mas todas as operações
+    levantam JavaBackendDisabledError.
+    """
 
     def __init__(self, base_url: str = JAVA_BACKEND_URL):
         self.base_url = base_url
-        self.timeout = 30  # 30 segundos de timeout
+        self.timeout = 30
+        self._disabled = True
+        logger.warning(DEPRECATION_MESSAGE)
+
+    def _raise_disabled(self, operation: str):
+        """Levanta erro informando que o backend está desativado."""
+        msg = f"Operação '{operation}' não disponível: {DEPRECATION_MESSAGE}"
+        logger.error(msg)
+        raise JavaBackendDisabledError(msg)
 
     def _make_request(self, endpoint: str, data: Dict[str, Any],
-                     params: Optional[Dict[str, Any]] = None) -> requests.Response:
-        """Faz requisição POST para o backend Java"""
-        url = f"{self.base_url}{endpoint}"
-
-        try:
-            logger.info(f"Enviando requisição para Java: {url}")
-            response = requests.post(
-                url,
-                json=data,
-                params=params or {},
-                timeout=self.timeout,
-                headers={"Content-Type": "application/json"}
-            )
-            response.raise_for_status()
-            return response
-        except requests.exceptions.ConnectionError:
-            logger.error(f"Erro: Backend Java não está disponível em {url}")
-            raise Exception("Backend Java não está rodando. Inicie com: mvn spring-boot:run")
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout ao conectar com {url}")
-            raise Exception("Timeout ao gerar documento no backend Java")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Erro ao chamar backend Java: {e}")
-            raise Exception(f"Erro ao gerar documento: {str(e)}")
+                      params: Optional[Dict[str, Any]] = None):
+        """DESATIVADO - Fazia requisição POST para o backend Java."""
+        self._raise_disabled(f"POST {endpoint}")
 
     def gerar_laudo_completo(self, data: Dict[str, Any],
-                            com_assinatura: bool = True,
-                            registrar: bool = True) -> bytes:
-        """Gera Laudo Completo via Java"""
-        endpoint = "/documentos/laudo-completo"
-        params = {
-            "comAssinatura": str(com_assinatura).lower(),
-            "registrar": str(registrar).lower()
-        }
-
-        response = self._make_request(endpoint, data, params)
-        return response.content
+                             com_assinatura: bool = True,
+                             registrar: bool = True) -> bytes:
+        """DESATIVADO - Use document_generator.gerar_laudo_completo()"""
+        self._raise_disabled("gerar_laudo_completo")
 
     def gerar_laudo_dedetizacao(self, data: Dict[str, Any],
-                                com_assinatura: bool = True,
-                                registrar: bool = True) -> bytes:
-        """Gera Laudo de Dedetização via Java"""
-        endpoint = "/documentos/laudo-dedetizacao"
-        params = {
-            "comAssinatura": str(com_assinatura).lower(),
-            "registrar": str(registrar).lower()
-        }
-
-        response = self._make_request(endpoint, data, params)
-        return response.content
+                                 com_assinatura: bool = True,
+                                 registrar: bool = True) -> bytes:
+        """DESATIVADO - Use document_generator.gerar_laudo_dedetizacao()"""
+        self._raise_disabled("gerar_laudo_dedetizacao")
 
     def gerar_laudo_caixa_agua(self, data: Dict[str, Any],
-                              com_assinatura: bool = True,
-                              registrar: bool = True) -> bytes:
-        """Gera Laudo de Caixa D'Água via Java"""
-        endpoint = "/documentos/laudo-caixa-agua"
-        params = {
-            "comAssinatura": str(com_assinatura).lower(),
-            "registrar": str(registrar).lower()
-        }
-
-        response = self._make_request(endpoint, data, params)
-        return response.content
+                               com_assinatura: bool = True,
+                               registrar: bool = True) -> bytes:
+        """DESATIVADO - Use document_generator.gerar_laudo_caixa_agua()"""
+        self._raise_disabled("gerar_laudo_caixa_agua")
 
     def gerar_recibo(self, data: Dict[str, Any], registrar: bool = True) -> bytes:
-        """Gera Recibo via Java"""
-        endpoint = "/documentos/recibo"
-        params = {"registrar": str(registrar).lower()}
-
-        response = self._make_request(endpoint, data, params)
-        return response.content
+        """DESATIVADO - Use document_generator.gerar_recibo()"""
+        self._raise_disabled("gerar_recibo")
 
     def gerar_orcamento(self, data: Dict[str, Any], registrar: bool = True) -> bytes:
-        """Gera Orçamento via Java"""
-        endpoint = "/documentos/orcamento"
-        params = {"registrar": str(registrar).lower()}
-
-        response = self._make_request(endpoint, data, params)
-        return response.content
+        """DESATIVADO - Use document_generator.gerar_orcamento()"""
+        self._raise_disabled("gerar_orcamento")
 
     def check_health(self) -> bool:
-        """Verifica se o backend Java está respondendo"""
-        try:
-            response = requests.get(
-                f"{self.base_url}/actuator/health",
-                timeout=5
-            )
-            return response.status_code == 200
-        except:
-            return False
+        """
+        Sempre retorna False - backend Java está desativado.
+
+        Esta função é mantida para que código que verifica disponibilidade
+        do Java antes de usar continue funcionando (vai para fallback Python).
+        """
+        return False
 
 
-# Instância global do proxy
+# =============================================================================
+# INSTÂNCIA GLOBAL (DESATIVADA)
+# =============================================================================
+
 java_proxy = JavaDocumentProxy()
 
 
+# =============================================================================
+# FUNÇÕES AUXILIARES (DESATIVADAS)
+# =============================================================================
+
 def usar_java_backend() -> bool:
     """
-    Verifica se deve usar o backend Java
-    Retorna True se o Java estiver rodando, False caso contrário
+    Sempre retorna False - backend Java está desativado.
+
+    Código que chamava esta função para decidir qual backend usar
+    vai automaticamente usar o fallback Python.
     """
-    return java_proxy.check_health()
+    return False
 
 
 def converter_dados_para_java(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Converte dados do formato Python/Flask para o formato esperado pelo Java
-    """
-    # O formato já está compatível, mas podemos fazer ajustes se necessário
+    """DESATIVADO - Não há mais necessidade de conversão."""
+    logger.warning("converter_dados_para_java() chamado mas backend Java está desativado")
     return data
 
 
 def gerar_laudo_via_java(data: Dict[str, Any], tipo: str,
-                        com_assinatura: bool = True) -> bytes:
+                         com_assinatura: bool = True) -> bytes:
     """
-    Função auxiliar para gerar laudos via Java
-    """
-    data_java = converter_dados_para_java(data)
+    DESATIVADO - Use document_generator.gerar_laudo()
 
-    if tipo == "completo":
-        return java_proxy.gerar_laudo_completo(data_java, com_assinatura)
-    elif tipo == "dedetizacao":
-        return java_proxy.gerar_laudo_dedetizacao(data_java, com_assinatura)
-    elif tipo == "caixa_agua":
-        return java_proxy.gerar_laudo_caixa_agua(data_java, com_assinatura)
-    else:
-        raise ValueError(f"Tipo de laudo inválido: {tipo}")
+    Raises:
+        JavaBackendDisabledError: Sempre (backend desativado)
+    """
+    raise JavaBackendDisabledError(
+        f"gerar_laudo_via_java(tipo={tipo}) não disponível.\n"
+        "Use document_generator.gerar_laudo() em vez disso."
+    )
 
 
 def gerar_recibo_via_java(data: Dict[str, Any]) -> bytes:
-    """Gera recibo via Java"""
-    data_java = converter_dados_para_java(data)
-    return java_proxy.gerar_recibo(data_java)
+    """
+    DESATIVADO - Use document_generator.gerar_recibo()
+
+    Raises:
+        JavaBackendDisabledError: Sempre (backend desativado)
+    """
+    raise JavaBackendDisabledError(
+        "gerar_recibo_via_java() não disponível.\n"
+        "Use document_generator.gerar_recibo() em vez disso."
+    )
 
 
 def gerar_orcamento_via_java(data: Dict[str, Any]) -> bytes:
-    """Gera orçamento via Java"""
-    data_java = converter_dados_para_java(data)
-    return java_proxy.gerar_orcamento(data_java)
+    """
+    DESATIVADO - Use document_generator.gerar_orcamento()
+
+    Raises:
+        JavaBackendDisabledError: Sempre (backend desativado)
+    """
+    raise JavaBackendDisabledError(
+        "gerar_orcamento_via_java() não disponível.\n"
+        "Use document_generator.gerar_orcamento() em vez disso."
+    )
+
+
+# =============================================================================
+# AVISO NO IMPORT
+# =============================================================================
+
+if __name__ != '__main__':
+    logger.warning(
+        "[java_proxy] Este módulo está DESATIVADO. "
+        "Geração de documentos agora é 100% Python via document_generator.py"
+    )
