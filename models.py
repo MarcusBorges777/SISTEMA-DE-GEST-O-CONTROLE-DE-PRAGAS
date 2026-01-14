@@ -20,7 +20,7 @@ from typing import Optional, List
 from enum import Enum
 
 from sqlalchemy import (
-    create_engine, Column, Integer, BigInteger, String, Text, Boolean,
+    create_engine, Column, Integer, String, Text, Boolean,
     DateTime, Date, Numeric, ForeignKey, Index, CheckConstraint, UniqueConstraint,
     event, JSON
 )
@@ -28,6 +28,11 @@ from sqlalchemy.orm import (
     declarative_base, relationship, sessionmaker, Session
 )
 from sqlalchemy.sql import func
+
+# Nota: Usamos Integer em vez de Integer para compatibilidade SQLite.
+# SQLite requer INTEGER PRIMARY KEY para AUTOINCREMENT funcionar.
+# Em PostgreSQL, Integer é suficiente para a maioria dos casos.
+# Para tabelas muito grandes (>2 bilhões de registros), usar Integer.
 
 # Base declarativa para todos os models
 Base = declarative_base()
@@ -219,7 +224,7 @@ class Cliente(Base, UserAuditMixin):
     """
     __tablename__ = 'clientes'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tipo_pessoa = Column(String(2), nullable=False, default='PJ')
     nome_fantasia = Column(String(255), nullable=False, index=True)
     razao_social = Column(String(255), nullable=True)
@@ -276,8 +281,8 @@ class Endereco(Base, AuditMixin):
     """
     __tablename__ = 'enderecos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
     tipo_endereco = Column(String(20), nullable=False, default='comercial')
     cep = Column(String(9), nullable=True)
     logradouro = Column(String(255), nullable=False)
@@ -330,8 +335,8 @@ class Contato(Base, AuditMixin):
     """
     __tablename__ = 'contatos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False, index=True)
     nome = Column(String(255), nullable=False)
     cargo = Column(String(100), nullable=True)
     departamento = Column(String(100), nullable=True)
@@ -358,8 +363,8 @@ class HistoricoCliente(Base):
     """
     __tablename__ = 'historico_cliente'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='CASCADE'), nullable=False)
     tipo_evento = Column(String(20), nullable=False)
     descricao = Column(Text, nullable=False)
     usuario_responsavel = Column(String(100), nullable=True)
@@ -387,7 +392,7 @@ class Servico(Base, AuditMixin):
     """
     __tablename__ = 'servicos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     codigo = Column(String(50), nullable=False, unique=True, index=True)
     nome = Column(String(255), nullable=False)
     categoria = Column(String(50), nullable=False, index=True)
@@ -424,7 +429,7 @@ class Produto(Base, AuditMixin):
     """
     __tablename__ = 'produtos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     codigo = Column(String(50), nullable=False, unique=True, index=True)
     nome = Column(String(255), nullable=False)
     tipo_produto = Column(String(30), nullable=False, index=True)
@@ -464,7 +469,7 @@ class Praga(Base):
     """
     __tablename__ = 'pragas'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     nome_cientifico = Column(String(255), nullable=True)
     nome_popular = Column(String(255), nullable=False, index=True)
     categoria = Column(String(20), nullable=False, index=True)
@@ -495,7 +500,7 @@ class TemplateServico(Base, AuditMixin):
     """
     __tablename__ = 'templates_servico'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     nome = Column(String(255), nullable=False)
     descricao = Column(Text, nullable=True)
     categoria = Column(String(100), nullable=True, index=True)
@@ -531,12 +536,12 @@ class OrdemServico(Base, UserAuditMixin):
     """
     __tablename__ = 'ordens_servico'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     numero_os = Column(String(50), nullable=False, unique=True, index=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False, index=True)
-    endereco_id = Column(BigInteger, ForeignKey('enderecos.id', ondelete='RESTRICT'), nullable=False)
-    contato_id = Column(BigInteger, ForeignKey('contatos.id', ondelete='SET NULL'), nullable=True)
-    template_id = Column(BigInteger, ForeignKey('templates_servico.id', ondelete='SET NULL'), nullable=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False, index=True)
+    endereco_id = Column(Integer, ForeignKey('enderecos.id', ondelete='RESTRICT'), nullable=False)
+    contato_id = Column(Integer, ForeignKey('contatos.id', ondelete='SET NULL'), nullable=True)
+    template_id = Column(Integer, ForeignKey('templates_servico.id', ondelete='SET NULL'), nullable=True)
 
     # Datas e Agendamento
     data_abertura = Column(DateTime, default=func.now(), nullable=False)
@@ -617,9 +622,9 @@ class OSServico(Base):
     """
     __tablename__ = 'os_servicos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    os_id = Column(BigInteger, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False, index=True)
-    servico_id = Column(BigInteger, ForeignKey('servicos.id', ondelete='RESTRICT'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    os_id = Column(Integer, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False, index=True)
+    servico_id = Column(Integer, ForeignKey('servicos.id', ondelete='RESTRICT'), nullable=False)
     quantidade = Column(Numeric(10, 2), nullable=False)
     preco_unitario = Column(Numeric(10, 2), nullable=False)
     desconto_percentual = Column(Numeric(5, 2), nullable=False, default=0)
@@ -637,9 +642,9 @@ class OSProduto(Base):
     """
     __tablename__ = 'os_produtos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    os_id = Column(BigInteger, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False, index=True)
-    produto_id = Column(BigInteger, ForeignKey('produtos.id', ondelete='RESTRICT'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    os_id = Column(Integer, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False, index=True)
+    produto_id = Column(Integer, ForeignKey('produtos.id', ondelete='RESTRICT'), nullable=False)
     quantidade = Column(Numeric(10, 3), nullable=False)
     preco_unitario = Column(Numeric(10, 2), nullable=True)
     preco_total = Column(Numeric(10, 2), nullable=True)
@@ -656,9 +661,9 @@ class OSPraga(Base):
     """
     __tablename__ = 'os_pragas'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    os_id = Column(BigInteger, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False, index=True)
-    praga_id = Column(BigInteger, ForeignKey('pragas.id', ondelete='RESTRICT'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    os_id = Column(Integer, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False, index=True)
+    praga_id = Column(Integer, ForeignKey('pragas.id', ondelete='RESTRICT'), nullable=False)
     nivel_infestacao = Column(String(20), nullable=False)
     locais_encontrados = Column(Text, nullable=True)
     observacoes = Column(Text, nullable=True)
@@ -681,8 +686,8 @@ class OSHistoricoStatus(Base):
     """
     __tablename__ = 'os_historico_status'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    os_id = Column(BigInteger, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    os_id = Column(Integer, ForeignKey('ordens_servico.id', ondelete='CASCADE'), nullable=False)
     status_anterior = Column(String(50), nullable=True)
     status_novo = Column(String(50), nullable=False)
     usuario = Column(String(100), nullable=True)
@@ -707,9 +712,9 @@ class DocumentoGerado(Base, UserAuditMixin):
     """
     __tablename__ = 'documentos_gerados'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    os_id = Column(BigInteger, ForeignKey('ordens_servico.id', ondelete='SET NULL'), nullable=True, index=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    os_id = Column(Integer, ForeignKey('ordens_servico.id', ondelete='SET NULL'), nullable=True, index=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False, index=True)
 
     tipo_documento = Column(String(50), nullable=False, index=True)
     status_geracao = Column(String(20), nullable=False, default='aguardando', index=True)
@@ -718,7 +723,7 @@ class DocumentoGerado(Base, UserAuditMixin):
     nome_arquivo = Column(String(255), nullable=False)
     caminho_arquivo = Column(String(500), nullable=True)
     arquivo_hash = Column(String(64), nullable=True)
-    tamanho_bytes = Column(BigInteger, nullable=True)
+    tamanho_bytes = Column(Integer, nullable=True)
     formato_arquivo = Column(String(10), nullable=False, default='docx')
 
     # Metadados de Geração
@@ -785,8 +790,8 @@ class FilaDocumento(Base):
     """
     __tablename__ = 'fila_documentos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    documento_id = Column(BigInteger, ForeignKey('documentos_gerados.id', ondelete='CASCADE'), nullable=False, unique=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    documento_id = Column(Integer, ForeignKey('documentos_gerados.id', ondelete='CASCADE'), nullable=False, unique=True)
     prioridade = Column(String(20), nullable=False, default='normal')
     status = Column(String(20), nullable=False, default='pendente')
     tentativas = Column(Integer, nullable=False, default=0)
@@ -823,7 +828,7 @@ class Tag(Base, AuditMixin):
     """
     __tablename__ = 'tags'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     nome = Column(String(100), nullable=False, unique=True)
     descricao = Column(Text, nullable=True)
     cor = Column(String(7), nullable=False, default='#3B82F6')
@@ -839,11 +844,11 @@ class DocumentoTag(Base):
     """
     __tablename__ = 'documento_tags'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    documento_id = Column(BigInteger, ForeignKey('documentos_gerados.id', ondelete='CASCADE'), nullable=True)
-    arquivo_id = Column(BigInteger, nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    documento_id = Column(Integer, ForeignKey('documentos_gerados.id', ondelete='CASCADE'), nullable=True)
+    arquivo_id = Column(Integer, nullable=True)
     arquivo_tipo = Column(String(50), nullable=False)
-    tag_id = Column(BigInteger, ForeignKey('tags.id', ondelete='CASCADE'), nullable=False, index=True)
+    tag_id = Column(Integer, ForeignKey('tags.id', ondelete='CASCADE'), nullable=False, index=True)
     confianca = Column(Numeric(3, 2), nullable=False, default=1.0)
     manual = Column(Boolean, nullable=False, default=True)
     data_atribuicao = Column(DateTime, default=func.now(), nullable=False)
@@ -863,10 +868,10 @@ class TagTrainingData(Base):
     """
     __tablename__ = 'tag_training_data'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     arquivo_nome = Column(String(255), nullable=True)
     arquivo_conteudo = Column(Text, nullable=True)
-    tag_id = Column(BigInteger, ForeignKey('tags.id', ondelete='CASCADE'), nullable=False, index=True)
+    tag_id = Column(Integer, ForeignKey('tags.id', ondelete='CASCADE'), nullable=False, index=True)
     features = Column(Text, nullable=True)
     data_treinamento = Column(DateTime, default=func.now(), nullable=False)
 
@@ -884,7 +889,7 @@ class FormaPagamento(Base):
     """
     __tablename__ = 'formas_pagamento'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     nome = Column(String(100), nullable=False)
     tipo = Column(String(30), nullable=False)
     ativo = Column(Boolean, nullable=False, default=True)
@@ -908,9 +913,9 @@ class TituloReceber(Base, AuditMixin):
     """
     __tablename__ = 'titulos_receber'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    os_id = Column(BigInteger, ForeignKey('ordens_servico.id', ondelete='RESTRICT'), nullable=True, index=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    os_id = Column(Integer, ForeignKey('ordens_servico.id', ondelete='RESTRICT'), nullable=True, index=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False, index=True)
     numero_titulo = Column(String(50), nullable=False, unique=True)
 
     # Valores
@@ -944,7 +949,7 @@ class TituloReceber(Base, AuditMixin):
     nosso_numero = Column(String(50), nullable=True)
     numero_documento = Column(String(50), nullable=True)
 
-    forma_pagamento_id = Column(BigInteger, ForeignKey('formas_pagamento.id', ondelete='SET NULL'), nullable=True)
+    forma_pagamento_id = Column(Integer, ForeignKey('formas_pagamento.id', ondelete='SET NULL'), nullable=True)
     descricao = Column(Text, nullable=True)
     observacoes = Column(Text, nullable=True)
     arquivo_caminho = Column(String(500), nullable=True)
@@ -969,9 +974,9 @@ class Recibo(Base, AuditMixin):
     """
     __tablename__ = 'recibos'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    cliente_id = Column(BigInteger, ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
-    titulo_id = Column(BigInteger, ForeignKey('titulos_receber.id', ondelete='SET NULL'), nullable=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cliente_id = Column(Integer, ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True, index=True)
+    titulo_id = Column(Integer, ForeignKey('titulos_receber.id', ondelete='SET NULL'), nullable=True, index=True)
     cliente_nome = Column(String(255), nullable=False)
     numero_recibo = Column(String(50), nullable=True)
     descricao = Column(Text, nullable=True)
@@ -1034,53 +1039,61 @@ def get_session_factory(engine) -> sessionmaker:
 def insert_initial_data(session: Session):
     """
     Insere dados iniciais no banco (tags, formas de pagamento, pragas).
+    Usa no_autoflush para evitar problemas de RETURNING em SQLite.
     """
-    # Tags padrão
-    tags_padrao = [
-        Tag(nome='Laudo', descricao='Laudos técnicos e de serviços', cor='#10B981'),
-        Tag(nome='Recibo', descricao='Recibos de pagamento', cor='#3B82F6'),
-        Tag(nome='Orçamento', descricao='Orçamentos e propostas', cor='#F59E0B'),
-        Tag(nome='Boleto', descricao='Boletos bancários', cor='#F97316'),
-        Tag(nome='Contrato', descricao='Contratos e termos', cor='#8B5CF6'),
-        Tag(nome='Relatório', descricao='Relatórios diversos', cor='#6366F1'),
-        Tag(nome='Outros', descricao='Documentos diversos', cor='#6B7280'),
-    ]
+    with session.no_autoflush:
+        # Tags padrão
+        tags_padrao = [
+            ('Laudo', 'Laudos técnicos e de serviços', '#10B981'),
+            ('Recibo', 'Recibos de pagamento', '#3B82F6'),
+            ('Orçamento', 'Orçamentos e propostas', '#F59E0B'),
+            ('Boleto', 'Boletos bancários', '#F97316'),
+            ('Contrato', 'Contratos e termos', '#8B5CF6'),
+            ('Relatório', 'Relatórios diversos', '#6366F1'),
+            ('Outros', 'Documentos diversos', '#6B7280'),
+        ]
 
-    for tag in tags_padrao:
-        existing = session.query(Tag).filter_by(nome=tag.nome).first()
-        if not existing:
-            session.add(tag)
+        for nome, descricao, cor in tags_padrao:
+            existing = session.query(Tag).filter_by(nome=nome).first()
+            if not existing:
+                session.add(Tag(nome=nome, descricao=descricao, cor=cor))
 
-    # Formas de Pagamento
-    formas_pagamento = [
-        FormaPagamento(nome='Dinheiro', tipo='dinheiro', ativo=True, taxa_percentual=0, prazo_compensacao_dias=0),
-        FormaPagamento(nome='PIX', tipo='pix', ativo=True, taxa_percentual=0, prazo_compensacao_dias=0),
-        FormaPagamento(nome='Cartão de Crédito', tipo='cartao_credito', ativo=True, taxa_percentual=3.5, prazo_compensacao_dias=30),
-        FormaPagamento(nome='Cartão de Débito', tipo='cartao_debito', ativo=True, taxa_percentual=2.0, prazo_compensacao_dias=1),
-        FormaPagamento(nome='Boleto Bancário', tipo='boleto', ativo=True, taxa_percentual=2.5, prazo_compensacao_dias=3),
-        FormaPagamento(nome='Transferência', tipo='transferencia', ativo=True, taxa_percentual=0, prazo_compensacao_dias=1),
-    ]
+        # Formas de Pagamento
+        formas_pagamento = [
+            ('Dinheiro', 'dinheiro', True, 0, 0),
+            ('PIX', 'pix', True, 0, 0),
+            ('Cartão de Crédito', 'cartao_credito', True, 3.5, 30),
+            ('Cartão de Débito', 'cartao_debito', True, 2.0, 1),
+            ('Boleto Bancário', 'boleto', True, 2.5, 3),
+            ('Transferência', 'transferencia', True, 0, 1),
+        ]
 
-    for forma in formas_pagamento:
-        existing = session.query(FormaPagamento).filter_by(nome=forma.nome).first()
-        if not existing:
-            session.add(forma)
+        for nome, tipo, ativo, taxa, prazo in formas_pagamento:
+            existing = session.query(FormaPagamento).filter_by(nome=nome).first()
+            if not existing:
+                session.add(FormaPagamento(
+                    nome=nome, tipo=tipo, ativo=ativo,
+                    taxa_percentual=taxa, prazo_compensacao_dias=prazo
+                ))
 
-    # Pragas comuns
-    pragas = [
-        Praga(nome_popular='Barata', nome_cientifico='Blattodea', categoria='inseto', nivel_risco='alto', descricao='Inseto urbano vetor de doenças'),
-        Praga(nome_popular='Rato', nome_cientifico='Rattus norvegicus', categoria='roedor', nivel_risco='critico', descricao='Roedor urbano transmissor de leptospirose'),
-        Praga(nome_popular='Camundongo', nome_cientifico='Mus musculus', categoria='roedor', nivel_risco='alto', descricao='Pequeno roedor doméstico'),
-        Praga(nome_popular='Cupim', nome_cientifico='Isoptera', categoria='inseto', nivel_risco='alto', descricao='Inseto destruidor de madeira'),
-        Praga(nome_popular='Formiga', nome_cientifico='Formicidae', categoria='inseto', nivel_risco='medio', descricao='Inseto social'),
-        Praga(nome_popular='Mosca', nome_cientifico='Diptera', categoria='inseto', nivel_risco='alto', descricao='Inseto vetor de doenças'),
-        Praga(nome_popular='Pulga', nome_cientifico='Siphonaptera', categoria='inseto', nivel_risco='medio', descricao='Parasita de animais'),
-        Praga(nome_popular='Escorpião', nome_cientifico='Scorpiones', categoria='outro', nivel_risco='critico', descricao='Aracnídeo peçonhento'),
-    ]
+        # Pragas comuns
+        pragas = [
+            ('Barata', 'Blattodea', 'inseto', 'alto', 'Inseto urbano vetor de doenças'),
+            ('Rato', 'Rattus norvegicus', 'roedor', 'critico', 'Roedor urbano transmissor de leptospirose'),
+            ('Camundongo', 'Mus musculus', 'roedor', 'alto', 'Pequeno roedor doméstico'),
+            ('Cupim', 'Isoptera', 'inseto', 'alto', 'Inseto destruidor de madeira'),
+            ('Formiga', 'Formicidae', 'inseto', 'medio', 'Inseto social'),
+            ('Mosca', 'Diptera', 'inseto', 'alto', 'Inseto vetor de doenças'),
+            ('Pulga', 'Siphonaptera', 'inseto', 'medio', 'Parasita de animais'),
+            ('Escorpião', 'Scorpiones', 'outro', 'critico', 'Aracnídeo peçonhento'),
+        ]
 
-    for praga in pragas:
-        existing = session.query(Praga).filter_by(nome_popular=praga.nome_popular).first()
-        if not existing:
-            session.add(praga)
+        for nome_popular, nome_cientifico, categoria, nivel_risco, descricao in pragas:
+            existing = session.query(Praga).filter_by(nome_popular=nome_popular).first()
+            if not existing:
+                session.add(Praga(
+                    nome_popular=nome_popular, nome_cientifico=nome_cientifico,
+                    categoria=categoria, nivel_risco=nivel_risco, descricao=descricao
+                ))
 
     session.commit()

@@ -304,6 +304,41 @@ def detect_tipo_pessoa(cnpj_cpf: str) -> str:
         return 'PJ'  # Default
 
 
+def parse_date(value) -> Optional[datetime]:
+    """
+    Converte string de data para objeto datetime.
+    Suporta múltiplos formatos comuns.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+
+        # Tenta diferentes formatos
+        formatos = [
+            '%Y-%m-%d %H:%M:%S',
+            '%Y-%m-%d %H:%M:%S.%f',
+            '%Y-%m-%d',
+            '%d/%m/%Y %H:%M:%S',
+            '%d/%m/%Y',
+            '%d-%m-%Y',
+        ]
+
+        for fmt in formatos:
+            try:
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+
+    return None
+
+
 def clean_cpf_cnpj(value: str) -> Optional[str]:
     """Limpa e formata CPF/CNPJ."""
     if not value:
@@ -424,6 +459,8 @@ def transform_documento(old_data: Dict, cliente_map: Dict[str, int]) -> Optional
     if not cliente_id:
         return None  # Não conseguiu vincular a um cliente
 
+    data_geracao = parse_date(old_data.get('data_geracao'))
+
     return DocumentoGerado(
         cliente_id=cliente_id,
         tipo_documento=map_tipo_documento(old_data.get('tipo_doc')),
@@ -435,8 +472,8 @@ def transform_documento(old_data: Dict, cliente_map: Dict[str, int]) -> Optional
         cliente_nome=old_data.get('cliente_nome'),
         razao_social=old_data.get('razao_social'),
         cliente_cnpj=cliente_cnpj,
-        data_solicitacao=old_data.get('data_geracao'),
-        data_geracao=old_data.get('data_geracao'),
+        data_solicitacao=data_geracao,
+        data_geracao=data_geracao,
         created_by='migration_script',
         updated_by='migration_script'
     )
@@ -457,15 +494,20 @@ def transform_boleto(old_data: Dict, cliente_map: Dict[str, int]) -> Optional[Ti
 
     valor = old_data.get('valor') or 0
 
+    # Converte datas
+    data_emissao = parse_date(old_data.get('data_emissao'))
+    data_vencimento = parse_date(old_data.get('data_vencimento'))
+    data_pagamento = parse_date(old_data.get('data_pagamento'))
+
     return TituloReceber(
         cliente_id=cliente_id,
         numero_titulo=old_data.get('numero_documento') or f"MIG-{old_data.get('id', 0)}",
         valor_original=valor,
         valor_total=valor,
         valor_saldo=valor - (old_data.get('valor_pago') or 0),
-        data_emissao=old_data.get('data_emissao') or datetime.now().date(),
-        data_vencimento=old_data.get('data_vencimento') or datetime.now().date(),
-        data_pagamento=old_data.get('data_pagamento'),
+        data_emissao=(data_emissao or datetime.now()).date(),
+        data_vencimento=(data_vencimento or datetime.now()).date(),
+        data_pagamento=data_pagamento.date() if data_pagamento else None,
         status=old_data.get('status') or 'pendente',
         codigo_barras=old_data.get('codigo_barras'),
         descricao=old_data.get('descricao'),
@@ -483,13 +525,16 @@ def transform_recibo(old_data: Dict, cliente_map: Dict[str, int]) -> Optional[Re
         if cliente_nome:
             cliente_id = cliente_map.get(cliente_nome.upper()[:100])
 
+    # Converte data
+    data_emissao = parse_date(old_data.get('data_emissao'))
+
     return Recibo(
         cliente_id=cliente_id,
         cliente_nome=old_data.get('cliente_nome') or 'NAO INFORMADO',
         numero_recibo=old_data.get('numero_recibo'),
         descricao=old_data.get('descricao'),
         valor_total=old_data.get('valor_total') or 0,
-        data_emissao=old_data.get('data_emissao') or datetime.now().date(),
+        data_emissao=(data_emissao or datetime.now()).date(),
         forma_pagamento=old_data.get('forma_pagamento'),
         observacoes=old_data.get('observacoes'),
         arquivo_caminho=old_data.get('arquivo_caminho')
