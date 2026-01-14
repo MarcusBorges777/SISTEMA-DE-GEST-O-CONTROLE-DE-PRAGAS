@@ -63,7 +63,7 @@ Thumbs.db
 desktop.ini
 
 # === .bat ===
-.bat
+*.bat
 
 # === Sincronização (OneDrive) ===
 # Evita conflitos com arquivos temporários do OneDrive
