@@ -28,3 +28,40 @@ uploads_pdf/*.pdf
 # Logs
 *.log
 cnpj_filtrado.db 
+
+# === Banco de Dados (Arquivos muito pesados) ===
+# Ignora o banco de dados que travou o seu push anteriormente
+cnpj_filtrado.db
+*.db
+*.sqlite
+*.sqlite3
+
+# === Java / Maven ===
+# Ignora a pasta de ferramentas do Maven que você subiu (mais de 1800 arquivos)
+tools/apache-maven-3.9.12/
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+ENV/
+env/
+
+# === Sistema Operacional e Editores ===
+.vscode/
+.idea/
+*.swp
+*.bak
+Thumbs.db
+desktop.ini
+
+# === Sincronização (OneDrive) ===
+# Evita conflitos com arquivos temporários do OneDrive
+.~*
