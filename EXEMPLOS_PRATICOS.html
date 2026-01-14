@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exemplos Práticos - Sistema de Arquivos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Bibliotecas para geração de arquivos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-6">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">
+                📚 Exemplos Práticos
+            </h1>
+            <p class="text-gray-600">
+                Teste todas as funcionalidades do sistema de arquivos
+            </p>
+        </div>
+
+        <!-- Exemplo 1: Relatório de Vendas em PDF -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="file-text" class="w-6 h-6 text-red-600"></i>
+                Exemplo 1: Relatório de Vendas (PDF)
+            </h2>
+            <p class="text-gray-600 mb-4">
+                Gera um PDF completo com tabela de vendas, totais e gráficos.
+            </p>
+            <button onclick="gerarRelatorioVendas()"
+                    class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+                <i data-lucide="download" class="w-5 h-5"></i>
+                Gerar PDF
+            </button>
+        </div>
+
+        <!-- Exemplo 2: Planilha de Estoque -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="sheet" class="w-6 h-6 text-green-600"></i>
+                Exemplo 2: Planilha de Estoque (Excel)
+            </h2>
+            <p class="text-gray-600 mb-4">
+                Cria uma planilha Excel com múltiplas abas: Estoque, Vendas e Compras.
+            </p>
+            <button onclick="gerarPlanilhaEstoque()"
+                    class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                <i data-lucide="download" class="w-5 h-5"></i>
+                Gerar Excel
+            </button>
+        </div>
+
+        <!-- Exemplo 3: Relatório de Prospecção -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="users" class="w-6 h-6 text-indigo-600"></i>
+                Exemplo 3: Relatório de Prospecção (PDF)
+            </h2>
+            <p class="text-gray-600 mb-4">
+                Relatório de empresas prospectadas com filtros e estatísticas.
+            </p>
+            <button onclick="gerarRelatorioProspeccao()"
+                    class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                <i data-lucide="download" class="w-5 h-5"></i>
+                Gerar PDF
+            </button>
+        </div>
+
+        <!-- Exemplo 4: Dashboard Executivo -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="bar-chart" class="w-6 h-6 text-purple-600"></i>
+                Exemplo 4: Dashboard Executivo (PDF Completo)
+            </h2>
+            <p class="text-gray-600 mb-4">
+                PDF profissional com múltiplas páginas, gráficos e estatísticas.
+            </p>
+            <button onclick="gerarDashboardExecutivo()"
+                    class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2">
+                <i data-lucide="download" class="w-5 h-5"></i>
+                Gerar PDF Completo
+            </button>
+        </div>
+
+        <!-- Exemplo 5: Exportar Múltiplos Formatos -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="package" class="w-6 h-6 text-orange-600"></i>
+                Exemplo 5: Exportar em Múltiplos Formatos
+            </h2>
+            <p class="text-gray-600 mb-4">
+                Exporta os mesmos dados em PDF e Excel simultaneamente.
+            </p>
+            <div class="flex gap-3">
+                <button onclick="exportarMultiFormato('pdf')"
+                        class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    PDF
+                </button>
+                <button onclick="exportarMultiFormato('excel')"
+                        class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    Excel
+                </button>
+                <button onclick="exportarMultiFormato('ambos')"
+                        class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+                    Ambos
+                </button>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container" class="fixed bottom-4 right-4 z-50"></div>
+    </div>
+
+    <script>
+        // Inicializar ícones
+        lucide.createIcons();
+
+        // =====================================
+        // EXEMPLO 1: RELATÓRIO DE VENDAS (PDF)
+        // =====================================
+        async function gerarRelatorioVendas() {
+            showToast('Gerando relatório de vendas...', 'info');
+
+            // Dados simulados (em produção, viria do backend)
+            const dados = {
+                periodo: 'Janeiro 2024',
+                vendas: [
+                    { produto: 'Notebook Dell', quantidade: 15, valor: 67500.00 },
+                    { produto: 'Mouse Logitech', quantidade: 50, valor: 2500.00 },
+                    { produto: 'Teclado Mecânico', quantidade: 30, valor: 7500.00 },
+                    { produto: 'Monitor LG 27"', quantidade: 20, valor: 18000.00 },
+                    { produto: 'Webcam Full HD', quantidade: 25, valor: 3750.00 }
+                ]
+            };
+
+            const total = dados.vendas.reduce((sum, v) => sum + v.valor, 0);
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Cabeçalho
+            doc.setFillColor(99, 102, 241);
+            doc.rect(0, 0, 210, 40, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24);
+            doc.text('RELATÓRIO DE VENDAS', 105, 20, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.text(dados.periodo, 105, 30, { align: 'center' });
+
+            // Corpo
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(14);
+            doc.text('Resumo das Vendas', 20, 55);
+
+            // Tabela
+            doc.autoTable({
+                startY: 65,
+                head: [['Produto', 'Quantidade', 'Valor Total']],
+                body: dados.vendas.map(v => [
+                    v.produto,
+                    v.quantidade,
+                    `R$ ${v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                ]),
+                foot: [['TOTAL', '', `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]],
+                theme: 'grid',
+                headStyles: { fillColor: [99, 102, 241] },
+                footStyles: { fillColor: [229, 231, 235], textColor: [0, 0, 0], fontStyle: 'bold' }
+            });
+
+            // Estatísticas
+            const finalY = doc.lastAutoTable.finalY + 20;
+            doc.setFontSize(12);
+            doc.text('Estatísticas:', 20, finalY);
+            doc.setFontSize(10);
+            doc.text(`• Total de Produtos: ${dados.vendas.length}`, 20, finalY + 10);
+            doc.text(`• Total de Itens Vendidos: ${dados.vendas.reduce((sum, v) => sum + v.quantidade, 0)}`, 20, finalY + 20);
+            doc.text(`• Ticket Médio: R$ ${(total / dados.vendas.reduce((sum, v) => sum + v.quantidade, 0)).toFixed(2)}`, 20, finalY + 30);
+
+            // Rodapé
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text('Gerado automaticamente pelo Sistema de Gestão', 105, 280, { align: 'center' });
+            doc.text(new Date().toLocaleString('pt-BR'), 105, 285, { align: 'center' });
+
+            doc.save('relatorio_vendas.pdf');
+            showToast('Relatório gerado com sucesso!', 'success');
+        }
+
+        // =====================================
+        // EXEMPLO 2: PLANILHA DE ESTOQUE (EXCEL)
+        // =====================================
+        async function gerarPlanilhaEstoque() {
+            showToast('Gerando planilha de estoque...', 'info');
+
+            // Dados simulados
+            const estoque = [
+                ['Código', 'Produto', 'Quantidade', 'Valor Unit.', 'Valor Total', 'Status'],
+                ['001', 'Notebook Dell', 45, 'R$ 4.500,00', 'R$ 202.500,00', 'OK'],
+                ['002', 'Mouse Logitech', 120, 'R$ 50,00', 'R$ 6.000,00', 'OK'],
+                ['003', 'Teclado Mecânico', 15, 'R$ 250,00', 'R$ 3.750,00', 'BAIXO'],
+                ['004', 'Monitor LG 27"', 30, 'R$ 900,00', 'R$ 27.000,00', 'OK'],
+                ['005', 'Webcam Full HD', 8, 'R$ 150,00', 'R$ 1.200,00', 'CRÍTICO']
+            ];
+
+            const vendas = [
+                ['Data', 'Produto', 'Quantidade', 'Valor', 'Cliente'],
+                ['15/01/2024', 'Notebook Dell', 5, 'R$ 22.500,00', 'Empresa A'],
+                ['16/01/2024', 'Mouse Logitech', 20, 'R$ 1.000,00', 'Empresa B'],
+                ['17/01/2024', 'Monitor LG 27"', 10, 'R$ 9.000,00', 'Empresa C']
+            ];
+
+            const compras = [
+                ['Data', 'Fornecedor', 'Produto', 'Quantidade', 'Valor'],
+                ['10/01/2024', 'Dell Brasil', 'Notebook Dell', 50, 'R$ 200.000,00'],
+                ['12/01/2024', 'Logitech Inc', 'Mouse Logitech', 100, 'R$ 4.000,00']
+            ];
+
+            // Criar workbook
+            const wb = XLSX.utils.book_new();
+
+            // Adicionar planilhas
+            const wsEstoque = XLSX.utils.aoa_to_sheet(estoque);
+            const wsVendas = XLSX.utils.aoa_to_sheet(vendas);
+            const wsCompras = XLSX.utils.aoa_to_sheet(compras);
+
+            // Ajustar largura das colunas
+            wsEstoque['!cols'] = [
+                { wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 10 }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, wsEstoque, 'Estoque');
+            XLSX.utils.book_append_sheet(wb, wsVendas, 'Vendas');
+            XLSX.utils.book_append_sheet(wb, wsCompras, 'Compras');
+
+            // Salvar
+            XLSX.writeFile(wb, 'controle_estoque.xlsx');
+            showToast('Planilha gerada com sucesso!', 'success');
+        }
+
+        // =====================================
+        // EXEMPLO 3: RELATÓRIO DE PROSPECÇÃO
+        // =====================================
+        async function gerarRelatorioProspeccao() {
+            showToast('Gerando relatório de prospecção...', 'info');
+
+            const empresas = [
+                { nome: 'Tech Solutions', cidade: 'São Paulo', status: 'Contato Inicial', contato: '2024-01-15' },
+                { nome: 'Digital Corp', cidade: 'Rio de Janeiro', status: 'Proposta Enviada', contato: '2024-01-10' },
+                { nome: 'Innovation Ltd', cidade: 'Belo Horizonte', status: 'Negociação', contato: '2024-01-08' },
+                { nome: 'Smart Business', cidade: 'Curitiba', status: 'Fechado', contato: '2024-01-05' }
+            ];
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Cabeçalho colorido
+            doc.setFillColor(79, 70, 229);
+            doc.rect(0, 0, 210, 50, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(28);
+            doc.text('RELATÓRIO DE PROSPECÇÃO', 105, 25, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.text('Empresas Prospectadas - Janeiro 2024', 105, 38, { align: 'center' });
+
+            // Estatísticas em Cards
+            doc.setFontSize(10);
+            const stats = [
+                { label: 'Total', valor: empresas.length, x: 20, color: [59, 130, 246] },
+                { label: 'Em Negociação', valor: empresas.filter(e => e.status === 'Negociação').length, x: 70, color: [234, 179, 8] },
+                { label: 'Fechados', valor: empresas.filter(e => e.status === 'Fechado').length, x: 120, color: [34, 197, 94] }
+            ];
+
+            stats.forEach(stat => {
+                doc.setFillColor(...stat.color);
+                doc.roundedRect(stat.x, 60, 40, 25, 3, 3, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(18);
+                doc.text(stat.valor.toString(), stat.x + 20, 75, { align: 'center' });
+                doc.setFontSize(8);
+                doc.text(stat.label, stat.x + 20, 82, { align: 'center' });
+            });
+
+            // Tabela de empresas
+            doc.setTextColor(0, 0, 0);
+            doc.autoTable({
+                startY: 100,
+                head: [['Empresa', 'Cidade', 'Status', 'Último Contato']],
+                body: empresas.map(e => [e.nome, e.cidade, e.status, e.contato]),
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229] },
+                alternateRowStyles: { fillColor: [243, 244, 246] }
+            });
+
+            // Observações
+            const finalY = doc.lastAutoTable.finalY + 15;
+            doc.setFontSize(10);
+            doc.text('Observações:', 20, finalY);
+            doc.setFontSize(9);
+            doc.text('• Acompanhar negociações em andamento', 20, finalY + 8);
+            doc.text('• Priorizar follow-up com empresas em "Proposta Enviada"', 20, finalY + 15);
+            doc.text('• Analisar motivos de perdas para otimizar abordagem', 20, finalY + 22);
+
+            doc.save('relatorio_prospeccao.pdf');
+            showToast('Relatório gerado com sucesso!', 'success');
+        }
+
+        // =====================================
+        // EXEMPLO 4: DASHBOARD EXECUTIVO
+        // =====================================
+        async function gerarDashboardExecutivo() {
+            showToast('Gerando dashboard executivo (pode demorar alguns segundos)...', 'info');
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // PÁGINA 1: CAPA
+            doc.setFillColor(17, 24, 39);
+            doc.rect(0, 0, 210, 297, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(40);
+            doc.text('DASHBOARD', 105, 120, { align: 'center' });
+            doc.text('EXECUTIVO', 105, 140, { align: 'center' });
+
+            doc.setFontSize(16);
+            doc.text('Relatório Gerencial Completo', 105, 160, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.text('Janeiro 2024', 105, 200, { align: 'center' });
+
+            // PÁGINA 2: VISÃO GERAL
+            doc.addPage();
+            doc.setFillColor(99, 102, 241);
+            doc.rect(0, 0, 210, 30, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.text('VISÃO GERAL', 105, 18, { align: 'center' });
+
+            // KPIs em cards
+            doc.setTextColor(0, 0, 0);
+            const kpis = [
+                { label: 'Faturamento', valor: 'R$ 1.2M', variacao: '+15%', x: 20, y: 50, color: [34, 197, 94] },
+                { label: 'Clientes', valor: '234', variacao: '+8%', x: 110, y: 50, color: [59, 130, 246] },
+                { label: 'Pedidos', valor: '1,456', variacao: '+22%', x: 20, y: 110, color: [234, 179, 8] },
+                { label: 'Ticket Médio', valor: 'R$ 824', variacao: '-3%', x: 110, y: 110, color: [239, 68, 68] }
+            ];
+
+            kpis.forEach(kpi => {
+                doc.setFillColor(249, 250, 251);
+                doc.roundedRect(kpi.x, kpi.y, 70, 40, 3, 3, 'F');
+                doc.setDrawColor(229, 231, 235);
+                doc.roundedRect(kpi.x, kpi.y, 70, 40, 3, 3, 'S');
+
+                doc.setFontSize(10);
+                doc.setTextColor(107, 114, 128);
+                doc.text(kpi.label, kpi.x + 5, kpi.y + 10);
+
+                doc.setFontSize(24);
+                doc.setTextColor(0, 0, 0);
+                doc.text(kpi.valor, kpi.x + 5, kpi.y + 28);
+
+                doc.setFillColor(...kpi.color);
+                doc.roundedRect(kpi.x + 5, kpi.y + 32, 25, 6, 2, 2, 'F');
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                doc.text(kpi.variacao, kpi.x + 17.5, kpi.y + 36, { align: 'center' });
+            });
+
+            // PÁGINA 3: DETALHAMENTO
+            doc.addPage();
+            doc.setFillColor(99, 102, 241);
+            doc.rect(0, 0, 210, 30, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.text('ANÁLISE DETALHADA', 105, 18, { align: 'center' });
+
+            // Tabela de produtos mais vendidos
+            doc.setTextColor(0, 0, 0);
+            doc.autoTable({
+                startY: 40,
+                head: [['Produto', 'Vendas', 'Receita', 'Margem']],
+                body: [
+                    ['Notebook Dell', '145 un', 'R$ 652.500', '28%'],
+                    ['Mouse Logitech', '432 un', 'R$ 21.600', '45%'],
+                    ['Teclado Mecânico', '298 un', 'R$ 74.500', '38%'],
+                    ['Monitor LG 27"', '187 un', 'R$ 168.300', '32%'],
+                    ['Webcam Full HD', '234 un', 'R$ 35.100', '42%']
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [99, 102, 241] }
+            });
+
+            // Salvar
+            doc.save('dashboard_executivo.pdf');
+            showToast('Dashboard gerado com sucesso! Arquivo com múltiplas páginas.', 'success');
+        }
+
+        // =====================================
+        // EXEMPLO 5: MÚLTIPLOS FORMATOS
+        // =====================================
+        async function exportarMultiFormato(formato) {
+            const dados = [
+                ['Produto', 'Janeiro', 'Fevereiro', 'Março', 'Total'],
+                ['Notebook', 'R$ 45.000', 'R$ 52.000', 'R$ 48.000', 'R$ 145.000'],
+                ['Mouse', 'R$ 3.200', 'R$ 2.800', 'R$ 3.500', 'R$ 9.500'],
+                ['Teclado', 'R$ 8.500', 'R$ 9.200', 'R$ 7.800', 'R$ 25.500']
+            ];
+
+            if (formato === 'pdf' || formato === 'ambos') {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                doc.setFontSize(18);
+                doc.text('Vendas Trimestrais', 105, 20, { align: 'center' });
+
+                doc.autoTable({
+                    startY: 30,
+                    head: [dados[0]],
+                    body: dados.slice(1),
+                    theme: 'grid',
+                    headStyles: { fillColor: [99, 102, 241] }
+                });
+
+                doc.save('vendas_trimestrais.pdf');
+                showToast('PDF gerado!', 'success');
+            }
+
+            if (formato === 'excel' || formato === 'ambos') {
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(dados);
+                XLSX.utils.book_append_sheet(wb, ws, 'Vendas');
+                XLSX.writeFile(wb, 'vendas_trimestrais.xlsx');
+                showToast('Excel gerado!', 'success');
+            }
+
+            if (formato === 'ambos') {
+                showToast('Ambos os arquivos foram gerados!', 'success');
+            }
+        }
+
+        // =====================================
+        // UTILITÁRIO: TOAST
+        // =====================================
+        function showToast(message, type = 'info') {
+            const colors = {
+                info: 'bg-blue-600',
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                warning: 'bg-yellow-600'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg mb-2 animate-fade-in`;
+            toast.textContent = message;
+
+            document.getElementById('toast-container').appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    </script>
+
+    <style>
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
+    </style>
+</body>
+</html>

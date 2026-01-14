@@ -1,0 +1,423 @@
+<!--
+  BOTÕES DE EXPORTAÇÃO - Componente Reutilizável
+
+  Como usar:
+  {% include 'components/export_buttons.html' %}
+
+  Ou com parâmetros:
+  {% include 'components/export_buttons.html' with data_endpoint='/api/seus-dados' %}
+-->
+
+<style>
+.export-button {
+    transition: all 0.3s ease;
+}
+
+.export-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+.export-button:active {
+    transform: translateY(0);
+}
+
+.cloud-badge {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+</style>
+
+<!-- Container de Botões de Exportação -->
+<div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-6 mb-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h3 class="text-2xl font-bold text-white mb-1">Exportar Dados</h3>
+            <p class="text-white/80 text-sm">Gere relatórios ou salve na nuvem</p>
+        </div>
+
+        <!-- Status da Nuvem -->
+        <div class="flex gap-2">
+            <div id="google-status" class="hidden px-3 py-1 bg-white/20 rounded-lg text-white text-xs">
+                <i data-lucide="cloud" class="w-3 h-3 inline"></i> Google Drive
+            </div>
+            <div id="onedrive-status" class="hidden px-3 py-1 bg-white/20 rounded-lg text-white text-xs">
+                <i data-lucide="cloud" class="w-3 h-3 inline"></i> OneDrive
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- PDF -->
+        <button onclick="exportarPDF()"
+                class="export-button bg-white hover:bg-gray-50 text-gray-900 rounded-xl p-4 flex flex-col items-center gap-2 shadow-lg">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <i data-lucide="file-text" class="w-6 h-6 text-red-600"></i>
+            </div>
+            <span class="font-semibold text-sm">Exportar PDF</span>
+            <span class="text-xs text-gray-500">Relatório completo</span>
+        </button>
+
+        <!-- Excel -->
+        <button onclick="exportarExcel()"
+                class="export-button bg-white hover:bg-gray-50 text-gray-900 rounded-xl p-4 flex flex-col items-center gap-2 shadow-lg">
+            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <i data-lucide="sheet" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <span class="font-semibold text-sm">Exportar Excel</span>
+            <span class="text-xs text-gray-500">Planilha editável</span>
+        </button>
+
+        <!-- Google Drive -->
+        <button onclick="salvarGoogleDrive()"
+                data-cloud="google-drive"
+                class="export-button bg-white hover:bg-gray-50 text-gray-900 rounded-xl p-4 flex flex-col items-center gap-2 shadow-lg relative">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M8 17h8l-4-7z"/>
+                    <path fill="#34A853" d="M23 17l-7-12-3 5z"/>
+                    <path fill="#FBBC05" d="M8 17l-7 0 3.5-6z"/>
+                </svg>
+            </div>
+            <span class="font-semibold text-sm">Google Drive</span>
+            <span class="text-xs text-gray-500">Salvar na nuvem</span>
+            <div class="cloud-badge hidden absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
+        </button>
+
+        <!-- OneDrive -->
+        <button onclick="salvarOneDrive()"
+                data-cloud="onedrive"
+                class="export-button bg-white hover:bg-gray-50 text-gray-900 rounded-xl p-4 flex flex-col items-center gap-2 shadow-lg relative">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6" viewBox="0 0 24 24">
+                    <path fill="#0078D4" d="M13.8 5.4C12.7 3.9 10.9 3 9 3 5.7 3 3 5.7 3 9c0 .7.1 1.4.4 2C1.4 11.7 0 13.7 0 16c0 3.3 2.7 6 6 6h12c3.3 0 6-2.7 6-6 0-2.9-2.1-5.4-4.9-5.9-.1-.1-.1-.1-.1-.2 0-2.4-2-4.5-4.4-4.5-.3 0-.5 0-.8.1z"/>
+                </svg>
+            </div>
+            <span class="font-semibold text-sm">OneDrive</span>
+            <span class="text-xs text-gray-500">Salvar na nuvem</span>
+            <div class="cloud-badge hidden absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
+        </button>
+    </div>
+
+    <!-- Opções Avançadas (Toggle) -->
+    <div class="mt-4">
+        <button onclick="toggleExportOptions()"
+                class="text-white/80 hover:text-white text-sm flex items-center gap-2 transition-colors">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+            <span>Opções avançadas</span>
+            <i data-lucide="chevron-down" class="w-4 h-4" id="options-chevron"></i>
+        </button>
+
+        <div id="export-options" class="hidden mt-4 bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Formato PDF -->
+                <div>
+                    <label class="text-white text-sm font-semibold mb-2 block">Orientação PDF</label>
+                    <select id="pdf-orientation" class="w-full px-3 py-2 rounded-lg bg-white/20 text-white border-0">
+                        <option value="portrait">Retrato</option>
+                        <option value="landscape">Paisagem</option>
+                    </select>
+                </div>
+
+                <!-- Incluir logo -->
+                <div>
+                    <label class="text-white text-sm font-semibold mb-2 block">Incluir Logo</label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="include-logo" checked class="w-5 h-5 rounded">
+                        <span class="text-white text-sm">Sim, incluir logo</span>
+                    </label>
+                </div>
+
+                <!-- Tipo de Excel -->
+                <div>
+                    <label class="text-white text-sm font-semibold mb-2 block">Formato Excel</label>
+                    <select id="excel-format" class="w-full px-3 py-2 rounded-lg bg-white/20 text-white border-0">
+                        <option value="xlsx">XLSX (moderno)</option>
+                        <option value="xls">XLS (compatível)</option>
+                        <option value="csv">CSV (universal)</option>
+                    </select>
+                </div>
+
+                <!-- Enviar por email -->
+                <div>
+                    <label class="text-white text-sm font-semibold mb-2 block">Após exportar</label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="send-email" class="w-5 h-5 rounded">
+                        <span class="text-white text-sm">Enviar por email</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// FUNÇÕES DE EXPORTAÇÃO
+// ============================================
+
+// Endpoint padrão (pode ser sobrescrito)
+const DEFAULT_DATA_ENDPOINT = '{{ data_endpoint|default("/api/export/data") }}';
+
+// Toggle opções avançadas
+function toggleExportOptions() {
+    const options = document.getElementById('export-options');
+    const chevron = document.getElementById('options-chevron');
+
+    options.classList.toggle('hidden');
+
+    if (options.classList.contains('hidden')) {
+        chevron.style.transform = 'rotate(0deg)';
+    } else {
+        chevron.style.transform = 'rotate(180deg)';
+    }
+}
+
+// ============================================
+// EXPORTAR PDF
+// ============================================
+async function exportarPDF() {
+    showToast('Gerando PDF...', 'info');
+
+    try {
+        // Buscar dados
+        const dados = await fetch(DEFAULT_DATA_ENDPOINT).then(r => r.json());
+
+        // Opções
+        const orientation = document.getElementById('pdf-orientation')?.value || 'portrait';
+        const includeLogo = document.getElementById('include-logo')?.checked ?? true;
+
+        // Gerar PDF usando fileManager
+        if (typeof fileManager !== 'undefined' && fileManager.generatePDF) {
+            await fileManager.generatePDF({
+                title: 'Relatório do Sistema',
+                content: dados.descricao || 'Relatório gerado automaticamente',
+                table: dados.table || null
+            }, {
+                download: true,
+                filename: `relatorio_${new Date().toISOString().split('T')[0]}.pdf`,
+                orientation: orientation
+            });
+
+            showToast('✅ PDF gerado com sucesso!', 'success');
+
+            // Enviar por email se solicitado
+            if (document.getElementById('send-email')?.checked) {
+                await enviarPorEmail('pdf');
+            }
+        } else {
+            // Fallback: download do backend
+            window.location.href = `/api/export/pdf?orientation=${orientation}`;
+        }
+    } catch (error) {
+        console.error('Erro ao exportar PDF:', error);
+        showToast('❌ Erro ao gerar PDF', 'error');
+    }
+}
+
+// ============================================
+// EXPORTAR EXCEL
+// ============================================
+async function exportarExcel() {
+    showToast('Gerando planilha...', 'info');
+
+    try {
+        // Buscar dados
+        const dados = await fetch(DEFAULT_DATA_ENDPOINT).then(r => r.json());
+
+        // Opções
+        const format = document.getElementById('excel-format')?.value || 'xlsx';
+
+        // Gerar Excel usando fileManager
+        if (typeof fileManager !== 'undefined' && fileManager.generateExcel) {
+            await fileManager.generateExcel({
+                sheets: dados.sheets || [{
+                    name: 'Dados',
+                    data: dados.data || []
+                }]
+            }, {
+                download: true,
+                filename: `dados_${new Date().toISOString().split('T')[0]}.${format}`
+            });
+
+            showToast('✅ Excel gerado com sucesso!', 'success');
+
+            // Enviar por email se solicitado
+            if (document.getElementById('send-email')?.checked) {
+                await enviarPorEmail('excel');
+            }
+        } else {
+            // Fallback: download do backend
+            window.location.href = `/api/export/excel?format=${format}`;
+        }
+    } catch (error) {
+        console.error('Erro ao exportar Excel:', error);
+        showToast('❌ Erro ao gerar Excel', 'error');
+    }
+}
+
+// ============================================
+// SALVAR NO GOOGLE DRIVE
+// ============================================
+async function salvarGoogleDrive() {
+    if (typeof cloudIntegration === 'undefined') {
+        showToast('⚠️ Configure o Google Drive primeiro. Veja GUIA_GOOGLE_DRIVE.md', 'warning');
+        return;
+    }
+
+    const status = cloudIntegration.getStatus();
+
+    if (!status.googleDrive.enabled || !status.googleDrive.ready) {
+        showToast('⚠️ Google Drive não está configurado', 'warning');
+        return;
+    }
+
+    showToast('Preparando upload para Google Drive...', 'info');
+
+    try {
+        // Gerar arquivo primeiro
+        const dados = await fetch(DEFAULT_DATA_ENDPOINT).then(r => r.json());
+
+        // Criar PDF em memória
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(18);
+        doc.text('Relatório do Sistema', 105, 20, { align: 'center' });
+
+        if (dados.table) {
+            doc.autoTable({
+                startY: 30,
+                head: [dados.table.headers],
+                body: dados.table.rows
+            });
+        }
+
+        // Converter para Blob
+        const pdfBlob = doc.output('blob');
+        const file = new File([pdfBlob], `relatorio_${Date.now()}.pdf`, { type: 'application/pdf' });
+
+        // Upload
+        await cloudIntegration.uploadToGoogleDrive(file);
+
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('❌ Erro ao salvar no Google Drive', 'error');
+    }
+}
+
+// ============================================
+// SALVAR NO ONEDRIVE
+// ============================================
+async function salvarOneDrive() {
+    if (typeof cloudIntegration === 'undefined') {
+        showToast('⚠️ Configure o OneDrive primeiro. Veja GUIA_ONEDRIVE.md', 'warning');
+        return;
+    }
+
+    const status = cloudIntegration.getStatus();
+
+    if (!status.onedrive.enabled) {
+        showToast('⚠️ OneDrive não está configurado', 'warning');
+        return;
+    }
+
+    showToast('Preparando upload para OneDrive...', 'info');
+
+    try {
+        // Gerar arquivo primeiro
+        const dados = await fetch(DEFAULT_DATA_ENDPOINT).then(r => r.json());
+
+        // Criar PDF em memória
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(18);
+        doc.text('Relatório do Sistema', 105, 20, { align: 'center' });
+
+        if (dados.table) {
+            doc.autoTable({
+                startY: 30,
+                head: [dados.table.headers],
+                body: dados.table.rows
+            });
+        }
+
+        // Converter para Blob
+        const pdfBlob = doc.output('blob');
+        const file = new File([pdfBlob], `relatorio_${Date.now()}.pdf`, { type: 'application/pdf' });
+
+        // Upload
+        await cloudIntegration.uploadToOneDrive(file);
+
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('❌ Erro ao salvar no OneDrive', 'error');
+    }
+}
+
+// ============================================
+// ENVIAR POR EMAIL
+// ============================================
+async function enviarPorEmail(tipo) {
+    showToast('📧 Enviando por email...', 'info');
+
+    try {
+        const response = await fetch('/api/export/email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('✅ Email enviado com sucesso!', 'success');
+        } else {
+            throw new Error(data.message);
+        }
+    } catch (error) {
+        console.error('Erro ao enviar email:', error);
+        showToast('❌ Erro ao enviar email', 'error');
+    }
+}
+
+// ============================================
+// ATUALIZAR STATUS DA NUVEM
+// ============================================
+function atualizarStatusNuvem() {
+    if (typeof cloudIntegration !== 'undefined') {
+        const status = cloudIntegration.getStatus();
+
+        // Google Drive
+        const googleStatus = document.getElementById('google-status');
+        const googleBtn = document.querySelector('[data-cloud="google-drive"]');
+        const googleBadge = googleBtn?.querySelector('.cloud-badge');
+
+        if (status.googleDrive.ready) {
+            googleStatus?.classList.remove('hidden');
+            googleBadge?.classList.remove('hidden');
+        }
+
+        // OneDrive
+        const onedriveStatus = document.getElementById('onedrive-status');
+        const onedriveBtn = document.querySelector('[data-cloud="onedrive"]');
+        const onedriveBadge = onedriveBtn?.querySelector('.cloud-badge');
+
+        if (status.onedrive.ready) {
+            onedriveStatus?.classList.remove('hidden');
+            onedriveBadge?.classList.remove('hidden');
+        }
+    }
+}
+
+// Atualizar status ao carregar
+setTimeout(atualizarStatusNuvem, 2000);
+
+// Verificar periodicamente
+setInterval(atualizarStatusNuvem, 10000);
+</script>

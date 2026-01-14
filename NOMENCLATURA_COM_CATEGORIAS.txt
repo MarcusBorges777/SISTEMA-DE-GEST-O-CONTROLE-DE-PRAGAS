@@ -1,0 +1,115 @@
+=============================================================
+NOMENCLATURA DE ARQUIVOS COM CATEGORIAS CNAE - FINAL
+=============================================================
+
+FORMATO:
+--------
+{NomeCliente}_{NomeModelo}_{Categoria}.docx
+
+CATEGORIAS BASEADAS NOS CNAES ESTRATÉGICOS:
+--------------------------------------------
+#0  - Todas as Empresas (Controle de Pragas)
+#1  - Alimentação
+#2  - Saúde
+#3  - Condomínios
+#4  - Hotéis e Hospedagem
+#5  - Indústrias
+#6  - Educação
+#7  - Comércio
+#8  - Estética e Beleza
+#9  - Escritórios
+#10 - Veterinária
+#11 - Academias e Esportes
+#99 - Outros / Sem CNAE ⭐ (NOVO!)
+
+=============================================================
+EXEMPLOS DE ARQUIVOS GERADOS:
+=============================================================
+
+✅ DEDETIZADORA BORGES_Laudo Completo_#0.docx
+   (CNAE 8122200 - Controle de Pragas)
+
+✅ RESTAURANTE SABOR & CIA_Laudo Completo_#1.docx
+   (CNAE 5611201 - Restaurante)
+
+✅ HOSPITAL SAO LUCAS_Laudo Completo_#2.docx
+   (CNAE 8610101 - Hospital)
+
+✅ CONDOMINIO RESIDENCIAL VERDE_Laudo Completo_#3.docx
+   (CNAE 8112500 - Condomínio)
+
+✅ EMPRESA ABC LTDA_Laudo Completo_#99.docx ⭐
+   (SEM CNAE ou CNAE não mapeado)
+
+✅ LOJA XYZ_Orçamento_#99.docx ⭐
+   (Cliente sem categoria definida)
+
+=============================================================
+LÓGICA DE CATEGORIZAÇÃO:
+=============================================================
+
+1. Sistema verifica o CNAE do cliente
+2. Busca o CNAE nas categorias mapeadas (#0 a #11)
+3. Se encontrar → usa a categoria correspondente
+4. Se NÃO encontrar → usa #99 (Outros)
+5. Se cliente NÃO tiver CNAE → usa #99 (Outros)
+
+Exemplo de código:
+categoria = obter_categoria_por_cnae('8122200')  # Retorna '#0'
+categoria = obter_categoria_por_cnae('')          # Retorna None → vira '#99'
+categoria = obter_categoria_por_cnae('9999999')   # Retorna None → vira '#99'
+
+=============================================================
+VANTAGENS DO #99:
+=============================================================
+✅ Identifica facilmente clientes sem categorização
+✅ Não perde informação (sempre gera arquivo)
+✅ Facilita organização e limpeza de dados
+✅ Permite identificar CNAEs que precisam ser adicionados
+✅ Número alto (#99) não conflita com categorias futuras
+
+=============================================================
+MAPEAMENTO DE CNAES:
+=============================================================
+
+Arquivo: categorias_cnae.py
+
+Contém 11 categorias principais + categoria #99 automática
+
+Total de CNAEs mapeados: ~50+ códigos
+Cobertura: Principais setores estratégicos da prospecção
+
+Para adicionar novos CNAEs:
+1. Abra categorias_cnae.py
+2. Localize a categoria desejada
+3. Adicione o código CNAE na lista 'cnaes'
+4. Reinicie o servidor
+
+=============================================================
+COMPARAÇÃO:
+=============================================================
+
+ANTES (com data):
+EMPRESA ABC_Laudo_20260109.docx
+
+AGORA (com categoria):
+EMPRESA ABC_Laudo_#99.docx
+
+VANTAGEM:
+- Mais fácil identificar que o cliente precisa ter CNAE atualizado
+- Facilita filtros e organização por setor
+- Nome consistente (não muda a cada dia)
+
+=============================================================
+CÓDIGO MODIFICADO:
+=============================================================
+
+app.py (linha 2028-2032):
+
+# Se não encontrar categoria, usar #99 (Outros/Sem CNAE)
+if categoria:
+    sufixo = categoria  # Ex: #0, #1, #2, #3
+else:
+    sufixo = '#99'  # Empresas sem CNAE ou CNAE não mapeado
+
+=============================================================

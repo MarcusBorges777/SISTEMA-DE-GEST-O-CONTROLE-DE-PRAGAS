@@ -1,0 +1,102 @@
+========================================================================
+              COMO COMPILAR E EXECUTAR O BACKEND
+========================================================================
+
+Você está na pasta BACKEND do projeto.
+O VS Code está aberto aqui.
+
+========================================================================
+                     NO TERMINAL DO VS CODE
+========================================================================
+
+O terminal do VS Code usa PowerShell, então use scripts .ps1:
+
+PASSO 1: COMPILAR
+  .\compilar.ps1
+
+PASSO 2: EXECUTAR
+  .\iniciar.ps1
+
+========================================================================
+                     O QUE CADA SCRIPT FAZ
+========================================================================
+
+compilar.ps1
+  - Usa o Maven local em ..\tools\apache-maven-3.9.12
+  - Executa: mvn clean package -DskipTests
+  - Cria o arquivo JAR em target\
+  - Mostra mensagem de sucesso
+
+iniciar.ps1
+  - Verifica se o JAR foi criado
+  - Executa: mvn spring-boot:run
+  - Inicia o servidor na porta 8080
+  - Mostra logs em tempo real
+  - Para parar: Ctrl+C
+
+========================================================================
+                     PASSO A PASSO COMPLETO
+========================================================================
+
+1. Abra o terminal no VS Code (Ctrl + ')
+
+2. Compile o projeto:
+   .\compilar.ps1
+
+3. Aguarde aparecer "COMPILACAO CONCLUIDA COM SUCESSO!"
+
+4. Execute o servidor:
+   .\iniciar.ps1
+
+5. Aguarde aparecer "Started Application in X seconds"
+
+6. Teste se está funcionando:
+   Abra navegador em: http://localhost:8080/api/health
+
+7. Abra OUTRO terminal (clique no + ao lado)
+
+8. Volte para pasta raiz:
+   cd ..
+
+9. Execute o frontend Python:
+   python app.py
+
+10. Acesse o sistema:
+    http://localhost:5000
+
+========================================================================
+                     SE DER ERRO
+========================================================================
+
+ERRO: "mvn nao encontrado"
+  → Volte para pasta raiz e execute: INSTALAR_MAVEN_DEFINITIVO.bat
+
+ERRO: "Port 8080 already in use"
+  → Outra aplicação está usando a porta
+  → Execute: taskkill /F /IM java.exe
+
+ERRO: Scripts .ps1 não executam
+  → Execute uma vez (como administrador):
+    Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+ERRO: Compilação falha
+  → Verifique Java: java -version
+  → Deve ser Java 17 ou superior
+
+========================================================================
+                     ALTERNATIVA: INTERFACE DO VS CODE
+========================================================================
+
+Se os scripts não funcionarem, use a interface:
+
+1. Ctrl + Shift + P
+2. Digite: "Java: Build Workspace"
+3. Pressione Enter
+4. Aguarde compilar
+
+Para executar:
+1. Ctrl + Shift + P
+2. Digite: "Spring Boot Dashboard"
+3. Clique em "Run" no projeto
+
+========================================================================

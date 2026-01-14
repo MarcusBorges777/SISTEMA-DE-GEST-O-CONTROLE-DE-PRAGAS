@@ -1,0 +1,101 @@
+========================================================================
+          COMO COMPILAR USANDO A INTERFACE DO VS CODE
+========================================================================
+
+O comando "mvn" não funciona no terminal PowerShell porque Maven não está
+no PATH do Windows. Mas o VS Code tem Maven integrado na INTERFACE!
+
+========================================================================
+                     MÉTODO 1: PALETTE DE COMANDOS
+========================================================================
+
+1. No VS Code, pressione: Ctrl + Shift + P
+
+2. Digite: Java: Build Workspace
+
+3. Pressione Enter
+
+4. Aguarde a compilação terminar no canto inferior direito
+
+5. Quando terminar, procure o arquivo compilado em:
+   backend\target\dedetizadora-backend-0.0.1-SNAPSHOT.jar
+
+========================================================================
+                     MÉTODO 2: EXPLORADOR MAVEN
+========================================================================
+
+1. No VS Code, procure a barra lateral esquerda
+
+2. Clique no ícone "Maven" (ou vá em View > Open View > Maven)
+
+3. Expanda o projeto "dedetizadora-backend"
+
+4. Expanda "Lifecycle"
+
+5. Clique com botão direito em "clean"
+   └─> Selecione "Run Maven Commands"
+
+6. Depois clique com botão direito em "package"
+   └─> Selecione "Run Maven Commands"
+
+7. Aguarde a compilação no OUTPUT (painel inferior)
+
+========================================================================
+                     MÉTODO 3: USAR MAVEN LOCAL
+========================================================================
+
+Se você ainda quer usar o terminal, precisamos instalar Maven no PATH:
+
+OPÇÃO A: Chocolatey (requer permissões de admin)
+   choco install maven
+
+OPÇÃO B: Manual
+   Execute: INSTALAR_MAVEN_DEFINITIVO.bat
+   (Vai baixar e configurar Maven localmente)
+
+========================================================================
+                     MÉTODO 4: EXECUTAR DIRETO
+========================================================================
+
+Como o VS Code já tem Maven integrado, você pode executar direto
+sem compilar manualmente:
+
+1. Pressione: Ctrl + Shift + P
+
+2. Digite: Spring Boot Dashboard: Run
+
+3. Selecione o projeto "dedetizadora-backend"
+
+4. O VS Code vai compilar e executar automaticamente!
+
+========================================================================
+                     ⭐ RECOMENDAÇÃO
+========================================================================
+
+Use o MÉTODO 4 (Spring Boot Dashboard)
+
+É o mais fácil:
+  1. Ctrl + Shift + P
+  2. "Spring Boot Dashboard: Run"
+  3. Pronto!
+
+O VS Code vai:
+  ✓ Compilar automaticamente
+  ✓ Iniciar o servidor
+  ✓ Mostrar logs no OUTPUT
+  ✓ Permitir parar/reiniciar facilmente
+
+========================================================================
+                     SE NADA FUNCIONAR
+========================================================================
+
+Execute este comando no PowerShell DO VS CODE:
+
+   cmd /c "tools\apache-maven-3.9.12\bin\mvn.cmd clean package -DskipTests"
+
+Mas ANTES, certifique-se que existe a pasta:
+   C:\Users\marcu\OneDrive\Área de Trabalho\sistema novo\SUGESTÃO CAIQUE\1\tools\apache-maven-3.9.12
+
+Se não existir, execute: INSTALAR_MAVEN_DEFINITIVO.bat
+
+========================================================================

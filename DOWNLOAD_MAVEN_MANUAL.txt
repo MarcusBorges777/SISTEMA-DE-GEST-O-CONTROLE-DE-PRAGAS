@@ -1,0 +1,110 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║                   DOWNLOAD MANUAL DO MAVEN 3.9.6                          ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+O download automatico falhou. Siga estas instrucoes para baixar manualmente:
+
+
+📥 PASSO 1: BAIXAR O ARQUIVO
+═══════════════════════════════════════════════════════════════════════════
+
+Tente uma destas URLs (copie e cole no navegador):
+
+URL 1 (Recomendada):
+https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.zip
+
+URL 2 (Alternativa):
+https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.6/apache-maven-3.9.6-bin.zip
+
+URL 3 (Oficial):
+https://maven.apache.org/download.cgi
+  → Clique em "apache-maven-3.9.6-bin.zip" na secao "Binary zip archive"
+
+
+📁 PASSO 2: SALVAR O ARQUIVO
+═══════════════════════════════════════════════════════════════════════════
+
+Salve o arquivo baixado como:
+
+C:\Users\marcu\OneDrive\Área de Trabalho\sistema novo\SUGESTÃO CAIQUE\1\tools\maven.zip
+
+IMPORTANTE:
+  • O nome do arquivo DEVE ser: maven.zip
+  • DEVE estar na pasta: tools\
+  • Tamanho esperado: ~9 MB (9.000.000 bytes)
+
+
+✅ PASSO 3: EXECUTAR O INSTALADOR
+═══════════════════════════════════════════════════════════════════════════
+
+Apos baixar e salvar o arquivo, execute novamente:
+
+  INSTALAR_MAVEN_SIMPLES.bat
+
+O script vai:
+  • Detectar o arquivo maven.zip
+  • Pular o download
+  • Extrair o Maven
+  • Configurar tudo automaticamente
+
+
+📝 VERIFICACAO
+═══════════════════════════════════════════════════════════════════════════
+
+Antes de executar o instalador, verifique:
+
+1. Arquivo existe?
+   C:\Users\marcu\OneDrive\Área de Trabalho\sistema novo\SUGESTÃO CAIQUE\1\tools\maven.zip
+
+2. Tamanho correto?
+   Clique com botao direito → Propriedades
+   Tamanho deve ser aproximadamente: 9.000.000 bytes (9 MB)
+
+3. Nome correto?
+   DEVE ser exatamente: maven.zip (minusculas)
+
+
+❓ PROBLEMAS COMUNS
+═══════════════════════════════════════════════════════════════════════════
+
+Problema: "Arquivo nao pode ser extraido"
+Solucao: O arquivo esta corrompido. Delete e baixe novamente.
+
+Problema: "Pasta tools nao existe"
+Solucao: Crie manualmente a pasta "tools" no diretorio do projeto.
+
+Problema: "Nao consigo acessar as URLs"
+Solucao:
+  1. Verifique sua conexao de internet
+  2. Tente desabilitar antivirus/firewall temporariamente
+  3. Use um navegador diferente
+  4. Tente em outra rede (3G/4G do celular via tethering)
+
+
+📞 ALTERNATIVA: BAIXAR VERSAO DIFERENTE
+═══════════════════════════════════════════════════════════════════════════
+
+Se Maven 3.9.6 nao funcionar, pode baixar 3.9.5:
+
+URL:
+https://archive.apache.org/dist/maven/maven-3/3.9.5/binaries/apache-maven-3.9.5-bin.zip
+
+IMPORTANTE: Se baixar versao diferente, edite o arquivo:
+  INSTALAR_MAVEN_SIMPLES.bat
+
+Linha 8:
+  set MAVEN_VERSION=3.9.6
+
+Mude para:
+  set MAVEN_VERSION=3.9.5
+
+E salve o arquivo baixado como: maven.zip
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║         Depois de baixar, execute: INSTALAR_MAVEN_SIMPLES.bat            ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝

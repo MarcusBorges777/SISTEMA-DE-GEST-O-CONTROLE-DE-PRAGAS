@@ -1,0 +1,94 @@
+╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║            SISTEMA HÍBRIDO DE GESTÃO DE DOCUMENTOS                 ║
+║              Java Spring Boot + Python Flask                       ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Você está usando um sistema HÍBRIDO que combina:
+  • Java Spring Boot (Backend) - Geração rápida de documentos
+  • Python Flask (Frontend) - Interface web amigável
+
+========================================================================
+                          INÍCIO RÁPIDO
+========================================================================
+
+👉 PASSO 1: Execute o arquivo
+   INICIAR_SISTEMA_FINAL.bat
+
+   Ele vai abrir o VS Code na pasta backend.
+
+👉 PASSO 2: No VS Code
+   1. Aguarde o Maven carregar (canto inferior direito)
+   2. Abra o terminal (Ctrl + ')
+   3. Digite: mvn clean package -DskipTests
+   4. Aguarde compilar (aparecerá "BUILD SUCCESS")
+   5. Digite: mvn spring-boot:run
+   6. Aguarde iniciar (aparecerá "Started Application")
+
+👉 PASSO 3: Abrir novo terminal no VS Code
+   1. Clique no ícone + no terminal
+   2. Digite: cd ..
+   3. Digite: python app.py
+   4. Aguarde iniciar (aparecerá "Running on http://127.0.0.1:5000")
+
+👉 PASSO 4: Acesse no navegador
+   http://localhost:5000
+
+========================================================================
+                       ARQUIVOS DE AJUDA
+========================================================================
+
+📄 EXECUTAR_NO_VSCODE.txt
+   └─> Instruções COMPLETAS passo a passo
+
+📄 COMANDOS_RAPIDOS.txt
+   └─> Comandos essenciais para copiar e colar
+
+📄 PASSO_A_PASSO.txt
+   └─> Guia simplificado
+
+========================================================================
+                       PRIMEIRA VEZ?
+========================================================================
+
+Certifique-se de ter instalado:
+  ✓ Java 17 ou superior
+  ✓ Python 3.8 ou superior
+  ✓ VS Code
+  ✓ Extension Pack for Java (no VS Code)
+
+Para verificar:
+  java -version
+  python --version
+
+========================================================================
+                         TEM DÚVIDAS?
+========================================================================
+
+Leia os arquivos na ordem:
+  1. EXECUTAR_NO_VSCODE.txt (instruções detalhadas)
+  2. COMANDOS_RAPIDOS.txt (resumo dos comandos)
+  3. PASSO_A_PASSO.txt (alternativas)
+
+========================================================================
+                        PROBLEMAS COMUNS
+========================================================================
+
+❌ "mvn não é reconhecido"
+   → Execute os comandos DENTRO do terminal do VS Code!
+
+❌ "Port 8080 already in use"
+   → Feche outras aplicações ou execute: taskkill /F /IM java.exe
+
+❌ Backend não conecta
+   → Aguarde 20-30 segundos após "Started Application"
+
+❌ VS Code não carrega o projeto
+   → Verifique se instalou Extension Pack for Java
+
+========================================================================
+
+Pronto para começar? Execute: INICIAR_SISTEMA_FINAL.bat
+
+========================================================================

@@ -1,0 +1,116 @@
+========================================================================
+           COMO COMPILAR E EXECUTAR O BACKEND NO VS CODE
+========================================================================
+
+O Maven do VS Code só funciona DENTRO do VS Code!
+Siga estes passos:
+
+========================================================================
+                          PASSO 1: ABRIR VS CODE
+========================================================================
+
+1. Abra o VS Code
+2. Clique em: File > Open Folder
+3. Selecione a pasta: backend
+   (dentro de: C:\Users\marcu\OneDrive\Área de Trabalho\sistema novo\SUGESTÃO CAIQUE\1\backend)
+4. Aguarde o VS Code carregar o projeto Maven
+
+========================================================================
+                          PASSO 2: COMPILAR
+========================================================================
+
+1. Abra o terminal integrado do VS Code:
+   Pressione: Ctrl + '
+   (ou Menu: Terminal > New Terminal)
+
+2. No terminal, digite:
+   mvn clean package -DskipTests
+
+3. Pressione Enter
+
+4. Aguarde a compilação terminar
+   Deve aparecer: "BUILD SUCCESS"
+
+========================================================================
+                          PASSO 3: EXECUTAR
+========================================================================
+
+1. No mesmo terminal do VS Code, digite:
+   mvn spring-boot:run
+
+2. Pressione Enter
+
+3. Aguarde até aparecer:
+   "Started Application in X seconds"
+
+4. O backend estará rodando na porta 8080
+
+========================================================================
+                     PASSO 4: INICIAR FRONTEND
+========================================================================
+
+1. Abra um NOVO terminal (não feche o do backend!)
+   Clique no ícone + no canto do terminal
+
+2. Volte para a pasta raiz:
+   cd ..
+
+3. Execute o frontend Python:
+   python app.py
+
+4. Aguarde aparecer:
+   "Running on http://127.0.0.1:5000"
+
+========================================================================
+                     PASSO 5: ACESSAR O SISTEMA
+========================================================================
+
+1. Abra o navegador
+
+2. Acesse:
+   http://localhost:5000
+
+3. Teste as funcionalidades:
+   - Gerar documentos
+   - Criar orçamentos
+   - Emitir recibos
+
+========================================================================
+                          RESOLUÇÃO DE PROBLEMAS
+========================================================================
+
+ERRO: "mvn não é reconhecido"
+SOLUÇÃO: O terminal está fora do VS Code. Execute DENTRO do VS Code!
+
+ERRO: "Port 8080 already in use"
+SOLUÇÃO: Outra aplicação está usando a porta 8080
+   1. Feche outras aplicações Java
+   2. Ou mate o processo: taskkill /F /IM java.exe
+
+ERRO: "Failed to execute goal"
+SOLUÇÃO: Problema na compilação
+   1. Verifique se tem Java 17+ instalado: java -version
+   2. Tente limpar: mvn clean
+   3. Compile novamente: mvn package -DskipTests
+
+ERRO: Backend não conecta
+SOLUÇÃO: Aguarde mais tempo
+   - O backend pode levar 20-30 segundos para iniciar completamente
+   - Aguarde até ver "Started Application" nos logs
+
+========================================================================
+                          ATALHOS ÚTEIS
+========================================================================
+
+Parar o backend:
+   Ctrl + C (no terminal onde está rodando)
+
+Ver logs do backend:
+   Aparecem automaticamente no terminal do VS Code
+
+Recompilar após mudanças:
+   1. Pare o backend (Ctrl + C)
+   2. mvn clean package -DskipTests
+   3. mvn spring-boot:run
+
+========================================================================

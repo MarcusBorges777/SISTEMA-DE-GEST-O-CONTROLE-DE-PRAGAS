@@ -1,0 +1,2 @@
+# COMECE AQUI
+Execute: INICIAR_SISTEMA.bat

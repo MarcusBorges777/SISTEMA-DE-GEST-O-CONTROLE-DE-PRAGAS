@@ -1,0 +1,56 @@
+[
+  {
+    "descricao": "Restaurantes, Padarias, Lanchonetes",
+    "id": "alimentacao",
+    "prioridade": 1,
+    "ticket_medio": "R$ 500-1.500/m\u00eas",
+    "tipo_contrato": "Mensal",
+    "titulo": "\ud83e\udd57 Alimenta\u00e7\u00e3o",
+    "total_empresas": 2372
+  },
+  {
+    "descricao": "Cl\u00ednicas, Consult\u00f3rios, Farm\u00e1cias",
+    "id": "saude",
+    "prioridade": 1,
+    "ticket_medio": "R$ 800-3.000/m\u00eas",
+    "tipo_contrato": "Mensal",
+    "titulo": "\ud83c\udfe5 Sa\u00fade",
+    "total_empresas": 1138
+  },
+  {
+    "descricao": "S\u00edndicos e Administradoras",
+    "id": "condominios",
+    "prioridade": 2,
+    "ticket_medio": "R$ 1.500-5.000/m\u00eas",
+    "tipo_contrato": "Mensal ou Anual",
+    "titulo": "\ud83c\udfe2 Condom\u00ednios",
+    "total_empresas": 1193
+  },
+  {
+    "descricao": "Cl\u00ednicas Veterin\u00e1rias, Pet Shops",
+    "id": "veterinaria",
+    "prioridade": 2,
+    "ticket_medio": "R$ 600-2.000/m\u00eas",
+    "tipo_contrato": "Mensal",
+    "titulo": "\ud83d\udc3e Veterin\u00e1ria",
+    "total_empresas": 134
+  },
+  {
+    "descricao": "Escolas, Creches, Ber\u00e7\u00e1rios",
+    "id": "educacao",
+    "prioridade": 2,
+    "ticket_medio": "R$ 1.000-4.000/m\u00eas",
+    "tipo_contrato": "Mensal ou Anual",
+    "titulo": "\ud83d\udcda Educa\u00e7\u00e3o",
+    "total_empresas": 72
+  },
+  {
+    "descricao": "Sal\u00f5es, Cl\u00ednicas de Est\u00e9tica, SPAs",
+    "id": "estetica",
+    "prioridade": 3,
+    "ticket_medio": "R$ 400-1.200/m\u00eas",
+    "tipo_contrato": "Mensal",
+    "titulo": "\ud83d\udc85 Est\u00e9tica e Beleza",
+    "total_empresas": 2998
+  }
+]

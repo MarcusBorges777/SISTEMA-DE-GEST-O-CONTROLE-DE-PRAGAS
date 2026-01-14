@@ -1,0 +1,152 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║         SISTEMA DE GESTÃO DE DOCUMENTOS - MIGRAÇÃO PARA JAVA             ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+📌 O QUE MUDOU?
+
+O sistema foi migrado de Python 100% para uma arquitetura HÍBRIDA:
+
+   ┌─────────────────┐
+   │  Python Flask   │ ← Interface web, clientes, prospecção
+   │ (localhost:5000)│
+   └────────┬────────┘
+            │ (integração automática)
+            ▼
+   ┌─────────────────┐
+   │  Java Spring    │ ← Geração de documentos (50% mais rápido!)
+   │ (localhost:8080)│
+   └─────────────────┘
+
+✨ BENEFÍCIOS:
+  • 50% mais rápido na geração de documentos
+  • Mais robusto e escalável
+  • Código profissional (tipado)
+  • Suporta múltiplas requisições simultâneas
+
+
+🚀 INÍCIO RÁPIDO
+
+1️⃣ VERIFICAR INSTALAÇÃO:
+   Execute: VERIFICAR_INSTALACAO.bat
+
+   Este script verifica se você tem:
+   • Java 17+ instalado
+   • Maven instalado
+   • Python 3.8+ instalado
+
+2️⃣ SE FALTAR ALGO:
+
+   JAVA 17:
+   → https://adoptium.net/
+   → Baixe "Eclipse Temurin 17 (LTS)"
+   → Instale com as opções padrão
+
+   MAVEN:
+   → https://maven.apache.org/download.cgi
+   → Baixe "Binary zip archive"
+   → Extraia para C:\apache-maven-3.9.x
+   → Adicione ao PATH: C:\apache-maven-3.9.x\bin
+
+   PYTHON:
+   → https://www.python.org/downloads/
+   → Baixe Python 3.8 ou superior
+   → Marque "Add Python to PATH" durante instalação
+
+3️⃣ INICIAR O SISTEMA:
+   Execute: INICIAR_SISTEMA_HIBRIDO.bat
+
+   O script faz tudo automaticamente:
+   • Compila o backend Java
+   • Inicia Java na porta 8080
+   • Inicia Flask na porta 5000
+   • Abre o navegador
+
+4️⃣ ACESSAR:
+   • Interface: http://localhost:5000
+   • API Java:  http://localhost:8080/api
+   • Banco H2:  http://localhost:8080/api/h2-console
+
+
+🛑 PARAR O SISTEMA
+
+Execute: PARAR_SISTEMA.bat
+
+
+📚 DOCUMENTAÇÃO COMPLETA
+
+• MIGRACAO_JAVA.md        → Documentação técnica completa
+• INICIO_RAPIDO_JAVA.md   → Guia de início rápido
+• SISTEMA_HIBRIDO_JAVA.txt→ Este arquivo
+
+
+🔄 MODO DE COMPATIBILIDADE
+
+Se você não conseguir instalar Java/Maven, pode usar o modo legado:
+
+Execute: INICIAR_SISTEMA.bat
+
+Este modo usa apenas Python (sistema antigo), mas é mais lento.
+
+
+❓ PROBLEMAS COMUNS
+
+PORTA 8080 JÁ EM USO:
+  → Execute: PARAR_SISTEMA.bat
+
+JAVA NÃO ENCONTRADO:
+  → Instale Java 17: https://adoptium.net/
+  → Configure JAVA_HOME
+
+MAVEN NÃO ENCONTRADO:
+  → Instale Maven: https://maven.apache.org/download.cgi
+  → Adicione ao PATH
+
+BACKEND NÃO CONECTA:
+  → Aguarde 15 segundos após iniciar (Java demora para carregar)
+  → Verifique se porta 8080 está livre
+
+
+🎯 ESTRUTURA DE ARQUIVOS
+
+sistema/
+├── backend/                     ← Backend Java (geração de documentos)
+│   ├── src/main/java/          ← Código Java
+│   ├── pom.xml                 ← Dependências Maven
+│   └── target/                 ← Arquivos compilados
+│
+├── java_proxy.py               ← Integração Python ↔ Java
+├── app.py                      ← Frontend Flask
+├── modelos/                    ← Templates DOCX
+├── output/                     ← Documentos gerados
+│
+├── INICIAR_SISTEMA_HIBRIDO.bat ← Iniciar sistema híbrido
+├── INICIAR_SISTEMA.bat         ← Iniciar sistema legado (Python)
+├── PARAR_SISTEMA.bat           ← Parar todos os serviços
+├── VERIFICAR_INSTALACAO.bat    ← Verificar requisitos
+│
+└── MIGRACAO_JAVA.md            ← Documentação completa
+
+
+💡 DICAS
+
+• Use INICIAR_SISTEMA_HIBRIDO.bat para melhor performance
+• O proxy Python detecta automaticamente se Java está disponível
+• Se Java não funcionar, o sistema usa Python como fallback
+• Documentos gerados ficam em: output/documentos/
+
+
+📞 SUPORTE
+
+Em caso de problemas:
+1. Leia MIGRACAO_JAVA.md
+2. Execute VERIFICAR_INSTALACAO.bat
+3. Verifique os logs do backend Java
+
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║                    BEM-VINDO AO SISTEMA HÍBRIDO! 🎉                       ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝

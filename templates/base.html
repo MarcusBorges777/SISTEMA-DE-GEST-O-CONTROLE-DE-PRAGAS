@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{% block title %}Sistema de Gestao{% endblock %}</title>
+
+    <!-- CSS Otimizado: Usa build local se disponível, fallback para CDN -->
+    {% if config.get('USE_LOCAL_CSS', False) %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}">
+    {% else %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% endif %}
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js - Carregado condicionalmente via bloco charts -->
+    {% block charts_head %}{% endblock %}
+
+    <!-- Fonte Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+
+        .toast-container { position: fixed; right: 1rem; bottom: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast { padding: 1rem; border-radius: 0.5rem; color: white; font-weight: 500; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .bg-success { background-color: #10b981; }
+        .bg-error { background-color: #ef4444; }
+        .bg-info { background-color: #4f46e5; }
+
+        .search-global { transition: all 0.3s; }
+        .search-global:focus { width: 400px; }
+
+        /* Animações para filtros */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+    </style>
+</head>
+<body class="min-h-full bg-slate-50">
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-40 w-full border-b bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between py-3">
+                <div class="flex items-center gap-4 lg:gap-6">
+                    <!-- Logo -->
+                    <a href="/" class="h-12 lg:h-16 flex items-center justify-center font-bold text-xl lg:text-2xl text-indigo-600 hover:text-indigo-700 transition">SG</a>
+
+                    <!-- Botão Menu Mobile -->
+                    <button id="mobile-menu-btn" class="sm:hidden p-2 rounded-lg hover:bg-gray-100" onclick="toggleMobileMenu()">
+                        <i data-lucide="menu" class="w-6 h-6 text-gray-600"></i>
+                    </button>
+
+                    <!-- Navegação Desktop -->
+                    <div class="hidden sm:flex gap-1 flex-wrap">
+                        {% block nav %}{% endblock %}
+                    </div>
+                </div>
+
+                <!-- BARRA DE PESQUISA GLOBAL -->
+                <div class="flex items-center gap-3">
+                    <div class="relative hidden sm:block">
+                        <input
+                            type="text"
+                            id="search-global"
+                            placeholder="Pesquisar tudo..."
+                            class="search-global w-64 px-4 py-2 pl-10 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                        >
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-400"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Mobile (oculto por padrão) -->
+        <div id="mobile-menu" class="hidden sm:hidden border-t border-gray-200 bg-white">
+            <div class="px-4 py-3 space-y-2">
+                {% block nav_mobile %}{% endblock %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script>
+        function initIcons() {
+            if (window.lucide) {
+                try { window.lucide.createIcons(); } catch(e) { console.warn('Erro ao criar icones:', e); }
+            }
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const btn = document.getElementById('mobile-menu-btn');
+            if (menu) {
+                menu.classList.toggle('hidden');
+                // Atualizar ícone
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.setAttribute('data-lucide', menu.classList.contains('hidden') ? 'menu' : 'x');
+                    initIcons();
+                }
+            }
+        }
+
+        function showToast(msg, type='info') {
+            const t = document.createElement('div');
+            t.className = `toast bg-${type}`;
+            t.textContent = msg;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        // Pesquisa Global
+        document.getElementById('search-global')?.addEventListener('input', debounce((e) => {
+            const query = e.target.value.toLowerCase();
+            if (query.length > 2) {
+                // Implementar pesquisa global aqui
+                console.log('Pesquisando:', query);
+            }
+        }, 300));
+
+        function debounce(fn, delay) {
+            let timeout;
+            return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => fn(...args), delay); }
+        }
+
+        document.addEventListener('DOMContentLoaded', initIcons);
+    </script>
+
+    <!-- Scripts para sistema de arquivos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="{{ url_for('static', filename='js/file-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/cloud-config.js') }}"></script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

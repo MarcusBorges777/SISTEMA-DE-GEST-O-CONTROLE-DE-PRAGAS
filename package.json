@@ -1,0 +1,13 @@
+{
+  "name": "gestao-documentos",
+  "version": "1.0.0",
+  "description": "Sistema de Gestao de Documentos",
+  "scripts": {
+    "build:css": "npx tailwindcss -i ./static/src/input.css -o ./static/css/styles.min.css --minify",
+    "watch:css": "npx tailwindcss -i ./static/src/input.css -o ./static/css/styles.min.css --watch",
+    "build": "npm run build:css"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}

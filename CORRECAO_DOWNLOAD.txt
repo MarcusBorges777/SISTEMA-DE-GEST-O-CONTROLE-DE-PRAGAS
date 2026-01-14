@@ -1,0 +1,114 @@
+===========================================
+CORREÇÃO: Botão de Download/Geração de Documentos
+===========================================
+
+PROBLEMA IDENTIFICADO:
+- Botão "Gerar Documento Inteligente" não estava funcionando
+- Laudos não estavam sendo gerados
+
+CAUSA RAIZ:
+O formulário de geração estava tentando acessar elementos HTML antigos que não existem mais:
+- select-cliente-doc (antigo select de clientes)
+- select-modelo (antigo select de modelos)
+
+Com o novo sistema de cards, esses elementos foram substituídos por:
+- cliente-id-selecionado (input hidden)
+- modelo-selecionado (input hidden)
+
+===========================================
+CORREÇÕES APLICADAS:
+===========================================
+
+1. FORMULÁRIO DE SUBMIT (linha ~2181-2195)
+   ANTES:
+   const clienteId = document.getElementById('select-cliente-doc').value;
+   const modelo = document.getElementById('select-modelo').value;
+   const selectModelo = document.getElementById('select-modelo');
+   const modeloSelecionado = selectModelo?.options[selectModelo.selectedIndex];
+
+   DEPOIS:
+   const clienteId = document.getElementById('cliente-id-selecionado').value;
+   const modelo = document.getElementById('modelo-selecionado').value;
+   const nomeModelo = modeloSelecionado?.nome?.toLowerCase() || '';
+
+2. FUNÇÃO gerarDocumentoRapido() (linha ~2335)
+   ANTES:
+   const selectDoc = document.getElementById('select-cliente-doc');
+   if (selectDoc) {
+       selectDoc.value = clienteId;
+   }
+   const selectModelo = document.getElementById('select-modelo');
+   if (selectModelo) {
+       selectModelo.value = '';
+   }
+
+   DEPOIS:
+   const cliente = clientes.find(c => c.id === clienteId);
+   if (cliente) {
+       selecionarClienteCard(cliente.id, cliente.nome_fantasia, cliente.cnpj || '', cliente.cidade || '');
+   }
+   limparSelecaoModelo();
+
+3. FUNÇÃO carregarModelos() (linha ~1833)
+   - Removido código que populava o select antigo
+   - Agora apenas carrega modelosDisponiveis (usado pelo sistema de cards)
+
+4. FUNÇÃO carregarVariaveisModelo() (linha ~1857)
+   - Função antiga desativada (retorna vazio)
+   - Substituída por carregarVariaveisModeloNovo() que funciona com cards
+
+===========================================
+VARIÁVEIS GLOBAIS UTILIZADAS:
+===========================================
+
+- modeloSelecionado: Objeto com dados do modelo escolhido
+- modelosDisponiveis: Array com todos os modelos carregados
+- clientes: Array com todos os clientes
+
+===========================================
+FLUXO CORRETO AGORA:
+===========================================
+
+1. Usuário seleciona CLIENTE (card) → preenche 'cliente-id-selecionado'
+2. Usuário seleciona CATEGORIA (Laudos/Recibos/Orçamentos)
+3. Área expansível mostra cards de modelos daquela categoria
+4. Usuário clica em um MODELO → preenche 'modelo-selecionado'
+5. Sistema chama carregarVariaveisModeloNovo(arquivo)
+6. Campos de variáveis aparecem baseados no tipo
+7. Usuário preenche campos e clica "Gerar Documento Inteligente"
+8. Submit pega valores de 'cliente-id-selecionado' e 'modelo-selecionado'
+9. Envia para /api/documento/gerar-inteligente
+10. Download do documento inicia
+
+===========================================
+TESTE RECOMENDADO:
+===========================================
+
+1. Abrir navegador (F12) e verificar console
+2. Ir para aba "Novo Documento"
+3. Selecionar um cliente (deve aparecer "Cliente Selecionado")
+4. Clicar em "LAUDOS"
+5. Selecionar um laudo (ex: "Laudo CAIXA com ASSINATURA")
+6. Preencher campos de pragas e data
+7. Clicar em "Gerar Documento Inteligente"
+8. Verificar no console se há erros
+9. Documento deve ser gerado e download iniciado
+
+===========================================
+ARQUIVOS MODIFICADOS:
+===========================================
+
+templates/dashboard_novo.html:
+- Linha ~1835-1843: Código do select antigo comentado
+- Linha ~1857-1946: Função carregarVariaveisModelo() desativada
+- Linha ~2184-2195: Submit atualizado para usar inputs hidden
+- Linha ~2335-2347: gerarDocumentoRapido() atualizada
+
+===========================================
+STATUS: ✅ CORRIGIDO
+===========================================
+
+O botão de download/geração agora deve funcionar perfeitamente
+com o novo sistema de seleção por cards!
+
+Data da correção: 2026-01-12

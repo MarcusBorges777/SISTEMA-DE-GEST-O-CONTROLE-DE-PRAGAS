@@ -1,0 +1,35 @@
+# Arquivos de teste
+testar_cnae.py
+teste_cnae_completo.py
+testar_variaveis.py
+test_routes.py
+force_restart.py
+
+# Arquivos de documentação desnecessários (mantendo apenas os essenciais)
+ACESSO_RAPIDO.md
+BUSCA_AVANCADA_COMPLETA.md
+CORRECAO_BUSCA_RUA.md
+CORRECAO_DOWNLOAD.md
+DADOS_DISPONIVEIS_GERACAO.md
+FILTROS_PERIODO_COMPLETO.md
+GERACAO_INTELIGENTE_DOCS.md
+GUIA_COMPLETO_MODELOS.md
+GUIA_DATA_BRIDGE.md
+GUIA_PROSPECCAO_ECONODATA.md
+INICIO_RAPIDO_DATA_BRIDGE.md
+INTEGRACAO_NOVOS_MODELOS.md
+MELHORIAS_FINAIS.md
+NOVO_LAYOUT_DASHBOARD.md
+PLANO_LIMPEZA.md
+PROBLEMA_RESOLVIDO.md
+README_DATA_BRIDGE.md
+RESUMO_BUSCA_AVANCADA.md
+RESUMO_DATA_BRIDGE.md
+RESUMO_IMPLEMENTACAO.md
+TESTES_BUSCA_AVANCADA.md
+
+# Arquivos de backup
+modelos/OrçamentoTemplate.docx.backup
+
+# Scripts de utilitário duplicados
+restart_server.bat

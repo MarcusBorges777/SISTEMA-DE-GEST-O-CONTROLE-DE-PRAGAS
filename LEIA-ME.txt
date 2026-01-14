@@ -1,0 +1,138 @@
+============================================================
+  SISTEMA DE GESTAO DE DOCUMENTOS
+  Com Autocomplete de CNPJs da Receita Federal
+============================================================
+
+INICIO RAPIDO
+-------------
+
+1. Execute: INICIAR_DASHBOARD.bat
+2. Abra no navegador: http://localhost:5000
+3. Pronto! O sistema está funcionando
+
+
+FUNCIONALIDADES
+---------------
+
+✓ Gestao de Clientes
+✓ Geracao de Documentos (Orcamentos, Contratos, Notas Fiscais)
+✓ Upload e Extracao de PDFs
+✓ Autocomplete de CNPJs da Receita Federal (500.000+ empresas)
+  - Busca por CNPJ
+  - Busca por Razao Social
+  - Busca por Nome Fantasia
+  - Busca por Logradouro
+  - Busca por Bairro
+  - Busca por CNAE
+  - Performance: 6ms por busca
+
+
+ENDPOINTS DISPONIVEIS
+----------------------
+
+Dashboard Principal:
+http://localhost:5000
+
+Clientes:
+http://localhost:5000/clientes
+
+Empresas:
+http://localhost:5000/empresas
+
+Documentos:
+http://localhost:5000/documentos
+
+API Autocomplete CNPJs:
+http://localhost:5000/api/cnpj/autocomplete?campo=nome_fantasia&termo=Padaria&limit=10
+
+
+LIMPEZA DO SISTEMA
+------------------
+
+Para remover arquivos desnecessarios (testes, exemplos, etc):
+Execute: LIMPAR_ARQUIVOS_INUTEIS.bat
+
+IMPORTANTE: Execute isso apenas UMA VEZ!
+
+
+ARQUIVOS ESSENCIAIS
+-------------------
+
+✓ app.py - Sistema principal Flask
+✓ autocomplete_api.py - API de autocomplete de CNPJs
+✓ db_manager.py - Gerenciador de banco de dados
+✓ validators.py - Validadores de entrada
+✓ document_learning.py - Sistema de aprendizagem de layouts
+✓ document_extractor.py - Extrator de dados de PDFs
+✓ templates/ - Frontend HTML
+✓ modelos/ - Templates de documentos Word
+✓ cnpj_filtrado.db - Banco de CNPJs da Receita Federal (500.000+ registros)
+✓ gestao_documentos.db - Banco de dados principal
+
+
+REQUISITOS
+----------
+
+- Python 3.7 ou superior
+- Dependencias instaladas automaticamente no primeiro uso
+
+
+TROUBLESHOOTING
+---------------
+
+Se o sistema nao iniciar:
+
+1. Verifique se Python esta instalado:
+   python --version
+
+2. Instale dependencias manualmente:
+   pip install flask flask-cors pdfplumber python-docx docxtpl python-dateutil google-generativeai python-dotenv requests
+
+3. Verifique se os bancos de dados existem:
+   - cnpj_filtrado.db
+   - gestao_documentos.db
+
+4. Execute novamente: INICIAR_DASHBOARD.bat
+
+
+PERFORMANCE
+-----------
+
+✓ Autocomplete: 6ms por busca (media)
+✓ Suporta milhares de requisicoes por segundo
+✓ Banco otimizado com FTS5 Full-Text Search
+✓ Indices estrategicos para queries rapidas
+
+
+ESTRUTURA DO PROJETO
+---------------------
+
+raiz/
+├── INICIAR_DASHBOARD.bat       ← Inicia o sistema
+├── LIMPAR_ARQUIVOS_INUTEIS.bat ← Limpa arquivos temporarios
+├── LEIA-ME.txt                 ← Este arquivo
+├── app.py                      ← Sistema principal
+├── autocomplete_api.py         ← API de CNPJs
+├── db_manager.py               ← Gerenciador de banco
+├── validators.py               ← Validadores
+├── document_learning.py        ← Aprendizagem de layouts
+├── document_extractor.py       ← Extrator de PDFs
+├── templates/                  ← Frontend HTML
+├── modelos/                    ← Templates Word
+├── cnpj_filtrado.db           ← Banco de CNPJs (Receita Federal)
+└── gestao_documentos.db       ← Banco principal
+
+
+SUPORTE
+-------
+
+Em caso de duvidas ou problemas:
+1. Verifique os logs do console ao iniciar
+2. Teste os endpoints individualmente
+3. Verifique se todos os arquivos essenciais existem
+
+
+============================================================
+  Sistema pronto para uso!
+  Execute: INICIAR_DASHBOARD.bat
+============================================================

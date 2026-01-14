@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Banco de Dados Principal
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp_postgres
+    environment:
+      POSTGRES_DB: erp_gestao_os
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_senha_123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=pt_BR.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+      - ./database/backup:/backup
+    ports:
+      - "5432:5432"
+    networks:
+      - erp_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp_user -d erp_gestao_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis - Cache e Fila de Mensagens
+  redis:
+    image: redis:7-alpine
+    container_name: erp_redis
+    command: redis-server --appendonly yes --requirepass redis_senha_123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - erp_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # pgAdmin - Interface de Gerenciamento do PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: erp_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@erp.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - erp_network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Redis Commander - Interface de Gerenciamento do Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: erp_redis_commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:redis_senha_123
+    ports:
+      - "8081:8081"
+    networks:
+      - erp_network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  erp_network:
+    driver: bridge
