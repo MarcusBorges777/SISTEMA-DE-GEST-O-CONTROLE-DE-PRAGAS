@@ -195,8 +195,7 @@ class DocumentoLegado(BaseLegado):
     cliente_cnpj = Column(String(18))
     data_geracao = Column(DateTime, default=datetime.now)
 
-    # Relacionamentos
-    tags = relationship('DocumentoTagLegado', back_populates='documento', lazy='dynamic')
+    # Nota: tags são acessadas via DocumentoTagLegado (relação polimórfica por arquivo_tipo)
 
     def to_dict(self) -> Dict[str, Any]:
         """Converte para dicionário."""
@@ -239,8 +238,8 @@ class DocumentoTagLegado(BaseLegado):
     __tablename__ = 'documento_tags'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    arquivo_id = Column(Integer)
-    arquivo_tipo = Column(String(50), nullable=False)
+    arquivo_id = Column(Integer)  # Referência polimórfica (pode ser documento, arquivo, etc.)
+    arquivo_tipo = Column(String(50), nullable=False)  # Tipo de arquivo referenciado
     tag_id = Column(Integer, ForeignKey('tags.id', ondelete='CASCADE'), nullable=False)
     confianca = Column(Float, default=1.0)
     manual = Column(Boolean, default=True)
@@ -248,10 +247,7 @@ class DocumentoTagLegado(BaseLegado):
 
     # Relacionamentos
     tag = relationship('TagLegado', lazy='joined')
-    documento = relationship('DocumentoLegado',
-                            foreign_keys=[arquivo_id],
-                            primaryjoin='DocumentoTagLegado.arquivo_id == DocumentoLegado.id',
-                            back_populates='tags')
+    # Nota: documento é uma relação polimórfica, acessada via queries explícitas
 
 
 # =============================================================================
