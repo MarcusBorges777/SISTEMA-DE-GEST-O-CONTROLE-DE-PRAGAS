@@ -3,16 +3,37 @@
 """
 Módulo de Blueprints do Sistema de Gestão de Documentos.
 Organiza as rotas em módulos separados para melhor manutenção.
+
+Blueprints disponíveis:
+    - clientes_bp: Gestão de clientes (/api/clientes/*, /api/garantias/*)
+    - boletos_bp: Gestão de boletos (/api/boletos/*)
+    - tags_bp: Sistema de tags (/api/tags/*, /api/arquivo/tags)
+    - prospeccao_bp: Prospecção de clientes (Econodata)
+    - file_manager_bp: Gerenciamento de arquivos
+
+Uso:
+    from blueprints import clientes_bp, boletos_bp, tags_bp
+    app.register_blueprint(clientes_bp, url_prefix='/api')
+    app.register_blueprint(boletos_bp, url_prefix='/api')
+    app.register_blueprint(tags_bp, url_prefix='/api')
 """
 
 from flask import Blueprint
 
-# Blueprints disponíveis
-# Para usar, importe e registre no app principal:
-#
-# from blueprints.clientes import clientes_bp
-# app.register_blueprint(clientes_bp, url_prefix='/api')
-#
-# Nota: Os blueprints estão preparados mas ainda não totalmente extraídos
-# do app.py principal. A migração deve ser feita gradualmente para evitar
-# quebras no sistema.
+# Importa blueprints existentes
+from blueprints.prospeccao import prospeccao_bp
+from blueprints.file_manager import file_manager_bp
+
+# Importa novos blueprints modulares
+from blueprints.clientes import clientes_bp
+from blueprints.boletos import boletos_bp
+from blueprints.tags import tags_bp
+
+# Exporta todos os blueprints
+__all__ = [
+    'clientes_bp',
+    'boletos_bp',
+    'tags_bp',
+    'prospeccao_bp',
+    'file_manager_bp',
+]

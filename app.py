@@ -62,6 +62,11 @@ from blueprints.prospeccao import prospeccao_bp
 # Blueprint de Gerenciamento de Arquivos
 from blueprints.file_manager import file_manager_bp
 
+# Blueprints modulares (Fase 3 - Modularização)
+from blueprints.clientes import clientes_bp
+from blueprints.boletos import boletos_bp
+from blueprints.tags import tags_bp
+
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 from data_bridge import criar_bridge
 
@@ -79,6 +84,12 @@ app = Flask(__name__)
 # Registrar blueprints
 app.register_blueprint(prospeccao_bp)
 app.register_blueprint(file_manager_bp)
+
+# Registrar blueprints modulares (Fase 3)
+app.register_blueprint(clientes_bp, url_prefix='/api')
+app.register_blueprint(boletos_bp, url_prefix='/api')
+app.register_blueprint(tags_bp, url_prefix='/api')
+print("[OK] Blueprints modulares registrados (clientes, boletos, tags)")
 
 # Gerar SECRET_KEY segura (usa variável de ambiente ou gera uma nova)
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
