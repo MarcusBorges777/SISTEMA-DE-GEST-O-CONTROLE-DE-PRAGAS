@@ -66,6 +66,7 @@ from blueprints.file_manager import file_manager_bp
 from blueprints.clientes import clientes_bp
 from blueprints.boletos import boletos_bp
 from blueprints.tags import tags_bp
+from blueprints.documentos import documentos_bp
 
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 from data_bridge import criar_bridge
@@ -89,7 +90,8 @@ app.register_blueprint(file_manager_bp)
 app.register_blueprint(clientes_bp, url_prefix='/api')
 app.register_blueprint(boletos_bp, url_prefix='/api')
 app.register_blueprint(tags_bp, url_prefix='/api')
-print("[OK] Blueprints modulares registrados (clientes, boletos, tags)")
+app.register_blueprint(documentos_bp, url_prefix='/api')
+print("[OK] Blueprints modulares registrados (clientes, boletos, tags, documentos)")
 
 # Gerar SECRET_KEY segura (usa variável de ambiente ou gera uma nova)
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
