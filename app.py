@@ -34,8 +34,17 @@ from categorias_cnae import obter_categoria_por_cnae
 # Sistema de aprendizagem de layouts
 from document_learning import DocumentLayoutLearner
 
-# Gerenciador centralizado de banco de dados
+# Gerenciador centralizado de banco de dados (SQLAlchemy)
 from db_manager import DatabaseManager, get_db_manager
+
+# Serviços ORM para tabelas legadas (transição gradual)
+from services_compat import (
+    ClienteServiceLegado, BoletoServiceLegado, ReciboServiceLegado,
+    DocumentoServiceLegado, TagServiceLegado,
+    get_cliente_service, get_boleto_service, get_recibo_service,
+    get_documento_service, get_tag_service,
+    registrar_tabelas_legadas
+)
 
 # Validação de entrada
 from validators import (
@@ -287,7 +296,20 @@ TEMPLATES = {
 }
 
 def get_db():
-    """Conexão otimizada com SQLite"""
+    """
+    Conexão otimizada com SQLite.
+
+    DEPRECATED: Use get_db_manager() e serviços ORM ao invés de SQL raw.
+
+    Exemplo de migração:
+        # Antes (SQL raw):
+        conn = get_db()
+        clientes = conn.execute("SELECT * FROM clientes_web").fetchall()
+
+        # Depois (ORM):
+        svc = get_cliente_service()
+        clientes, total = svc.listar()
+    """
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(
@@ -1534,59 +1556,58 @@ def documentos():
 
 @app.route('/api/clientes', methods=['GET', 'POST'])
 def api_clientes():
-    conn = get_db()
+    """
+    Lista clientes (GET) ou cria/atualiza cliente (POST).
+
+    REFATORADO: Agora usa ORM via ClienteServiceLegado ao invés de SQL raw.
+    """
+    svc = get_cliente_service()
 
     if request.method == 'GET':
-        query = "SELECT * FROM clientes_web WHERE 1=1"
-        count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
-        params = []
-
+        # Extrai filtros da query string
         nome = request.args.get('nome', '')
-        if nome:
-            query += " AND nome_fantasia LIKE ?"
-            count_query += " AND nome_fantasia LIKE ?"
-            params.append(f'%{nome}%')
-
         cidade = request.args.get('cidade', '')
-        if cidade:
-            query += " AND cidade LIKE ?"
-            count_query += " AND cidade LIKE ?"
-            params.append(f'%{cidade}%')
-
         cnpj = request.args.get('cnpj', '')
-        if cnpj:
-            query += " AND cnpj LIKE ?"
-            count_query += " AND cnpj LIKE ?"
-            params.append(f'%{cnpj}%')
-
         cnae = request.args.get('cnae', '')
-        if cnae:
-            query += " AND cnae LIKE ?"
-            count_query += " AND cnae LIKE ?"
-            params.append(f'%{cnae}%')
-
         rua = request.args.get('rua', '')
-        if rua:
-            query += " AND rua LIKE ?"
-            count_query += " AND rua LIKE ?"
-            params.append(f'%{rua}%')
 
-        query += " ORDER BY nome_fantasia"
-
-        # Paginação (opcional - se page for enviado)
+        # Paginação
         page = request.args.get('page', type=int)
         per_page = request.args.get('per_page', 50, type=int)
         per_page = min(per_page, 200)  # Limite máximo de 200
 
+        # Calcula offset e limite
         if page is not None and page > 0:
-            # Paginação habilitada
-            total = conn.execute(count_query, params).fetchone()['total']
             offset = (page - 1) * per_page
-            query += f" LIMIT {per_page} OFFSET {offset}"
+            limite = per_page
+        else:
+            offset = 0
+            limite = 500
 
-            clientes = conn.execute(query, params).fetchall()
+        # Busca via ORM
+        clientes, total = svc.listar(
+            nome=nome or None,
+            cidade=cidade or None,
+            cnpj=cnpj or None,
+            cnae=cnae or None,
+            rua=rua or None,
+            limite=limite,
+            offset=offset
+        )
+
+        # Converte para dict e aplica conversão de municípios
+        clientes_convertidos = []
+        for cliente in clientes:
+            cliente_dict = cliente.to_dict()
+            if cliente_dict.get('cidade'):
+                cliente_dict['cidade'] = converter_municipios_rapido(cliente_dict['cidade'])
+            if cliente_dict.get('endereco_completo'):
+                cliente_dict['endereco_completo'] = converter_municipios_rapido(cliente_dict['endereco_completo'])
+            clientes_convertidos.append(cliente_dict)
+
+        if page is not None and page > 0:
             return jsonify({
-                "data": [dict(row) for row in clientes],
+                "data": clientes_convertidos,
                 "pagination": {
                     "page": page,
                     "per_page": per_page,
@@ -1595,20 +1616,6 @@ def api_clientes():
                 }
             })
         else:
-            # Sem paginação (comportamento original para compatibilidade)
-            # OTIMIZAÇÃO: Limitar a 500 registros por padrão para evitar sobrecarga
-            query += " LIMIT 500"
-            clientes = conn.execute(query, params).fetchall()
-
-            # OTIMIZAÇÃO: Converter códigos de cidade para nomes (50x mais rápido)
-            clientes_convertidos = []
-            for cliente in clientes:
-                cliente_dict = dict(cliente)
-                if 'cidade' in cliente_dict:
-                    cliente_dict['cidade'] = converter_municipios_rapido(cliente_dict['cidade'])
-                if 'endereco_completo' in cliente_dict:
-                    cliente_dict['endereco_completo'] = converter_municipios_rapido(cliente_dict['endereco_completo'])
-                clientes_convertidos.append(cliente_dict)
             return jsonify(clientes_convertidos)
 
     # POST - Criar ou Atualizar
@@ -1620,41 +1627,45 @@ def api_clientes():
     try:
         cliente_id = dados.get('id')
 
-        if cliente_id:
-            # Atualizar
-            conn.execute('''UPDATE clientes_web SET
-                nome_fantasia = ?, razao_social = ?, cnpj = ?, cnae = ?,
-                rua = ?, numero = ?, bairro = ?, cidade = ?, uf = ?,
-                telefone = ?, data_garantia = ?, periodo_garantia_meses = ?
-                WHERE id = ?''',
-                (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
-                 dados.get('rua'), dados.get('numero'), dados.get('bairro'),
-                 dados.get('cidade'), dados.get('uf'),
-                 dados.get('telefone'), dados.get('data_garantia'),
-                 dados.get('periodo_garantia_meses', 12), cliente_id))
-        else:
-            # Inserir
-            endereco_completo = f"{dados.get('rua', '')}, {dados.get('numero', '')} - {dados.get('cidade', '')}/{dados.get('uf', '')}"
-            conn.execute('''INSERT INTO clientes_web
-                (nome_fantasia, razao_social, cnpj, cnae, rua, numero, bairro, cidade, uf, endereco_completo,
-                 telefone, data_garantia, periodo_garantia_meses)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
-                 dados.get('rua'), dados.get('numero'), dados.get('bairro'),
-                 dados.get('cidade'), dados.get('uf'), endereco_completo,
-                 dados.get('telefone'), dados.get('data_garantia'),
-                 dados.get('periodo_garantia_meses', 12)))
+        # Prepara dados para o serviço
+        dados_cliente = {
+            'nome_fantasia': nome,
+            'razao_social': dados.get('razao_social'),
+            'cnpj': dados.get('cnpj'),
+            'cnae': dados.get('cnae'),
+            'rua': dados.get('rua'),
+            'numero': dados.get('numero'),
+            'bairro': dados.get('bairro'),
+            'cidade': dados.get('cidade'),
+            'uf': dados.get('uf'),
+            'telefone': dados.get('telefone'),
+            'data_garantia': dados.get('data_garantia'),
+            'periodo_garantia_meses': dados.get('periodo_garantia_meses', 12)
+        }
 
-        conn.commit()
+        if cliente_id:
+            # Atualizar via ORM
+            cliente = svc.atualizar(cliente_id, dados_cliente)
+            if not cliente:
+                return jsonify({"error": "Cliente não encontrado"}), 404
+        else:
+            # Criar via ORM
+            cliente = svc.criar(dados_cliente)
         return jsonify({"message": "Cliente salvo!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/clientes/<int:id>', methods=['DELETE'])
 def deletar_cliente(id):
-    get_db().execute("DELETE FROM clientes_web WHERE id = ?", (id,))
-    get_db().commit()
-    return jsonify({"message": "Cliente excluido"})
+    """
+    Deleta cliente por ID.
+
+    REFATORADO: Agora usa ORM via ClienteServiceLegado.
+    """
+    svc = get_cliente_service()
+    if svc.deletar(id):
+        return jsonify({"message": "Cliente excluido"})
+    return jsonify({"error": "Cliente não encontrado"}), 404
 
 
 @app.route('/api/cnpj/autocomplete', methods=['GET'])
@@ -3742,53 +3753,54 @@ def api_criar_tag():
 
 @app.route('/api/boletos', methods=['GET', 'POST'])
 def api_boletos():
-    """Lista todos os boletos (GET) ou cria um novo boleto (POST)"""
-    db = get_db()
+    """
+    Lista todos os boletos (GET) ou cria um novo boleto (POST).
+
+    REFATORADO: Agora usa ORM via BoletoServiceLegado.
+    """
+    svc = get_boleto_service()
 
     if request.method == 'GET':
         try:
             status_filter = request.args.get('status', '')
-            query = 'SELECT * FROM boletos'
-            params = []
 
-            if status_filter:
-                query += ' WHERE status = ?'
-                params.append(status_filter)
+            # Busca via ORM
+            boletos, total = svc.listar(
+                status=status_filter or None,
+                limite=500
+            )
 
-            query += ' ORDER BY data_vencimento ASC'
-
-            boletos = db.execute(query, params).fetchall()
-            return jsonify([dict(b) for b in boletos])
+            return jsonify([b.to_dict() for b in boletos])
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     elif request.method == 'POST':
         try:
             dados = request.json
-            cliente_id = dados.get('cliente_id')
             cliente_nome = dados.get('cliente_nome', '').strip()
-            descricao = dados.get('descricao', '').strip()
             valor = dados.get('valor')
             data_emissao = dados.get('data_emissao')
             data_vencimento = dados.get('data_vencimento')
-            numero_documento = dados.get('numero_documento', '').strip()
-            codigo_barras = dados.get('codigo_barras', '').strip()
-            arquivo_caminho = dados.get('arquivo_caminho', '').strip()
 
             if not cliente_nome or not valor or not data_emissao or not data_vencimento:
                 return jsonify({"error": "Campos obrigatórios: cliente_nome, valor, data_emissao, data_vencimento"}), 400
 
-            cursor = db.execute('''
-                INSERT INTO boletos (cliente_id, cliente_nome, descricao, valor, data_emissao, data_vencimento,
-                                   numero_documento, codigo_barras, arquivo_caminho)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (cliente_id, cliente_nome, descricao, valor, data_emissao, data_vencimento,
-                  numero_documento, codigo_barras, arquivo_caminho))
-            db.commit()
+            # Cria via ORM
+            boleto = svc.criar({
+                'cliente_id': dados.get('cliente_id'),
+                'cliente_nome': cliente_nome,
+                'descricao': dados.get('descricao', '').strip(),
+                'valor': valor,
+                'data_emissao': data_emissao,
+                'data_vencimento': data_vencimento,
+                'numero_documento': dados.get('numero_documento', '').strip(),
+                'codigo_barras': dados.get('codigo_barras', '').strip(),
+                'arquivo_caminho': dados.get('arquivo_caminho', '').strip()
+            })
 
             return jsonify({
                 "success": True,
-                "boleto_id": cursor.lastrowid,
+                "boleto_id": boleto.id,
                 "message": "Boleto criado com sucesso"
             })
         except Exception as e:
@@ -3796,36 +3808,37 @@ def api_boletos():
 
 @app.route('/api/boletos/<int:boleto_id>', methods=['GET', 'PUT', 'DELETE'])
 def api_boleto(boleto_id):
-    """Obtém, atualiza ou deleta um boleto específico"""
-    db = get_db()
+    """
+    Obtém, atualiza ou deleta um boleto específico.
+
+    REFATORADO: Agora usa ORM via BoletoServiceLegado.
+    """
+    svc = get_boleto_service()
 
     if request.method == 'GET':
         try:
-            boleto = db.execute('SELECT * FROM boletos WHERE id = ?', (boleto_id,)).fetchone()
+            boleto = svc.buscar_por_id(boleto_id)
             if not boleto:
                 return jsonify({"error": "Boleto não encontrado"}), 404
-            return jsonify(dict(boleto))
+            return jsonify(boleto.to_dict())
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     elif request.method == 'PUT':
         try:
             dados = request.json
-            cliente_nome = dados.get('cliente_nome')
-            descricao = dados.get('descricao')
-            valor = dados.get('valor')
-            data_vencimento = dados.get('data_vencimento')
-            numero_documento = dados.get('numero_documento')
-            codigo_barras = dados.get('codigo_barras')
-            observacoes = dados.get('observacoes')
+            boleto = svc.atualizar(boleto_id, {
+                'cliente_nome': dados.get('cliente_nome'),
+                'descricao': dados.get('descricao'),
+                'valor': dados.get('valor'),
+                'data_vencimento': dados.get('data_vencimento'),
+                'numero_documento': dados.get('numero_documento'),
+                'codigo_barras': dados.get('codigo_barras'),
+                'observacoes': dados.get('observacoes')
+            })
 
-            db.execute('''
-                UPDATE boletos
-                SET cliente_nome = ?, descricao = ?, valor = ?, data_vencimento = ?,
-                    numero_documento = ?, codigo_barras = ?, observacoes = ?
-                WHERE id = ?
-            ''', (cliente_nome, descricao, valor, data_vencimento, numero_documento, codigo_barras, observacoes, boleto_id))
-            db.commit()
+            if not boleto:
+                return jsonify({"error": "Boleto não encontrado"}), 404
 
             return jsonify({"success": True, "message": "Boleto atualizado com sucesso"})
         except Exception as e:
@@ -3833,89 +3846,66 @@ def api_boleto(boleto_id):
 
     elif request.method == 'DELETE':
         try:
-            db.execute('DELETE FROM boletos WHERE id = ?', (boleto_id,))
-            db.commit()
-            return jsonify({"success": True, "message": "Boleto excluído com sucesso"})
+            if svc.deletar(boleto_id):
+                return jsonify({"success": True, "message": "Boleto excluído com sucesso"})
+            return jsonify({"error": "Boleto não encontrado"}), 404
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
 @app.route('/api/boletos/<int:boleto_id>/pagar', methods=['POST'])
 def api_pagar_boleto(boleto_id):
-    """Marca um boleto como pago (usa o valor original do boleto)"""
+    """
+    Marca um boleto como pago (usa o valor original do boleto).
+
+    REFATORADO: Agora usa ORM via BoletoServiceLegado.
+    """
     try:
-        db = get_db()
+        svc = get_boleto_service()
 
-        # Buscar o valor original do boleto
-        boleto = db.execute('SELECT valor FROM boletos WHERE id = ?', (boleto_id,)).fetchone()
-
+        boleto = svc.registrar_pagamento(boleto_id)
         if not boleto:
             return jsonify({"error": "Boleto não encontrado"}), 404
 
-        valor_original = boleto['valor']
-        data_pagamento = datetime.now().strftime('%Y-%m-%d')  # Data atual
-
-        # Marcar como pago com o valor original
-        db.execute('''
-            UPDATE boletos
-            SET status = 'pago', data_pagamento = ?, valor_pago = ?
-            WHERE id = ?
-        ''', (data_pagamento, valor_original, boleto_id))
-        db.commit()
-
-        print(f"[BOLETO] Boleto ID {boleto_id} marcado como PAGO - Valor: R$ {valor_original:.2f}")
+        print(f"[BOLETO] Boleto ID {boleto_id} marcado como PAGO - Valor: R$ {boleto.valor_pago:.2f}")
 
         return jsonify({
             "success": True,
             "message": "Boleto marcado como pago",
-            "valor_pago": valor_original,
-            "data_pagamento": data_pagamento
+            "valor_pago": boleto.valor_pago,
+            "data_pagamento": boleto.data_pagamento.isoformat() if boleto.data_pagamento else None
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/boletos/<int:boleto_id>/cancelar', methods=['POST'])
 def api_cancelar_boleto(boleto_id):
-    """Marca um boleto como cancelado"""
+    """
+    Marca um boleto como cancelado.
+
+    REFATORADO: Agora usa ORM via BoletoServiceLegado.
+    """
     try:
-        db = get_db()
-        db.execute('UPDATE boletos SET status = ? WHERE id = ?', ('cancelado', boleto_id))
-        db.commit()
+        svc = get_boleto_service()
+        boleto = svc.cancelar(boleto_id)
+        if not boleto:
+            return jsonify({"error": "Boleto não encontrado"}), 404
         return jsonify({"success": True, "message": "Boleto cancelado"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/boletos/vencendo', methods=['GET'])
 def api_boletos_vencendo():
-    """Retorna boletos que estão vencendo ou vencidos"""
+    """
+    Retorna boletos que estão vencendo ou vencidos.
+
+    REFATORADO: Agora usa ORM via BoletoServiceLegado.
+    """
     try:
-        db = get_db()
-        hoje = datetime.now().date()
+        svc = get_boleto_service()
         dias_aviso = request.args.get('dias', default=7, type=int)
-        data_limite = hoje + timedelta(days=dias_aviso)
 
-        boletos = db.execute('''
-            SELECT * FROM boletos
-            WHERE status = 'pendente' AND date(data_vencimento) <= ?
-            ORDER BY data_vencimento ASC
-        ''', (data_limite.isoformat(),)).fetchall()
-
-        avisos = []
-        for b in boletos:
-            data_venc = datetime.fromisoformat(b['data_vencimento']).date()
-            dias_restantes = (data_venc - hoje).days
-
-            status_aviso = 'vencido' if dias_restantes < 0 else 'urgente' if dias_restantes <= 3 else 'atenção'
-
-            avisos.append({
-                'id': b['id'],
-                'cliente_nome': b['cliente_nome'],
-                'descricao': b['descricao'],
-                'valor': b['valor'],
-                'data_vencimento': b['data_vencimento'],
-                'dias_restantes': dias_restantes,
-                'status_aviso': status_aviso,
-                'numero_documento': b['numero_documento']
-            })
+        # Busca boletos vencendo via ORM
+        avisos = svc.vencendo(dias=dias_aviso)
 
         return jsonify({
             'total': len(avisos),
@@ -5735,6 +5725,12 @@ def salvar_dados_gemini_no_banco(dados_extraidos, arquivo_id, arquivo_nome, resp
 
 with app.app_context():
     criar_tabelas()
+    # Registrar tabelas legadas no ORM (transição para SQLAlchemy)
+    try:
+        registrar_tabelas_legadas()
+        print("[OK] Serviços ORM para tabelas legadas inicializados")
+    except Exception as e:
+        print(f"[AVISO] Erro ao registrar tabelas legadas: {e}")
     # Criar tabelas do sistema de aprendizagem
     layout_learner.criar_tabelas()
     layout_learner.carregar_layouts()
