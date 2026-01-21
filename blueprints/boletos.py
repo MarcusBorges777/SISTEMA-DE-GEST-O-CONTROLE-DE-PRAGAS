@@ -17,6 +17,9 @@ Rotas:
 from flask import Blueprint, request, jsonify
 from datetime import datetime, date, timedelta
 
+# Utilitários centralizados
+from utils import sanitizar_string
+
 # Serviços ORM
 from services_compat import get_boleto_service
 
@@ -70,7 +73,11 @@ def api_boletos():
     elif request.method == 'POST':
         try:
             dados = request.json
-            cliente_nome = dados.get('cliente_nome', '').strip()
+            if not dados:
+                return jsonify({"error": "Dados JSON obrigatórios"}), 400
+
+            # Validação e sanitização
+            cliente_nome = sanitizar_string(dados.get('cliente_nome'), max_length=200)
             valor = dados.get('valor')
             data_emissao = dados.get('data_emissao')
             data_vencimento = dados.get('data_vencimento')
@@ -78,17 +85,25 @@ def api_boletos():
             if not cliente_nome or not valor or not data_emissao or not data_vencimento:
                 return jsonify({"error": "Campos obrigatórios: cliente_nome, valor, data_emissao, data_vencimento"}), 400
 
-            # Cria via ORM
+            # Validar valor numérico
+            try:
+                valor = float(valor)
+                if valor < 0:
+                    return jsonify({"error": "Valor não pode ser negativo"}), 400
+            except (TypeError, ValueError):
+                return jsonify({"error": "Valor deve ser um número válido"}), 400
+
+            # Cria via ORM (dados sanitizados)
             boleto = svc.criar({
                 'cliente_id': dados.get('cliente_id'),
                 'cliente_nome': cliente_nome,
-                'descricao': dados.get('descricao', '').strip(),
+                'descricao': sanitizar_string(dados.get('descricao'), max_length=500),
                 'valor': valor,
                 'data_emissao': data_emissao,
                 'data_vencimento': data_vencimento,
-                'numero_documento': dados.get('numero_documento', '').strip(),
-                'codigo_barras': dados.get('codigo_barras', '').strip(),
-                'arquivo_caminho': dados.get('arquivo_caminho', '').strip()
+                'numero_documento': sanitizar_string(dados.get('numero_documento'), max_length=50),
+                'codigo_barras': sanitizar_string(dados.get('codigo_barras'), max_length=100),
+                'arquivo_caminho': sanitizar_string(dados.get('arquivo_caminho'), max_length=500)
             })
 
             return jsonify({

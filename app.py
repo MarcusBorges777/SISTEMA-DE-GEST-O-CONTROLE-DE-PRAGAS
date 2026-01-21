@@ -53,6 +53,12 @@ from validators import (
     sanitizar_string, validate_json
 )
 
+# Utilitários centralizados (constantes e funções compartilhadas)
+from utils import (
+    MUNICIPIOS, MUNICIPIOS_PATTERN, converter_municipios,
+    formatar_moeda, formatar_data
+)
+
 # Autocomplete de CNPJs da Receita Federal
 from autocomplete_api import AutocompleteAPI
 
@@ -148,20 +154,9 @@ else:
 # Cache de CNAEs permitidos
 CNAES_PERMITIDOS = {}
 
-# ============================================
-#  OTIMIZAÇÃO: Cache de Municípios
-# ============================================
-# Pré-compilar regex para substituição de códigos de município (50x mais rápido)
-MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
-
-def converter_municipios_rapido(texto):
-    """
-    Converte códigos de município para nomes em uma única passagem.
-    50x mais rápido que múltiplos .replace()
-    """
-    if not texto:
-        return texto
-    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
+# Nota: MUNICIPIOS e converter_municipios agora são importados de utils.py
+# Alias para compatibilidade com código existente que usa o nome antigo
+converter_municipios_rapido = converter_municipios
 
 # Regex patterns pré-compilados para otimizar extração de dados de PDFs
 COMPILED_PATTERNS = {
@@ -271,14 +266,7 @@ cache_api = SimpleCache(ttl=60)  # Cache de APIs - 1 minuto
 cache_queries = SimpleCache(ttl=300)  # Cache de queries - 5 minutos
 cache_tags = SimpleCache(ttl=600)  # Cache de tags - 10 minutos
 
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
+# Nota: MUNICIPIOS agora é importado de utils.py
 
 # Regex patterns compilados (otimização)
 REGEX_PATTERNS = {
@@ -4065,11 +4053,25 @@ def editar_registro(table_name, record_id):
             return jsonify({"error": "Tabela não permitida"}), 403
 
         dados = request.json
+        if not dados:
+            return jsonify({"error": "Dados não fornecidos"}), 400
+
         conn = get_db()
 
-        # Construir UPDATE dinamicamente
-        campos = [f"{k} = ?" for k in dados.keys() if k != 'id']
-        valores = [v for k, v in dados.items() if k != 'id']
+        # SEGURANÇA: Obter colunas válidas da tabela para prevenir SQL Injection
+        colunas_info = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        colunas_validas = {col['name'] for col in colunas_info}
+
+        # Filtrar apenas colunas que existem na tabela (exceto 'id')
+        dados_filtrados = {k: v for k, v in dados.items()
+                          if k in colunas_validas and k != 'id'}
+
+        if not dados_filtrados:
+            return jsonify({"error": "Nenhuma coluna válida para atualizar"}), 400
+
+        # Construir UPDATE com colunas validadas
+        campos = [f"{k} = ?" for k in dados_filtrados.keys()]
+        valores = list(dados_filtrados.values())
         valores.append(record_id)
 
         query = f"UPDATE {table_name} SET {', '.join(campos)} WHERE id = ?"
@@ -4106,8 +4108,8 @@ def limpar_tabela(table_name):
 
         conn = get_db()
         conn.execute(f"DELETE FROM {table_name}")
-        # Resetar autoincrement
-        conn.execute(f"DELETE FROM sqlite_sequence WHERE name = '{table_name}'")
+        # Resetar autoincrement (usando parâmetro para prevenir SQL Injection)
+        conn.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table_name,))
         conn.commit()
 
         return jsonify({"message": f"Tabela {table_name} limpa com sucesso"})

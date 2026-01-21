@@ -15,35 +15,15 @@ from flask import Blueprint, request, jsonify, current_app
 from pathlib import Path
 import shutil
 import traceback
-import re
+
+# Utilitários centralizados
+from utils import converter_municipios, formatar_moeda
 
 # Serviços ORM
 from services_compat import get_documento_service
 
 # Blueprint
 documentos_bp = Blueprint('documentos', __name__)
-
-# =============================================================================
-# UTILITÁRIOS
-# =============================================================================
-
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
-
-MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
-
-
-def converter_municipios_rapido(texto):
-    """Converte códigos de município para nomes."""
-    if not texto:
-        return texto
-    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
 
 
 def get_output_dir() -> Path:
@@ -91,7 +71,7 @@ def api_documentos():
                 'razao_social': doc.razao_social or 'Não informado',
                 'cnpj': doc.cliente_cnpj or 'Não informado',
                 'valor': float(valor),
-                'valor_formatado': f"R$ {float(valor):,.2f}".replace(',', '_').replace('.', ',').replace('_', '.') if valor else 'R$ 0,00',
+                'valor_formatado': formatar_moeda(valor),
                 'data_geracao': doc.data_geracao.isoformat() if doc.data_geracao else None
             })
 
@@ -138,7 +118,7 @@ def api_documentos_gerados():
             doc_dict = doc.to_dict()
             for campo in ['cliente_nome', 'cidade', 'endereco_completo']:
                 if campo in doc_dict and doc_dict[campo]:
-                    doc_dict[campo] = converter_municipios_rapido(doc_dict[campo])
+                    doc_dict[campo] = converter_municipios(doc_dict[campo])
             docs_convertidos.append(doc_dict)
 
         if page is not None and page > 0:

@@ -19,6 +19,9 @@ Rotas:
 from flask import Blueprint, request, jsonify
 import hashlib
 
+# Utilitários centralizados
+from utils import sanitizar_string
+
 # Serviços ORM
 from services_compat import get_tag_service
 
@@ -102,12 +105,20 @@ def api_obter_tags():
     elif request.method == 'POST':
         try:
             dados = request.json
-            nome = dados.get('nome', '').strip()
-            descricao = dados.get('descricao', '').strip()
-            cor = dados.get('cor', '#3B82F6')
+            if not dados:
+                return jsonify({"error": "Dados JSON obrigatórios"}), 400
+
+            # Validação e sanitização
+            nome = sanitizar_string(dados.get('nome'), max_length=50)
+            descricao = sanitizar_string(dados.get('descricao'), max_length=200)
+            cor = sanitizar_string(dados.get('cor', '#3B82F6'), max_length=7)
 
             if not nome:
                 return jsonify({"error": "Nome da tag é obrigatório"}), 400
+
+            # Validar formato de cor hex
+            if not cor.startswith('#') or len(cor) != 7:
+                cor = '#3B82F6'
 
             tag = svc.criar(nome=nome, descricao=descricao, cor=cor)
 
@@ -136,12 +147,20 @@ def api_criar_tag():
     try:
         svc = get_tag_service()
         dados = request.json
-        nome = dados.get('nome', '').strip()
-        descricao = dados.get('descricao', '').strip()
-        cor = dados.get('cor', '#3B82F6')
+        if not dados:
+            return jsonify({"error": "Dados JSON obrigatórios"}), 400
+
+        # Validação e sanitização
+        nome = sanitizar_string(dados.get('nome'), max_length=50)
+        descricao = sanitizar_string(dados.get('descricao'), max_length=200)
+        cor = sanitizar_string(dados.get('cor', '#3B82F6'), max_length=7)
 
         if not nome:
             return jsonify({"error": "Nome da tag é obrigatório"}), 400
+
+        # Validar formato de cor hex
+        if not cor.startswith('#') or len(cor) != 7:
+            cor = '#3B82F6'
 
         tag = svc.criar(nome=nome, descricao=descricao, cor=cor)
 

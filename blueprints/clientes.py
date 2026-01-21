@@ -13,38 +13,15 @@ Rotas:
 
 from flask import Blueprint, request, jsonify
 from datetime import datetime, date, timedelta
-import re
+
+# Utilitários centralizados
+from utils import converter_municipios, sanitizar_string
 
 # Serviços ORM
 from services_compat import get_cliente_service
 
 # Blueprint
 clientes_bp = Blueprint('clientes', __name__)
-
-# =============================================================================
-# UTILITÁRIOS
-# =============================================================================
-
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
-
-# Regex para substituição de códigos de município
-MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
-
-
-def converter_municipios_rapido(texto):
-    """
-    Converte códigos de município para nomes em uma única passagem.
-    """
-    if not texto:
-        return texto
-    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
 
 
 # =============================================================================
@@ -115,9 +92,9 @@ def api_clientes():
         for cliente in clientes:
             cliente_dict = cliente.to_dict()
             if cliente_dict.get('cidade'):
-                cliente_dict['cidade'] = converter_municipios_rapido(cliente_dict['cidade'])
+                cliente_dict['cidade'] = converter_municipios(cliente_dict['cidade'])
             if cliente_dict.get('endereco_completo'):
-                cliente_dict['endereco_completo'] = converter_municipios_rapido(cliente_dict['endereco_completo'])
+                cliente_dict['endereco_completo'] = converter_municipios(cliente_dict['endereco_completo'])
             clientes_convertidos.append(cliente_dict)
 
         if page is not None and page > 0:
@@ -135,25 +112,29 @@ def api_clientes():
 
     # POST - Criar ou Atualizar
     dados = request.json
-    nome = dados.get('nome_fantasia', '').strip()
+    if not dados:
+        return jsonify({"error": "Dados JSON obrigatórios"}), 400
+
+    # Validação e sanitização de entrada
+    nome = sanitizar_string(dados.get('nome_fantasia', ''), max_length=200)
     if not nome:
-        return jsonify({"error": "Nome obrigatorio"}), 400
+        return jsonify({"error": "Nome obrigatório"}), 400
 
     try:
         cliente_id = dados.get('id')
 
-        # Prepara dados para o serviço
+        # Prepara dados para o serviço (sanitizados)
         dados_cliente = {
             'nome_fantasia': nome,
-            'razao_social': dados.get('razao_social'),
-            'cnpj': dados.get('cnpj'),
-            'cnae': dados.get('cnae'),
-            'rua': dados.get('rua'),
-            'numero': dados.get('numero'),
-            'bairro': dados.get('bairro'),
-            'cidade': dados.get('cidade'),
-            'uf': dados.get('uf'),
-            'telefone': dados.get('telefone'),
+            'razao_social': sanitizar_string(dados.get('razao_social'), max_length=200),
+            'cnpj': sanitizar_string(dados.get('cnpj'), max_length=20),
+            'cnae': sanitizar_string(dados.get('cnae'), max_length=20),
+            'rua': sanitizar_string(dados.get('rua'), max_length=200),
+            'numero': sanitizar_string(dados.get('numero'), max_length=20),
+            'bairro': sanitizar_string(dados.get('bairro'), max_length=100),
+            'cidade': sanitizar_string(dados.get('cidade'), max_length=100),
+            'uf': sanitizar_string(dados.get('uf'), max_length=2),
+            'telefone': sanitizar_string(dados.get('telefone'), max_length=20),
             'data_garantia': dados.get('data_garantia'),
             'periodo_garantia_meses': dados.get('periodo_garantia_meses', 12)
         }
