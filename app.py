@@ -5475,6 +5475,321 @@ def abrir_arquivo():
         print(f"Erro ao abrir arquivo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# ==================== EXPORTAÇÃO DE DOCUMENTOS ====================
+
+@app.route('/api/export/documentos/excel', methods=['POST'])
+def export_documentos_excel():
+    """Exporta documentos para Excel (CSV)"""
+    try:
+        dados = request.json
+        documentos = dados.get('documentos', [])
+        opcoes = dados.get('opcoes', {})
+
+        if not documentos:
+            return jsonify({"error": "Nenhum documento para exportar"}), 400
+
+        # Ordenar documentos
+        ordenar = opcoes.get('ordenar', 'data_desc')
+        if ordenar == 'data_desc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''), reverse=True)
+        elif ordenar == 'data_asc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''))
+        elif ordenar == 'cliente':
+            documentos.sort(key=lambda x: x.get('cliente_nome', ''))
+        elif ordenar == 'valor':
+            documentos.sort(key=lambda x: float(x.get('valor_total', 0) or 0), reverse=True)
+
+        # Criar CSV
+        import io
+        import csv
+
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=';')
+
+        # Cabeçalho
+        headers = ['Nome do Arquivo', 'Tipo', 'Cliente']
+        if opcoes.get('incluirCnpj', True):
+            headers.append('CNPJ')
+        if opcoes.get('incluirDatas', True):
+            headers.append('Data de Geração')
+        if opcoes.get('incluirValores', True):
+            headers.append('Valor')
+
+        writer.writerow(headers)
+
+        # Dados
+        for doc in documentos:
+            row = [
+                doc.get('nome_arquivo', ''),
+                doc.get('tipo_documento', ''),
+                doc.get('cliente_nome', '')
+            ]
+            if opcoes.get('incluirCnpj', True):
+                row.append(doc.get('cliente_cnpj', ''))
+            if opcoes.get('incluirDatas', True):
+                data = doc.get('data_geracao', '')
+                if data:
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(data.replace('Z', '+00:00'))
+                        data = dt.strftime('%d/%m/%Y %H:%M')
+                    except:
+                        pass
+                row.append(data)
+            if opcoes.get('incluirValores', True):
+                valor = doc.get('valor_total', 0) or 0
+                row.append(f"R$ {float(valor):,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'))
+
+            writer.writerow(row)
+
+        # Retornar arquivo
+        output.seek(0)
+        from flask import Response
+        return Response(
+            output.getvalue().encode('utf-8-sig'),  # BOM para Excel reconhecer UTF-8
+            mimetype='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename=documentos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            }
+        )
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/documentos/pdf', methods=['POST'])
+def export_documentos_pdf():
+    """Exporta documentos para PDF"""
+    try:
+        dados = request.json
+        documentos = dados.get('documentos', [])
+        opcoes = dados.get('opcoes', {})
+
+        if not documentos:
+            return jsonify({"error": "Nenhum documento para exportar"}), 400
+
+        # Ordenar documentos
+        ordenar = opcoes.get('ordenar', 'data_desc')
+        if ordenar == 'data_desc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''), reverse=True)
+        elif ordenar == 'data_asc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''))
+        elif ordenar == 'cliente':
+            documentos.sort(key=lambda x: x.get('cliente_nome', ''))
+        elif ordenar == 'valor':
+            documentos.sort(key=lambda x: float(x.get('valor_total', 0) or 0), reverse=True)
+
+        # Agrupar se necessário
+        agrupar = opcoes.get('agrupar', '')
+        grupos = {}
+
+        if agrupar == 'tipo':
+            for doc in documentos:
+                tipo = doc.get('tipo_documento', 'Outros')
+                if tipo not in grupos:
+                    grupos[tipo] = []
+                grupos[tipo].append(doc)
+        elif agrupar == 'cliente':
+            for doc in documentos:
+                cliente = doc.get('cliente_nome', 'Não informado')
+                if cliente not in grupos:
+                    grupos[cliente] = []
+                grupos[cliente].append(doc)
+        elif agrupar == 'mes':
+            for doc in documentos:
+                data = doc.get('data_geracao', '')
+                if data:
+                    try:
+                        mes = data[:7]  # YYYY-MM
+                    except:
+                        mes = 'Sem data'
+                else:
+                    mes = 'Sem data'
+                if mes not in grupos:
+                    grupos[mes] = []
+                grupos[mes].append(doc)
+        else:
+            grupos['Todos os Documentos'] = documentos
+
+        # Tentar usar ReportLab para PDF profissional
+        try:
+            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib import colors
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.units import cm
+            import io
+
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+
+            styles = getSampleStyleSheet()
+            titulo_style = ParagraphStyle(
+                'Titulo',
+                parent=styles['Heading1'],
+                fontSize=18,
+                textColor=colors.HexColor('#4F46E5'),
+                spaceAfter=20
+            )
+            subtitulo_style = ParagraphStyle(
+                'Subtitulo',
+                parent=styles['Heading2'],
+                fontSize=14,
+                textColor=colors.HexColor('#1F2937'),
+                spaceBefore=15,
+                spaceAfter=10
+            )
+
+            elements = []
+
+            # Título
+            elements.append(Paragraph(f"Relatório de Documentos", titulo_style))
+            elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", styles['Normal']))
+            elements.append(Paragraph(f"Total: {len(documentos)} documentos", styles['Normal']))
+            elements.append(Spacer(1, 20))
+
+            # Para cada grupo
+            for grupo_nome, grupo_docs in grupos.items():
+                if agrupar:
+                    elements.append(Paragraph(f"{grupo_nome} ({len(grupo_docs)} docs)", subtitulo_style))
+
+                # Cabeçalho da tabela
+                headers = ['Documento', 'Tipo', 'Cliente']
+                if opcoes.get('incluirCnpj', True):
+                    headers.append('CNPJ')
+                if opcoes.get('incluirDatas', True):
+                    headers.append('Data')
+
+                data_table = [headers]
+
+                for doc in grupo_docs:
+                    row = [
+                        doc.get('nome_arquivo', '')[:40] + ('...' if len(doc.get('nome_arquivo', '')) > 40 else ''),
+                        doc.get('tipo_documento', ''),
+                        doc.get('cliente_nome', '')[:25] + ('...' if len(doc.get('cliente_nome', '')) > 25 else '')
+                    ]
+                    if opcoes.get('incluirCnpj', True):
+                        row.append(doc.get('cliente_cnpj', '') or '-')
+                    if opcoes.get('incluirDatas', True):
+                        data_str = doc.get('data_geracao', '')
+                        if data_str:
+                            try:
+                                dt = datetime.fromisoformat(data_str.replace('Z', '+00:00'))
+                                data_str = dt.strftime('%d/%m/%Y')
+                            except:
+                                pass
+                        row.append(data_str or '-')
+                    data_table.append(row)
+
+                # Criar tabela
+                col_widths = [5*cm, 2.5*cm, 4*cm]
+                if opcoes.get('incluirCnpj', True):
+                    col_widths.append(3.5*cm)
+                if opcoes.get('incluirDatas', True):
+                    col_widths.append(2.5*cm)
+
+                table = Table(data_table, colWidths=col_widths)
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F3F4F6')]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+                ]))
+                elements.append(table)
+                elements.append(Spacer(1, 15))
+
+            doc.build(elements)
+            buffer.seek(0)
+
+            from flask import Response
+            return Response(
+                buffer.getvalue(),
+                mimetype='application/pdf',
+                headers={
+                    'Content-Disposition': f'attachment; filename=documentos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+                }
+            )
+
+        except ImportError:
+            # Fallback: gerar HTML que pode ser impresso como PDF
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Relatório de Documentos</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                    h1 {{ color: #4F46E5; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                    th {{ background: #4F46E5; color: white; padding: 10px; text-align: left; }}
+                    td {{ padding: 8px; border-bottom: 1px solid #ddd; }}
+                    tr:nth-child(even) {{ background: #f9f9f9; }}
+                    .info {{ color: #666; margin-bottom: 20px; }}
+                </style>
+            </head>
+            <body>
+                <h1>Relatório de Documentos</h1>
+                <p class="info">Gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')} | Total: {len(documentos)} documentos</p>
+            """
+
+            for grupo_nome, grupo_docs in grupos.items():
+                if agrupar:
+                    html += f"<h2>{grupo_nome} ({len(grupo_docs)} docs)</h2>"
+
+                html += "<table><tr><th>Documento</th><th>Tipo</th><th>Cliente</th>"
+                if opcoes.get('incluirCnpj', True):
+                    html += "<th>CNPJ</th>"
+                if opcoes.get('incluirDatas', True):
+                    html += "<th>Data</th>"
+                html += "</tr>"
+
+                for doc in grupo_docs:
+                    html += f"<tr><td>{doc.get('nome_arquivo', '')}</td>"
+                    html += f"<td>{doc.get('tipo_documento', '')}</td>"
+                    html += f"<td>{doc.get('cliente_nome', '')}</td>"
+                    if opcoes.get('incluirCnpj', True):
+                        html += f"<td>{doc.get('cliente_cnpj', '') or '-'}</td>"
+                    if opcoes.get('incluirDatas', True):
+                        data_str = doc.get('data_geracao', '')
+                        if data_str:
+                            try:
+                                dt = datetime.fromisoformat(data_str.replace('Z', '+00:00'))
+                                data_str = dt.strftime('%d/%m/%Y')
+                            except:
+                                pass
+                        html += f"<td>{data_str or '-'}</td>"
+                    html += "</tr>"
+
+                html += "</table>"
+
+            html += """
+                <script>window.print();</script>
+            </body>
+            </html>
+            """
+
+            return Response(
+                html,
+                mimetype='text/html',
+                headers={
+                    'Content-Disposition': f'inline; filename=documentos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.html'
+                }
+            )
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("  SISTEMA DE GESTAO DE DOCUMENTOS - ULTRA OTIMIZADO")
