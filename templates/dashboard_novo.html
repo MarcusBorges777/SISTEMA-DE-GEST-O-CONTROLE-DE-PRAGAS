@@ -355,24 +355,10 @@
                     <div>
                         <p class="text-sm text-gray-600 font-medium">Documentos Gerados</p>
                         <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-documentos">0</p>
-                        <p class="text-xs text-gray-500 mt-1">Este mês</p>
+                        <p class="text-xs text-gray-500 mt-1">Total no sistema</p>
                     </div>
                     <div class="bg-green-100 rounded-full p-3">
                         <i data-lucide="file-text" class="w-8 h-8 text-green-600"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card: Receita Mensal -->
-            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600 font-medium">Receita Estimada</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-receita">R$ 0</p>
-                        <p class="text-xs text-gray-500 mt-1">Este mês</p>
-                    </div>
-                    <div class="bg-purple-100 rounded-full p-3">
-                        <i data-lucide="dollar-sign" class="w-8 h-8 text-purple-600"></i>
                     </div>
                 </div>
             </div>
@@ -1980,13 +1966,10 @@ async function carregarEstatisticas() {
         document.getElementById('stat-clientes').textContent = dataClientes.length;
         document.getElementById('stat-ativos').textContent = dataClientes.length;
 
-        const responseDocs = await fetch('/api/documentos-gerados');
+        // Buscar total de documentos gerados
+        const responseDocs = await fetch('/api/documentos-gerados/total');
         const dataDocs = await responseDocs.json();
-        document.getElementById('stat-documentos').textContent = dataDocs.length;
-
-        // Calcular receita estimada (exemplo)
-        const receita = dataDocs.reduce((sum, doc) => sum + (doc.valor_total || 0), 0);
-        document.getElementById('stat-receita').textContent = `R$ ${receita.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('stat-documentos').textContent = dataDocs.total || 0;
     } catch (error) {
         console.error('Erro ao carregar estatísticas:', error);
     } finally {

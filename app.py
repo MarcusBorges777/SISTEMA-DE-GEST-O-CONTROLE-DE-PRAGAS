@@ -129,6 +129,15 @@ CNAES_PERMITIDOS = {}
 # ============================================
 #  OTIMIZAÇÃO: Cache de Municípios
 # ============================================
+# Mapeamento de códigos de municípios para nomes
+MUNICIPIOS = {
+    '4445': 'Divinópolis',
+    '5300': 'Belo Horizonte',
+    '4123': 'Juiz de Fora',
+    '5206': 'Uberlândia',
+    '4503': 'Contagem',
+}
+
 # Pré-compilar regex para substituição de códigos de município (50x mais rápido)
 MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
 
@@ -248,15 +257,6 @@ class SimpleCache:
 cache_api = SimpleCache(ttl=60)  # Cache de APIs - 1 minuto
 cache_queries = SimpleCache(ttl=300)  # Cache de queries - 5 minutos
 cache_tags = SimpleCache(ttl=600)  # Cache de tags - 10 minutos
-
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
 
 # Regex patterns compilados (otimização)
 REGEX_PATTERNS = {
@@ -2523,6 +2523,17 @@ def buscar_descricao_cnae(cnae_codigo):
             'erro': 'Erro ao buscar descrição do CNAE',
             'detalhes': str(e)
         }), 500
+
+
+@app.route('/api/documentos-gerados/total')
+def api_documentos_gerados_total():
+    """Retorna apenas o total de documentos gerados"""
+    conn = get_db()
+    if not tabela_existe('documentos_gerados'):
+        return jsonify({'total': 0})
+
+    total = conn.execute("SELECT COUNT(*) as total FROM documentos_gerados").fetchone()['total']
+    return jsonify({'total': total})
 
 
 @app.route('/api/documentos-gerados')
