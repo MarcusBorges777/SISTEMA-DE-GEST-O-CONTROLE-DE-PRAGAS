@@ -20,9 +20,10 @@ import secrets
 # Imports de terceiros
 from dateutil.relativedelta import relativedelta
 from docxtpl import DocxTemplate
-from flask import Flask, render_template, request, jsonify, send_file, g
+from flask import Flask, render_template, request, jsonify, send_file, g, redirect, url_for, flash
 import pdfplumber
 from werkzeug.utils import secure_filename
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import google.generativeai as genai
 from dotenv import load_dotenv
 import requests  # Para consulta de CNPJ na Receita Federal
@@ -46,6 +47,9 @@ from validators import (
 
 # Autocomplete de CNPJs da Receita Federal
 from autocomplete_api import AutocompleteAPI
+
+# Sistema de Autenticação
+import auth
 
 # Blueprint de Prospecção (Módulo Econodata)
 from blueprints.prospeccao import prospeccao_bp
@@ -91,6 +95,9 @@ app.config.update(
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / 'gestao_documentos.db'
+
+# Inicializar sistema de autenticação
+login_manager = auth.init_auth(app, str(DB_PATH))
 MODELOS_DIR = BASE_DIR / 'modelos'
 OUTPUT_DIR = BASE_DIR / 'output'
 CNAES_FILE = BASE_DIR / 'cnaes_permitidos.txt'
@@ -1481,36 +1488,16 @@ Seja específico e use os números reais do relatório."""
 
 @app.route('/')
 def index():
-    # Buscar estatísticas para o dashboard bonito
-    stats = {
-        'clientes': 0,
-        'empresas': 0,
-        'documentos': 0
-    }
-
-    try:
-        db = get_db()
-
-        # Contar clientes
-        stats['clientes'] = db.execute('SELECT COUNT(*) FROM clientes_web').fetchone()[0]
-
-        # Contar empresas da Receita Federal
-        cnpj_db = sqlite3.connect(str(CNPJ_DB_PATH))
-        stats['empresas'] = cnpj_db.execute('SELECT COUNT(*) FROM empresas').fetchone()[0]
-        cnpj_db.close()
-
-        # Contar documentos gerados
-        stats['documentos'] = db.execute('SELECT COUNT(*) FROM documentos_gerados').fetchone()[0]
-    except Exception as e:
-        print(f"Erro ao buscar estatísticas: {e}")
-
-    return render_template('index.html', stats=stats)
+    """Redireciona para dashboard (que requer login)"""
+    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
     return render_template('dashboard_novo.html')
 
 @app.route('/dashboard-antigo')
+@login_required
 def dashboard_antigo():
     return render_template('dashboard.html')
 
@@ -6167,10 +6154,138 @@ def abrir_arquivo():
         print(f"Erro ao abrir arquivo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+# ============================================
+#  ROTAS DE AUTENTICAÇÃO
+# ============================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Página de login"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        senha = request.form.get('senha', '')
+
+        if not email or not senha:
+            flash('Preencha todos os campos', 'error')
+            return render_template('login.html')
+
+        sucesso, usuario, mensagem = auth.fazer_login(str(DB_PATH), email, senha)
+
+        if sucesso:
+            login_user(usuario, remember=request.form.get('lembrar') == 'on')
+            next_page = request.args.get('next')
+            flash(mensagem, 'success')
+            return redirect(next_page or url_for('dashboard'))
+        else:
+            flash(mensagem, 'error')
+
+    return render_template('login.html')
+
+
+@app.route('/registrar', methods=['GET', 'POST'])
+def registrar():
+    """Página de registro"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip()
+        senha = request.form.get('senha', '')
+        confirmar_senha = request.form.get('confirmar_senha', '')
+
+        if not all([nome, email, senha, confirmar_senha]):
+            flash('Preencha todos os campos', 'error')
+            return render_template('registrar.html')
+
+        if senha != confirmar_senha:
+            flash('As senhas não coincidem', 'error')
+            return render_template('registrar.html')
+
+        sucesso, mensagem = auth.registrar_usuario(str(DB_PATH), nome, email, senha)
+
+        if sucesso:
+            flash(mensagem + ' Você já pode fazer login!', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash(mensagem, 'error')
+
+    return render_template('registrar.html')
+
+
+@app.route('/recuperar-senha', methods=['GET', 'POST'])
+def recuperar_senha():
+    """Solicita recuperação de senha"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+
+        if not email:
+            flash('Digite seu email', 'error')
+            return render_template('recuperar_senha.html')
+
+        sucesso, mensagem = auth.solicitar_reset_senha(str(DB_PATH), app, email)
+        flash(mensagem, 'success' if sucesso else 'error')
+
+        if sucesso:
+            return redirect(url_for('login'))
+
+    return render_template('recuperar_senha.html')
+
+
+@app.route('/resetar-senha/<token>', methods=['GET', 'POST'])
+def resetar_senha(token):
+    """Redefine senha usando token"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        senha = request.form.get('senha', '')
+        confirmar_senha = request.form.get('confirmar_senha', '')
+
+        if not senha or not confirmar_senha:
+            flash('Preencha todos os campos', 'error')
+            return render_template('resetar_senha.html', token=token)
+
+        if senha != confirmar_senha:
+            flash('As senhas não coincidem', 'error')
+            return render_template('resetar_senha.html', token=token)
+
+        sucesso, mensagem = auth.resetar_senha(str(DB_PATH), app, token, senha)
+
+        if sucesso:
+            flash(mensagem + ' Você já pode fazer login!', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash(mensagem, 'error')
+
+    return render_template('resetar_senha.html', token=token)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Faz logout do usuário"""
+    logout_user()
+    flash('Você saiu do sistema', 'success')
+    return redirect(url_for('login'))
+
+
 if __name__ == '__main__':
+    # Criar usuário admin na primeira execução
+    try:
+        auth.criar_usuario_admin(str(DB_PATH))
+    except Exception as e:
+        print(f"[INFO] Admin já existe ou erro: {e}")
     print("\n" + "="*70)
     print("  SISTEMA DE GESTAO DE DOCUMENTOS - ULTRA OTIMIZADO")
-    print("  ACESSO DIRETO - SEM LOGIN - SEM SENHA")
+    print("  COM SISTEMA DE AUTENTICACAO SEGURO")
     print("="*70)
     print("\n  OTIMIZACOES ATIVAS:")
     print("     - SQLite com WAL mode e cache de 64MB")

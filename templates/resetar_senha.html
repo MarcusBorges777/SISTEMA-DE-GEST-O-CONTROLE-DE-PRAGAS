@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinir Senha - Sistema de Gestão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .input-focus:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .password-strength {
+            height: 4px;
+            transition: all 0.3s;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+
+    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6">
+
+        <!-- Logo e Título -->
+        <div class="text-center">
+            <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <i data-lucide="lock-keyhole" class="w-8 h-8 text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900">Redefinir Senha</h1>
+            <p class="text-gray-600 mt-2">Digite sua nova senha</p>
+        </div>
+
+        <!-- Mensagens Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="rounded-lg p-4 {% if category == 'error' or category == 'danger' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                        <div class="flex items-center">
+                            <i data-lucide="{% if category == 'error' or category == 'danger' %}alert-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}alert-triangle{% else %}info{% endif %}" class="w-5 h-5 mr-2"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Formulário -->
+        <form method="POST" action="{{ url_for('resetar_senha', token=token) }}" class="space-y-5" id="form-reset">
+
+            <!-- Nova Senha -->
+            <div>
+                <label for="senha" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i data-lucide="lock" class="w-4 h-4 inline mr-1"></i>
+                    Nova Senha
+                </label>
+                <div class="relative">
+                    <input
+                        type="password"
+                        id="senha"
+                        name="senha"
+                        required
+                        minlength="8"
+                        autocomplete="new-password"
+                        oninput="verificarForcaSenha()"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all outline-none pr-12"
+                        placeholder="••••••••"
+                    >
+                    <button
+                        type="button"
+                        onclick="toggleSenha('senha', 'toggle-icon-1')"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                        <i data-lucide="eye" id="toggle-icon-1" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <!-- Barra de força da senha -->
+                <div class="mt-2 w-full bg-gray-200 rounded-full password-strength">
+                    <div id="senha-forca" class="password-strength rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="senha-feedback" class="text-xs text-gray-600 mt-1"></p>
+            </div>
+
+            <!-- Confirmar Senha -->
+            <div>
+                <label for="confirmar_senha" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i data-lucide="lock-keyhole" class="w-4 h-4 inline mr-1"></i>
+                    Confirmar Nova Senha
+                </label>
+                <div class="relative">
+                    <input
+                        type="password"
+                        id="confirmar_senha"
+                        name="confirmar_senha"
+                        required
+                        minlength="8"
+                        autocomplete="new-password"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all outline-none pr-12"
+                        placeholder="••••••••"
+                    >
+                    <button
+                        type="button"
+                        onclick="toggleSenha('confirmar_senha', 'toggle-icon-2')"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                        <i data-lucide="eye" id="toggle-icon-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Requisitos da senha -->
+            <div class="bg-gray-50 rounded-lg p-4 text-xs">
+                <p class="font-semibold text-gray-700 mb-2">A senha deve conter:</p>
+                <ul class="space-y-1 text-gray-600">
+                    <li id="req-length" class="flex items-center">
+                        <i data-lucide="circle" class="w-3 h-3 mr-2"></i>
+                        Mínimo 8 caracteres
+                    </li>
+                    <li id="req-uppercase" class="flex items-center">
+                        <i data-lucide="circle" class="w-3 h-3 mr-2"></i>
+                        Uma letra maiúscula
+                    </li>
+                    <li id="req-lowercase" class="flex items-center">
+                        <i data-lucide="circle" class="w-3 h-3 mr-2"></i>
+                        Uma letra minúscula
+                    </li>
+                    <li id="req-number" class="flex items-center">
+                        <i data-lucide="circle" class="w-3 h-3 mr-2"></i>
+                        Um número
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Botão Redefinir -->
+            <button
+                type="submit"
+                class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+            >
+                <i data-lucide="check" class="w-5 h-5 inline mr-2"></i>
+                Redefinir Senha
+            </button>
+        </form>
+
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        lucide.createIcons();
+
+        function toggleSenha(inputId, iconId) {
+            const senhaInput = document.getElementById(inputId);
+            const toggleIcon = document.getElementById(iconId);
+
+            if (senhaInput.type === 'password') {
+                senhaInput.type = 'text';
+                toggleIcon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                senhaInput.type = 'password';
+                toggleIcon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        function verificarForcaSenha() {
+            const senha = document.getElementById('senha').value;
+            const forcaBarra = document.getElementById('senha-forca');
+            const feedback = document.getElementById('senha-feedback');
+
+            let forca = 0;
+            let mensagem = '';
+            let cor = '';
+
+            const temLength = senha.length >= 8;
+            const temUppercase = /[A-Z]/.test(senha);
+            const temLowercase = /[a-z]/.test(senha);
+            const temNumber = /\d/.test(senha);
+
+            document.getElementById('req-length').innerHTML = temLength
+                ? '<i data-lucide="check-circle" class="w-3 h-3 mr-2 text-green-600"></i>Mínimo 8 caracteres'
+                : '<i data-lucide="circle" class="w-3 h-3 mr-2"></i>Mínimo 8 caracteres';
+
+            document.getElementById('req-uppercase').innerHTML = temUppercase
+                ? '<i data-lucide="check-circle" class="w-3 h-3 mr-2 text-green-600"></i>Uma letra maiúscula'
+                : '<i data-lucide="circle" class="w-3 h-3 mr-2"></i>Uma letra maiúscula';
+
+            document.getElementById('req-lowercase').innerHTML = temLowercase
+                ? '<i data-lucide="check-circle" class="w-3 h-3 mr-2 text-green-600"></i>Uma letra minúscula'
+                : '<i data-lucide="circle" class="w-3 h-3 mr-2"></i>Uma letra minúscula';
+
+            document.getElementById('req-number').innerHTML = temNumber
+                ? '<i data-lucide="check-circle" class="w-3 h-3 mr-2 text-green-600"></i>Um número'
+                : '<i data-lucide="circle" class="w-3 h-3 mr-2"></i>Um número';
+
+            lucide.createIcons();
+
+            if (temLength) forca += 25;
+            if (temUppercase) forca += 25;
+            if (temLowercase) forca += 25;
+            if (temNumber) forca += 25;
+
+            if (forca === 0) {
+                cor = '#e5e7eb';
+                mensagem = '';
+            } else if (forca <= 25) {
+                cor = '#ef4444';
+                mensagem = 'Senha muito fraca';
+            } else if (forca <= 50) {
+                cor = '#f59e0b';
+                mensagem = 'Senha fraca';
+            } else if (forca <= 75) {
+                cor = '#eab308';
+                mensagem = 'Senha média';
+            } else {
+                cor = '#22c55e';
+                mensagem = 'Senha forte';
+            }
+
+            forcaBarra.style.width = forca + '%';
+            forcaBarra.style.backgroundColor = cor;
+            feedback.textContent = mensagem;
+            feedback.style.color = cor;
+        }
+
+        document.getElementById('form-reset').addEventListener('submit', function(e) {
+            const senha = document.getElementById('senha').value;
+            const confirmarSenha = document.getElementById('confirmar_senha').value;
+
+            if (senha !== confirmarSenha) {
+                e.preventDefault();
+                alert('As senhas não coincidem!');
+                return false;
+            }
+        });
+
+        document.getElementById('senha').focus();
+    </script>
+
+</body>
+</html>

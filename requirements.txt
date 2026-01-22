@@ -6,3 +6,6 @@ docxtpl
 Werkzeug
 google-generativeai
 python-dotenv==1.0.0
+flask-login
+flask-mail
+mammoth
