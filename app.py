@@ -2514,13 +2514,20 @@ def buscar_descricao_cnae(cnae_codigo):
 
 @app.route('/api/documentos-gerados/total')
 def api_documentos_gerados_total():
-    """Retorna apenas o total de documentos gerados"""
-    conn = get_db()
-    if not tabela_existe('documentos_gerados'):
-        return jsonify({'total': 0})
+    """Retorna o total de documentos .docx reais na pasta documentos"""
+    try:
+        # Contar arquivos .docx reais na pasta documentos
+        documentos_dir = OUTPUT_DIR / 'documentos'
+        total = 0
 
-    total = conn.execute("SELECT COUNT(*) as total FROM documentos_gerados").fetchone()['total']
-    return jsonify({'total': total})
+        if documentos_dir.exists():
+            # Contar apenas arquivos .docx
+            total = len([f for f in documentos_dir.glob('*.docx') if f.is_file()])
+
+        return jsonify({'total': total})
+    except Exception as e:
+        print(f"Erro ao contar documentos: {e}")
+        return jsonify({'total': 0})
 
 
 @app.route('/api/documentos-gerados')
