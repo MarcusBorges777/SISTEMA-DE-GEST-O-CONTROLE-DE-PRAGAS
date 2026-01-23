@@ -68,8 +68,8 @@ def init_auth(app, db_path):
                 nome=user_data['nome'],
                 email=user_data['email'],
                 ativo=user_data['ativo'],
-                aprovado=user_data.get('aprovado', 0),
-                is_admin=user_data.get('is_admin', 0)
+                aprovado=user_data['aprovado'],
+                is_admin=user_data['is_admin']
             )
         return None
 
@@ -194,7 +194,7 @@ def fazer_login(db_path, email, senha):
             return False, None, "Email ou senha incorretos"
 
         # Verificar se o cadastro foi aprovado (admin sempre aprovado)
-        if not user_data.get('aprovado', 0) and not user_data.get('is_admin', 0):
+        if not user_data['aprovado'] and not user_data['is_admin']:
             registrar_log_autenticacao(cursor, user_data['id'], 'falha_login',
                                       request.remote_addr if request else None,
                                       request.user_agent.string if request else None,
@@ -262,8 +262,8 @@ def fazer_login(db_path, email, senha):
             nome=user_data['nome'],
             email=user_data['email'],
             ativo=user_data['ativo'],
-            aprovado=user_data.get('aprovado', 0),
-            is_admin=user_data.get('is_admin', 0)
+            aprovado=user_data['aprovado'],
+            is_admin=user_data['is_admin']
         )
 
         return True, usuario, "Login realizado com sucesso!"
