@@ -5,12 +5,17 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email TEXT UNIQUE NOT NULL,
     senha_hash TEXT NOT NULL,
     ativo BOOLEAN DEFAULT 1,
+    aprovado BOOLEAN DEFAULT 0,
+    is_admin BOOLEAN DEFAULT 0,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_ultimo_acesso TIMESTAMP,
+    data_aprovacao TIMESTAMP,
+    aprovado_por INTEGER,
     reset_token TEXT,
     reset_token_expira TIMESTAMP,
     tentativas_login INTEGER DEFAULT 0,
-    bloqueado_ate TIMESTAMP
+    bloqueado_ate TIMESTAMP,
+    FOREIGN KEY (aprovado_por) REFERENCES usuarios(id)
 );
 
 -- Índices para performance

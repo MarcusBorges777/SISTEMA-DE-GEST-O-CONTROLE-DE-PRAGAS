@@ -6156,6 +6156,75 @@ def abrir_arquivo():
 
 
 # ============================================
+#  DECORATOR PARA VERIFICAR SE É ADMIN
+# ============================================
+
+def admin_required(f):
+    """Decorator para proteger rotas que só admins podem acessar"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Por favor, faça login para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+
+        if not current_user.is_admin:
+            flash('Acesso negado. Apenas administradores podem acessar esta página.', 'danger')
+            return redirect(url_for('dashboard'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# ============================================
+#  ROTAS DE ADMINISTRAÇÃO
+# ============================================
+
+@app.route('/admin/usuarios')
+@admin_required
+def admin_usuarios():
+    """Página de gerenciamento de usuários (apenas admin)"""
+    usuarios = auth.listar_todos_usuarios(str(DB_PATH))
+    pendentes = auth.listar_usuarios_pendentes(str(DB_PATH))
+    return render_template('admin_usuarios.html', usuarios=usuarios, pendentes=pendentes)
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/aprovar', methods=['POST'])
+@admin_required
+def aprovar_usuario(usuario_id):
+    """Aprovar cadastro de usuário"""
+    sucesso, mensagem = auth.aprovar_usuario(str(DB_PATH), usuario_id, current_user.id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/rejeitar', methods=['POST'])
+@admin_required
+def rejeitar_usuario(usuario_id):
+    """Rejeitar cadastro de usuário"""
+    sucesso, mensagem = auth.rejeitar_usuario(str(DB_PATH), usuario_id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/desativar', methods=['POST'])
+@admin_required
+def desativar_usuario(usuario_id):
+    """Desativar usuário"""
+    sucesso, mensagem = auth.desativar_usuario(str(DB_PATH), usuario_id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/ativar', methods=['POST'])
+@admin_required
+def ativar_usuario(usuario_id):
+    """Reativar usuário"""
+    sucesso, mensagem = auth.ativar_usuario(str(DB_PATH), usuario_id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+# ============================================
 #  ROTAS DE AUTENTICAÇÃO
 # ============================================
 

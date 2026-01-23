@@ -22,18 +22,20 @@ TOKEN_EXPIRACAO_HORAS = 24
 class Usuario(UserMixin):
     """Modelo de Usuário para Flask-Login"""
 
-    def __init__(self, id, nome, email, ativo=True):
+    def __init__(self, id, nome, email, ativo=True, aprovado=False, is_admin=False):
         self.id = id
         self.nome = nome
         self.email = email
         self.ativo = ativo
+        self.aprovado = aprovado
+        self.is_admin = is_admin
 
     def get_id(self):
         return str(self.id)
 
     @property
     def is_active(self):
-        return self.ativo
+        return self.ativo and self.aprovado
 
 
 def init_auth(app, db_path):
@@ -65,7 +67,9 @@ def init_auth(app, db_path):
                 id=user_data['id'],
                 nome=user_data['nome'],
                 email=user_data['email'],
-                ativo=user_data['ativo']
+                ativo=user_data['ativo'],
+                aprovado=user_data.get('aprovado', 0),
+                is_admin=user_data.get('is_admin', 0)
             )
         return None
 
@@ -145,10 +149,10 @@ def registrar_usuario(db_path, nome, email, senha):
         # Criar hash da senha
         senha_hash = generate_password_hash(senha, method='pbkdf2:sha256')
 
-        # Inserir usuário
+        # Inserir usuário (não aprovado por padrão)
         cursor.execute('''
-            INSERT INTO usuarios (nome, email, senha_hash, ativo)
-            VALUES (?, ?, ?, 1)
+            INSERT INTO usuarios (nome, email, senha_hash, ativo, aprovado, is_admin)
+            VALUES (?, ?, ?, 1, 0, 0)
         ''', (nome, email.lower(), senha_hash))
 
         user_id = cursor.lastrowid
@@ -157,10 +161,10 @@ def registrar_usuario(db_path, nome, email, senha):
         registrar_log_autenticacao(cursor, user_id, 'registro',
                                    request.remote_addr if request else None,
                                    request.user_agent.string if request else None,
-                                   True, f"Usuário {nome} registrado com sucesso")
+                                   True, f"Usuário {nome} registrado - aguardando aprovação")
 
         conn.commit()
-        return True, "Usuário cadastrado com sucesso!"
+        return True, "Cadastro realizado! Aguarde a aprovação do administrador para acessar o sistema."
 
     except Exception as e:
         conn.rollback()
@@ -188,6 +192,15 @@ def fazer_login(db_path, email, senha):
                                       False, f"Email não encontrado: {email}")
             conn.commit()
             return False, None, "Email ou senha incorretos"
+
+        # Verificar se o cadastro foi aprovado (admin sempre aprovado)
+        if not user_data.get('aprovado', 0) and not user_data.get('is_admin', 0):
+            registrar_log_autenticacao(cursor, user_data['id'], 'falha_login',
+                                      request.remote_addr if request else None,
+                                      request.user_agent.string if request else None,
+                                      False, "Tentativa de login - cadastro pendente de aprovação")
+            conn.commit()
+            return False, None, "Seu cadastro ainda não foi aprovado pelo administrador. Por favor, aguarde."
 
         # Verificar se está bloqueado
         if user_data['bloqueado_ate']:
@@ -248,7 +261,9 @@ def fazer_login(db_path, email, senha):
             id=user_data['id'],
             nome=user_data['nome'],
             email=user_data['email'],
-            ativo=user_data['ativo']
+            ativo=user_data['ativo'],
+            aprovado=user_data.get('aprovado', 0),
+            is_admin=user_data.get('is_admin', 0)
         )
 
         return True, usuario, "Login realizado com sucesso!"
@@ -405,10 +420,214 @@ def login_required(f):
 
 def criar_usuario_admin(db_path, nome="Administrador", email="admin@sistema.com", senha="Admin@123"):
     """Cria usuário administrador padrão (use apenas na primeira execução)"""
-    sucesso, mensagem = registrar_usuario(db_path, nome, email, senha)
-    if sucesso:
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Verificar se email já existe
+        cursor.execute('SELECT id FROM usuarios WHERE email = ?', (email.lower(),))
+        if cursor.fetchone():
+            print(f"[INFO] Admin já existe: {email}")
+            return False
+
+        # Criar hash da senha
+        senha_hash = generate_password_hash(senha, method='pbkdf2:sha256')
+
+        # Inserir admin (aprovado e com privilégios de admin)
+        cursor.execute('''
+            INSERT INTO usuarios (nome, email, senha_hash, ativo, aprovado, is_admin)
+            VALUES (?, ?, ?, 1, 1, 1)
+        ''', (nome, email.lower(), senha_hash))
+
+        conn.commit()
         print(f"[OK] Usuário admin criado: {email} / {senha}")
         print("[IMPORTANTE] Altere a senha após o primeiro login!")
-    else:
-        print(f"[INFO] {mensagem}")
-    return sucesso
+        return True
+
+    except Exception as e:
+        conn.rollback()
+        print(f"[ERRO] Erro ao criar admin: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ============================================
+#  GERENCIAMENTO DE USUÁRIOS (ADMIN)
+# ============================================
+
+def listar_usuarios_pendentes(db_path):
+    """Lista todos os usuários aguardando aprovação"""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT id, nome, email, data_criacao
+            FROM usuarios
+            WHERE aprovado = 0 AND is_admin = 0 AND ativo = 1
+            ORDER BY data_criacao ASC
+        ''')
+
+        usuarios = [dict(row) for row in cursor.fetchall()]
+        return usuarios
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao listar usuários pendentes: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def listar_todos_usuarios(db_path):
+    """Lista todos os usuários do sistema"""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT id, nome, email, ativo, aprovado, is_admin, 
+                   data_criacao, data_ultimo_acesso, data_aprovacao
+            FROM usuarios
+            ORDER BY is_admin DESC, aprovado DESC, data_criacao DESC
+        ''')
+
+        usuarios = [dict(row) for row in cursor.fetchall()]
+        return usuarios
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao listar usuários: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def aprovar_usuario(db_path, usuario_id, aprovado_por_id):
+    """Aprova um usuário pendente"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Verificar se usuário existe e está pendente
+        cursor.execute('SELECT nome, email FROM usuarios WHERE id = ? AND aprovado = 0', (usuario_id,))
+        user_data = cursor.fetchone()
+
+        if not user_data:
+            return False, "Usuário não encontrado ou já aprovado"
+
+        # Aprovar usuário
+        cursor.execute('''
+            UPDATE usuarios
+            SET aprovado = 1, data_aprovacao = CURRENT_TIMESTAMP, aprovado_por = ?
+            WHERE id = ?
+        ''', (aprovado_por_id, usuario_id))
+
+        # Registrar log
+        registrar_log_autenticacao(cursor, usuario_id, 'aprovacao',
+                                  request.remote_addr if request else None,
+                                  request.user_agent.string if request else None,
+                                  True, f"Usuário aprovado por admin ID {aprovado_por_id}")
+
+        conn.commit()
+        return True, f"Usuário {user_data[0]} ({user_data[1]}) aprovado com sucesso!"
+
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erro ao aprovar usuário: {str(e)}"
+    finally:
+        conn.close()
+
+
+def rejeitar_usuario(db_path, usuario_id):
+    """Rejeita e remove um usuário pendente"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Verificar se usuário existe e está pendente
+        cursor.execute('SELECT nome, email FROM usuarios WHERE id = ? AND aprovado = 0', (usuario_id,))
+        user_data = cursor.fetchone()
+
+        if not user_data:
+            return False, "Usuário não encontrado ou já processado"
+
+        # Registrar log antes de deletar
+        registrar_log_autenticacao(cursor, usuario_id, 'rejeicao',
+                                  request.remote_addr if request else None,
+                                  request.user_agent.string if request else None,
+                                  True, "Cadastro rejeitado pelo administrador")
+
+        # Deletar usuário
+        cursor.execute('DELETE FROM usuarios WHERE id = ?', (usuario_id,))
+
+        conn.commit()
+        return True, f"Cadastro de {user_data[0]} ({user_data[1]}) foi rejeitado"
+
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erro ao rejeitar usuário: {str(e)}"
+    finally:
+        conn.close()
+
+
+def desativar_usuario(db_path, usuario_id):
+    """Desativa um usuário (não pode mais fazer login)"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('SELECT nome, email, is_admin FROM usuarios WHERE id = ?', (usuario_id,))
+        user_data = cursor.fetchone()
+
+        if not user_data:
+            return False, "Usuário não encontrado"
+
+        if user_data[2]:  # is_admin
+            return False, "Não é possível desativar um administrador"
+
+        cursor.execute('UPDATE usuarios SET ativo = 0 WHERE id = ?', (usuario_id,))
+
+        registrar_log_autenticacao(cursor, usuario_id, 'desativacao',
+                                  request.remote_addr if request else None,
+                                  request.user_agent.string if request else None,
+                                  True, "Usuário desativado pelo administrador")
+
+        conn.commit()
+        return True, f"Usuário {user_data[0]} desativado"
+
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erro ao desativar usuário: {str(e)}"
+    finally:
+        conn.close()
+
+
+def ativar_usuario(db_path, usuario_id):
+    """Reativa um usuário desativado"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('SELECT nome, email FROM usuarios WHERE id = ?', (usuario_id,))
+        user_data = cursor.fetchone()
+
+        if not user_data:
+            return False, "Usuário não encontrado"
+
+        cursor.execute('UPDATE usuarios SET ativo = 1 WHERE id = ?', (usuario_id,))
+
+        registrar_log_autenticacao(cursor, usuario_id, 'ativacao',
+                                  request.remote_addr if request else None,
+                                  request.user_agent.string if request else None,
+                                  True, "Usuário reativado pelo administrador")
+
+        conn.commit()
+        return True, f"Usuário {user_data[0]} reativado"
+
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erro ao ativar usuário: {str(e)}"
+    finally:
+        conn.close()
