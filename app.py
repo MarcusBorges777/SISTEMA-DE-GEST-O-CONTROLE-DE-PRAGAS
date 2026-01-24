@@ -1721,7 +1721,6 @@ def api_garantias_vencimentos():
                 razao_social,
                 cnpj,
                 telefone,
-                email,
                 cidade,
                 data_garantia,
                 COALESCE(periodo_garantia_meses, 12) as periodo_meses,
