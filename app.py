@@ -3207,7 +3207,298 @@ def visualizar_arquivo(filename):
 
 @app.route('/api/visualizar-documento/<path:filename>')
 def visualizar_documento_html(filename):
-    """Converte documento DOCX para PDF e exibe no navegador (com cache)"""
+    """Exibe documento DOCX como PDF no navegador usando PDF.js (mantém formatação original)"""
+    try:
+        # Criar página HTML com PDF.js viewer
+        html_page = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{filename}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }}
+        .header {{
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }}
+        .header h1 {{
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .actions {{
+            display: flex;
+            gap: 8px;
+        }}
+        .btn {{
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .btn-primary {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }}
+        .btn-primary:hover {{
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }}
+        .btn-secondary {{
+            background: #f3f4f6;
+            color: #374151;
+        }}
+        .btn-secondary:hover {{
+            background: #e5e7eb;
+        }}
+        .loading {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+        }}
+        .spinner {{
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }}
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
+        #pdf-container {{
+            flex: 1;
+            background: white;
+            margin: 10px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            position: relative;
+        }}
+        iframe {{
+            width: 100%;
+            height: 100%;
+            border: none;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span>📄</span>
+            <span id="doc-name">{filename}</span>
+        </h1>
+        <div class="actions">
+            <a href="/api/download/{filename}" class="btn btn-secondary" download>
+                ⬇️ Download DOCX
+            </a>
+            <a href="/api/pdf-cache/{filename}" class="btn btn-secondary" download>
+                📥 Download PDF
+            </a>
+            <button onclick="window.close()" class="btn btn-primary">
+                ✖️ Fechar
+            </button>
+        </div>
+    </div>
+
+    <div id="pdf-container">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="font-size: 18px; font-weight: 600;">Preparando documento...</p>
+            <p style="font-size: 14px; opacity: 0.9; margin-top: 8px;">Convertendo para PDF</p>
+        </div>
+    </div>
+
+    <script>
+        // Iniciar conversão e carregamento
+        async function carregarDocumento() {{
+            try {{
+                // Primeiro, solicitar o PDF (isso vai criar/usar cache)
+                const pdfUrl = '/api/pdf-direto/{filename}';
+
+                // Aguardar PDF estar pronto
+                const response = await fetch(pdfUrl);
+
+                if (!response.ok) {{
+                    throw new Error('Erro ao gerar PDF');
+                }}
+
+                // PDF está pronto! Carregar usando Google Docs Viewer (funciona offline)
+                const iframe = document.createElement('iframe');
+                iframe.src = pdfUrl;
+
+                // Remover loading e adicionar iframe
+                document.getElementById('loading').remove();
+                document.getElementById('pdf-container').appendChild(iframe);
+
+            }} catch (error) {{
+                console.error('Erro:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div style="color: white;">
+                        <p style="font-size: 24px; margin-bottom: 10px;">❌</p>
+                        <p style="font-size: 18px; font-weight: 600;">Erro ao carregar documento</p>
+                        <p style="font-size: 14px; opacity: 0.9; margin-top: 8px;">${{error.message}}</p>
+                        <button onclick="window.close()" class="btn btn-primary" style="margin-top: 20px;">
+                            Fechar
+                        </button>
+                    </div>
+                `;
+            }}
+        }}
+
+        // Iniciar ao carregar página
+        carregarDocumento();
+    </script>
+</body>
+</html>
+"""
+        return html_page
+
+    except Exception as e:
+        print(f"[ERRO] Ao visualizar documento: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Erro ao visualizar documento: {str(e)}"}), 500
+
+
+@app.route('/api/pdf-direto/<path:filename>')
+def pdf_direto(filename):
+    """Retorna PDF diretamente (converte se necessário, usa cache)"""
+    try:
+        import time
+        import os
+
+        caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+
+        if not caminho_arquivo:
+            return jsonify({"error": "Arquivo não encontrado"}), 404
+
+        # Verificar se é um arquivo DOCX
+        if not filename.lower().endswith('.docx'):
+            return jsonify({"error": "Apenas arquivos DOCX podem ser visualizados"}), 400
+
+        # Criar diretório de cache para PDFs
+        cache_dir = OUTPUT_DIR / 'cache_pdf'
+        cache_dir.mkdir(exist_ok=True)
+
+        # Nome base sem extensão para evitar problemas com múltiplos pontos
+        base_name = os.path.splitext(filename)[0]
+        pdf_filename = f"{base_name}.pdf"
+        pdf_path = cache_dir / pdf_filename
+
+        # Verificar se o PDF já existe no cache E está atualizado
+        converter_novamente = True
+        if pdf_path.exists():
+            # Verificar se o DOCX foi modificado após o PDF ser criado
+            docx_mtime = os.path.getmtime(str(caminho_arquivo))
+            pdf_mtime = os.path.getmtime(str(pdf_path))
+            if pdf_mtime >= docx_mtime:
+                print(f"[CACHE] Usando PDF em cache: {pdf_filename}")
+                converter_novamente = False
+
+        # Converter DOCX para PDF se necessário
+        if converter_novamente:
+            try:
+                # Tentar importar docx2pdf
+                from docx2pdf import convert
+
+                print(f"[INFO] Convertendo {filename} para PDF...")
+                start = time.time()
+                convert(str(caminho_arquivo), str(pdf_path))
+
+                # Aguardar conversão finalizar (com timeout reduzido)
+                timeout = 15
+                start_time = time.time()
+                while not pdf_path.exists() and (time.time() - start_time) < timeout:
+                    time.sleep(0.2)
+
+                if not pdf_path.exists():
+                    raise Exception("PDF não foi criado após conversão")
+
+                elapsed = time.time() - start
+                print(f"[OK] PDF criado em {elapsed:.2f}s: {pdf_filename}")
+
+            except ImportError:
+                print(f"[AVISO] docx2pdf não instalado. Fazendo download direto do DOCX.")
+                # Se docx2pdf não estiver instalado, fazer download ao invés de visualizar
+                return send_file(str(caminho_arquivo), as_attachment=True, download_name=filename)
+
+            except Exception as conv_error:
+                print(f"[ERRO] Ao converter DOCX para PDF: {conv_error}")
+                traceback.print_exc()
+
+                # Fallback: fazer download do DOCX ao invés de tentar visualizar
+                print(f"[FALLBACK] Iniciando download do arquivo DOCX original")
+                return send_file(str(caminho_arquivo), as_attachment=True, download_name=filename)
+
+        # Enviar o PDF para visualização no navegador
+        return send_file(
+            str(pdf_path),
+            mimetype='application/pdf',
+            as_attachment=False,
+            download_name=pdf_filename
+        )
+
+    except Exception as e:
+        print(f"[ERRO] Ao gerar PDF: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Erro ao gerar PDF: {str(e)}"}), 500
+
+
+@app.route('/api/pdf-cache/<path:filename>')
+def download_pdf_cache(filename):
+    """Download do PDF em cache"""
+    try:
+        cache_dir = OUTPUT_DIR / 'cache_pdf'
+        base_name = os.path.splitext(filename)[0]
+        pdf_filename = f"{base_name}.pdf"
+        pdf_path = cache_dir / pdf_filename
+
+        if pdf_path.exists():
+            return send_file(str(pdf_path), as_attachment=True, download_name=pdf_filename)
+        else:
+            return jsonify({"error": "PDF não encontrado em cache"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/visualizar-html/<path:filename>')
+def visualizar_documento_html_rapido(filename):
+    """Converte DOCX para HTML instantaneamente usando mammoth (RÁPIDO mas perde formatação!)"""
     try:
         import time
         import os

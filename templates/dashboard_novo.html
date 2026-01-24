@@ -3412,15 +3412,24 @@ function irParaDocumentosCliente(nomeCliente) {
 // ============================================
 
 // Excluir documento
-// Função para visualizar documento online (RÁPIDO - usa HTML ao invés de PDF)
+// Função para visualizar documento online (mantém formatação original do Word)
 function visualizarDocumento(nomeArquivo) {
-    // Usar visualização HTML (instantânea) ao invés de PDF (lenta)
-    const url = `/api/visualizar-html/${encodeURIComponent(nomeArquivo)}`;
+    // Usar visualização PDF com interface moderna (mantém toda formatação)
+    const url = `/api/visualizar-documento/${encodeURIComponent(nomeArquivo)}`;
 
-    // Abrir em nova janela/aba
-    window.open(url, '_blank', 'width=1000,height=800,scrollbars=yes,resizable=yes');
+    // Abrir em nova janela/aba maximizada
+    const width = screen.width * 0.9;
+    const height = screen.height * 0.9;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
 
-    showToast('📄 Abrindo documento...', 'info');
+    window.open(
+        url,
+        '_blank',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+
+    showToast('📄 Preparando visualização...', 'info');
 }
 
 async function excluirDocumento(nomeArquivo) {
