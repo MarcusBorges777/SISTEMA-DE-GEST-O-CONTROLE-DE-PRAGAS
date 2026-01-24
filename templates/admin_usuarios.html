@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Usuários - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-purple-600"></i>
+                    <span class="ml-2 text-xl font-bold text-gray-900">Administração</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-700">
+                        <i data-lucide="user" class="w-4 h-4 inline"></i>
+                        {{ current_user.nome }}
+                    </span>
+                    <a href="{{ url_for('dashboard') }}" class="text-purple-600 hover:text-purple-700">
+                        <i data-lucide="arrow-left" class="w-5 h-5 inline"></i>
+                        Voltar ao Dashboard
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="text-red-600 hover:text-red-700">
+                        <i data-lucide="log-out" class="w-5 h-5 inline"></i>
+                        Sair
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">
+            <i data-lucide="users-cog" class="w-8 h-8 inline mb-1"></i>
+            Gerenciamento de Usuários
+        </h1>
+
+        <!-- Mensagens Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-6 rounded-lg p-4 {% if category == 'error' or category == 'danger' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                        <div class="flex items-center">
+                            <i data-lucide="{% if category == 'error' or category == 'danger' %}alert-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}alert-triangle{% else %}info{% endif %}" class="w-5 h-5 mr-2"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Estatísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Total de Usuários</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ usuarios|length }}</p>
+                    </div>
+                    <div class="bg-blue-100 rounded-full p-3">
+                        <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Aguardando Aprovação</p>
+                        <p class="text-2xl font-bold text-yellow-600">{{ pendentes|length }}</p>
+                    </div>
+                    <div class="bg-yellow-100 rounded-full p-3">
+                        <i data-lucide="clock" class="w-6 h-6 text-yellow-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Aprovados</p>
+                        <p class="text-2xl font-bold text-green-600">
+                            {{ usuarios|selectattr('aprovado', 'equalto', 1)|list|length }}
+                        </p>
+                    </div>
+                    <div class="bg-green-100 rounded-full p-3">
+                        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Administradores</p>
+                        <p class="text-2xl font-bold text-purple-600">
+                            {{ usuarios|selectattr('is_admin', 'equalto', 1)|list|length }}
+                        </p>
+                    </div>
+                    <div class="bg-purple-100 rounded-full p-3">
+                        <i data-lucide="shield" class="w-6 h-6 text-purple-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usuários Pendentes de Aprovação -->
+        {% if pendentes %}
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 mb-8 rounded-lg">
+            <h2 class="text-xl font-bold text-yellow-800 mb-4">
+                <i data-lucide="alert-triangle" class="w-6 h-6 inline mb-1"></i>
+                Usuários Aguardando Aprovação ({{ pendentes|length }})
+            </h2>
+
+            <div class="space-y-4">
+                {% for user in pendentes %}
+                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-yellow-100 rounded-full p-3">
+                            <i data-lucide="user" class="w-6 h-6 text-yellow-600"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-900">{{ user.nome }}</p>
+                            <p class="text-sm text-gray-600">{{ user.email }}</p>
+                            <p class="text-xs text-gray-500">
+                                Cadastrado em: {{ user.data_criacao }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <form method="POST" action="{{ url_for('aprovar_usuario', usuario_id=user.id) }}" class="inline">
+                            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                                <span>Aprovar</span>
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('rejeitar_usuario', usuario_id=user.id) }}" class="inline" onsubmit="return confirm('Tem certeza que deseja rejeitar este cadastro?')">
+                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                                <span>Rejeitar</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Todos os Usuários -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <h2 class="text-xl font-bold text-gray-900">
+                    <i data-lucide="list" class="w-6 h-6 inline mb-1"></i>
+                    Todos os Usuários
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Usuário
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Tipo
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Cadastro
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Último Acesso
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Ações
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for user in usuarios %}
+                        <tr class="{% if not user.ativo %}bg-gray-50 opacity-60{% endif %}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="{% if user.is_admin %}bg-purple-100{% elif user.aprovado %}bg-green-100{% else %}bg-yellow-100{% endif %} rounded-full p-2">
+                                        <i data-lucide="user" class="w-5 h-5 {% if user.is_admin %}text-purple-600{% elif user.aprovado %}text-green-600{% else %}text-yellow-600{% endif %}"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">{{ user.nome }}</div>
+                                        <div class="text-sm text-gray-500">{{ user.email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if user.is_admin %}
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                        <i data-lucide="shield" class="w-3 h-3 inline mr-1"></i> Admin
+                                    </span>
+                                {% elif user.aprovado %}
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        <i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i> Aprovado
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                        <i data-lucide="clock" class="w-3 h-3 inline mr-1"></i> Pendente
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if user.ativo %}
+                                    <span class="text-green-600 text-sm">
+                                        <i data-lucide="check" class="w-4 h-4 inline"></i> Ativo
+                                    </span>
+                                {% else %}
+                                    <span class="text-red-600 text-sm">
+                                        <i data-lucide="x" class="w-4 h-4 inline"></i> Desativado
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ user.data_criacao }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ user.data_ultimo_acesso or 'Nunca' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if not user.is_admin %}
+                                    {% if user.ativo %}
+                                        <form method="POST" action="{{ url_for('desativar_usuario', usuario_id=user.id) }}" class="inline">
+                                            <button type="submit" class="text-red-600 hover:text-red-800">
+                                                <i data-lucide="ban" class="w-4 h-4"></i>
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <form method="POST" action="{{ url_for('ativar_usuario', usuario_id=user.id) }}" class="inline">
+                                            <button type="submit" class="text-green-600 hover:text-green-800">
+                                                <i data-lucide="check" class="w-4 h-4"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-gray-400 text-xs">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+
+</body>
+</html>

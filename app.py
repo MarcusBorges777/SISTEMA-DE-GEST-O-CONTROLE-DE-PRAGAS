@@ -20,9 +20,10 @@ import secrets
 # Imports de terceiros
 from dateutil.relativedelta import relativedelta
 from docxtpl import DocxTemplate
-from flask import Flask, render_template, request, jsonify, send_file, g
+from flask import Flask, render_template, request, jsonify, send_file, g, redirect, url_for, flash
 import pdfplumber
 from werkzeug.utils import secure_filename
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import google.generativeai as genai
 from dotenv import load_dotenv
 import requests  # Para consulta de CNPJ na Receita Federal
@@ -46,6 +47,9 @@ from validators import (
 
 # Autocomplete de CNPJs da Receita Federal
 from autocomplete_api import AutocompleteAPI
+
+# Sistema de Autenticação
+import auth
 
 # Blueprint de Prospecção (Módulo Econodata)
 from blueprints.prospeccao import prospeccao_bp
@@ -91,6 +95,9 @@ app.config.update(
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / 'gestao_documentos.db'
+
+# Inicializar sistema de autenticação
+login_manager = auth.init_auth(app, str(DB_PATH))
 MODELOS_DIR = BASE_DIR / 'modelos'
 OUTPUT_DIR = BASE_DIR / 'output'
 CNAES_FILE = BASE_DIR / 'cnaes_permitidos.txt'
@@ -129,6 +136,15 @@ CNAES_PERMITIDOS = {}
 # ============================================
 #  OTIMIZAÇÃO: Cache de Municípios
 # ============================================
+# Mapeamento de códigos de municípios para nomes
+MUNICIPIOS = {
+    '4445': 'Divinópolis',
+    '5300': 'Belo Horizonte',
+    '4123': 'Juiz de Fora',
+    '5206': 'Uberlândia',
+    '4503': 'Contagem',
+}
+
 # Pré-compilar regex para substituição de códigos de município (50x mais rápido)
 MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
 
@@ -248,15 +264,6 @@ class SimpleCache:
 cache_api = SimpleCache(ttl=60)  # Cache de APIs - 1 minuto
 cache_queries = SimpleCache(ttl=300)  # Cache de queries - 5 minutos
 cache_tags = SimpleCache(ttl=600)  # Cache de tags - 10 minutos
-
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
 
 # Regex patterns compilados (otimização)
 REGEX_PATTERNS = {
@@ -1481,36 +1488,16 @@ Seja específico e use os números reais do relatório."""
 
 @app.route('/')
 def index():
-    # Buscar estatísticas para o dashboard bonito
-    stats = {
-        'clientes': 0,
-        'empresas': 0,
-        'documentos': 0
-    }
-
-    try:
-        db = get_db()
-
-        # Contar clientes
-        stats['clientes'] = db.execute('SELECT COUNT(*) FROM clientes_web').fetchone()[0]
-
-        # Contar empresas da Receita Federal
-        cnpj_db = sqlite3.connect(str(CNPJ_DB_PATH))
-        stats['empresas'] = cnpj_db.execute('SELECT COUNT(*) FROM empresas').fetchone()[0]
-        cnpj_db.close()
-
-        # Contar documentos gerados
-        stats['documentos'] = db.execute('SELECT COUNT(*) FROM documentos_gerados').fetchone()[0]
-    except Exception as e:
-        print(f"Erro ao buscar estatísticas: {e}")
-
-    return render_template('index.html', stats=stats)
+    """Redireciona para dashboard (que requer login)"""
+    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
     return render_template('dashboard_novo.html')
 
 @app.route('/dashboard-antigo')
+@login_required
 def dashboard_antigo():
     return render_template('dashboard.html')
 
@@ -1734,7 +1721,6 @@ def api_garantias_vencimentos():
                 razao_social,
                 cnpj,
                 telefone,
-                email,
                 cidade,
                 data_garantia,
                 COALESCE(periodo_garantia_meses, 12) as periodo_meses,
@@ -2525,6 +2511,24 @@ def buscar_descricao_cnae(cnae_codigo):
         }), 500
 
 
+@app.route('/api/documentos-gerados/total')
+def api_documentos_gerados_total():
+    """Retorna o total de documentos .docx reais na pasta documentos"""
+    try:
+        # Contar arquivos .docx reais na pasta documentos
+        documentos_dir = OUTPUT_DIR / 'documentos'
+        total = 0
+
+        if documentos_dir.exists():
+            # Contar apenas arquivos .docx
+            total = len([f for f in documentos_dir.glob('*.docx') if f.is_file()])
+
+        return jsonify({'total': total})
+    except Exception as e:
+        print(f"Erro ao contar documentos: {e}")
+        return jsonify({'total': 0})
+
+
 @app.route('/api/documentos-gerados')
 def api_documentos_gerados():
     conn = get_db()
@@ -3202,7 +3206,7 @@ def visualizar_arquivo(filename):
 
 @app.route('/api/visualizar-documento/<path:filename>')
 def visualizar_documento_html(filename):
-    """Converte documento DOCX para PDF e exibe no navegador (com cache)"""
+    """Converte DOCX para PDF e exibe diretamente no navegador (mantém formatação original)"""
     try:
         import time
         import os
@@ -3220,7 +3224,89 @@ def visualizar_documento_html(filename):
         cache_dir = OUTPUT_DIR / 'cache_pdf'
         cache_dir.mkdir(exist_ok=True)
 
-        pdf_filename = filename.replace('.docx', '.pdf')
+        # Nome do PDF
+        base_name = os.path.splitext(filename)[0]
+        pdf_filename = f"{base_name}.pdf"
+        pdf_path = cache_dir / pdf_filename
+
+        # Verificar se o PDF já existe no cache E está atualizado
+        converter_novamente = True
+        if pdf_path.exists():
+            # Verificar se o DOCX foi modificado após o PDF ser criado
+            docx_mtime = os.path.getmtime(str(caminho_arquivo))
+            pdf_mtime = os.path.getmtime(str(pdf_path))
+            if pdf_mtime >= docx_mtime:
+                print(f"[CACHE] Usando PDF em cache: {pdf_filename}")
+                converter_novamente = False
+
+        # Converter DOCX para PDF se necessário
+        if converter_novamente:
+            try:
+                # Tentar importar docx2pdf
+                from docx2pdf import convert
+
+                print(f"[INFO] Convertendo {filename} para PDF...")
+                start = time.time()
+                convert(str(caminho_arquivo), str(pdf_path))
+
+                # Aguardar conversão finalizar
+                timeout = 20
+                start_time = time.time()
+                while not pdf_path.exists() and (time.time() - start_time) < timeout:
+                    time.sleep(0.3)
+
+                if not pdf_path.exists():
+                    raise Exception("PDF não foi criado após conversão")
+
+                elapsed = time.time() - start
+                print(f"[OK] PDF criado em {elapsed:.2f}s: {pdf_filename}")
+
+            except ImportError:
+                print(f"[AVISO] docx2pdf não instalado")
+                return jsonify({"error": "docx2pdf não está instalado. Execute: pip install docx2pdf"}), 500
+
+            except Exception as conv_error:
+                print(f"[ERRO] Ao converter DOCX para PDF: {conv_error}")
+                traceback.print_exc()
+                return jsonify({"error": f"Erro ao converter para PDF: {str(conv_error)}"}), 500
+
+        # Servir o PDF diretamente no navegador
+        return send_file(
+            str(pdf_path),
+            mimetype='application/pdf',
+            as_attachment=False,
+            download_name=pdf_filename
+        )
+
+    except Exception as e:
+        print(f"[ERRO] Ao visualizar documento: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Erro ao visualizar documento: {str(e)}"}), 500
+
+
+@app.route('/api/pdf-direto/<path:filename>')
+def pdf_direto(filename):
+    """Retorna PDF diretamente (converte se necessário, usa cache)"""
+    try:
+        import time
+        import os
+
+        caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+
+        if not caminho_arquivo:
+            return jsonify({"error": "Arquivo não encontrado"}), 404
+
+        # Verificar se é um arquivo DOCX
+        if not filename.lower().endswith('.docx'):
+            return jsonify({"error": "Apenas arquivos DOCX podem ser visualizados"}), 400
+
+        # Criar diretório de cache para PDFs
+        cache_dir = OUTPUT_DIR / 'cache_pdf'
+        cache_dir.mkdir(exist_ok=True)
+
+        # Nome base sem extensão para evitar problemas com múltiplos pontos
+        base_name = os.path.splitext(filename)[0]
+        pdf_filename = f"{base_name}.pdf"
         pdf_path = cache_dir / pdf_filename
 
         # Verificar se o PDF já existe no cache E está atualizado
@@ -3277,7 +3363,207 @@ def visualizar_documento_html(filename):
         )
 
     except Exception as e:
-        print(f"[ERRO] Ao visualizar documento: {e}")
+        print(f"[ERRO] Ao gerar PDF: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Erro ao gerar PDF: {str(e)}"}), 500
+
+
+@app.route('/api/pdf-cache/<path:filename>')
+def download_pdf_cache(filename):
+    """Download do PDF em cache"""
+    try:
+        cache_dir = OUTPUT_DIR / 'cache_pdf'
+        base_name = os.path.splitext(filename)[0]
+        pdf_filename = f"{base_name}.pdf"
+        pdf_path = cache_dir / pdf_filename
+
+        if pdf_path.exists():
+            return send_file(str(pdf_path), as_attachment=True, download_name=pdf_filename)
+        else:
+            return jsonify({"error": "PDF não encontrado em cache"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/visualizar-html/<path:filename>')
+def visualizar_documento_html_rapido(filename):
+    """Converte DOCX para HTML instantaneamente usando mammoth (RÁPIDO!)"""
+    try:
+        import mammoth
+
+        caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+
+        if not caminho_arquivo:
+            return jsonify({"error": "Arquivo não encontrado"}), 404
+
+        # Verificar se é um arquivo DOCX
+        if not filename.lower().endswith('.docx'):
+            return jsonify({"error": "Apenas arquivos DOCX podem ser visualizados"}), 400
+
+        # Converter DOCX para HTML usando mammoth (INSTANTÂNEO!)
+        with open(caminho_arquivo, "rb") as docx_file:
+            result = mammoth.convert_to_html(docx_file)
+            html_content = result.value
+
+        # Criar página HTML completa com estilos
+        html_page = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{filename}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .header h1 {{
+            font-size: 18px;
+            font-weight: 600;
+        }}
+        .actions {{
+            display: flex;
+            gap: 10px;
+        }}
+        .btn {{
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .btn-download {{
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }}
+        .btn-download:hover {{
+            background: rgba(255,255,255,0.3);
+        }}
+        .btn-close {{
+            background: rgba(220,38,38,0.9);
+            color: white;
+        }}
+        .btn-close:hover {{
+            background: rgba(220,38,38,1);
+        }}
+        .content {{
+            padding: 40px;
+            line-height: 1.8;
+            color: #333;
+        }}
+        .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {{
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #1a202c;
+            font-weight: 600;
+        }}
+        .content h1 {{ font-size: 2em; }}
+        .content h2 {{ font-size: 1.5em; }}
+        .content h3 {{ font-size: 1.25em; }}
+        .content p {{
+            margin-bottom: 1em;
+            text-align: justify;
+        }}
+        .content table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+        }}
+        .content table td, .content table th {{
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+        }}
+        .content table th {{
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }}
+        .content ul, .content ol {{
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }}
+        .content li {{
+            margin-bottom: 0.5em;
+        }}
+        .content strong {{
+            font-weight: 600;
+            color: #1a202c;
+        }}
+        @media print {{
+            body {{
+                background: white;
+                padding: 0;
+            }}
+            .header, .actions {{
+                display: none;
+            }}
+            .container {{
+                box-shadow: none;
+                max-width: 100%;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 {filename}</h1>
+            <div class="actions">
+                <a href="/api/download/{filename}" class="btn btn-download">
+                    ⬇️ Download
+                </a>
+                <button onclick="window.print()" class="btn btn-download">
+                    🖨️ Imprimir
+                </button>
+                <button onclick="window.close()" class="btn btn-close">
+                    ✖️ Fechar
+                </button>
+            </div>
+        </div>
+        <div class="content">
+            {html_content}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        return html_page
+
+    except ImportError:
+        return jsonify({"error": "Biblioteca mammoth não instalada. Execute: pip install mammoth"}), 500
+    except Exception as e:
+        print(f"[ERRO] Ao visualizar documento HTML: {e}")
         traceback.print_exc()
         return jsonify({"error": f"Erro ao visualizar documento: {str(e)}"}), 500
 
@@ -6156,10 +6442,207 @@ def abrir_arquivo():
         print(f"Erro ao abrir arquivo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+# ============================================
+#  DECORATOR PARA VERIFICAR SE É ADMIN
+# ============================================
+
+def admin_required(f):
+    """Decorator para proteger rotas que só admins podem acessar"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Por favor, faça login para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+
+        if not current_user.is_admin:
+            flash('Acesso negado. Apenas administradores podem acessar esta página.', 'danger')
+            return redirect(url_for('dashboard'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# ============================================
+#  ROTAS DE ADMINISTRAÇÃO
+# ============================================
+
+@app.route('/admin/usuarios')
+@admin_required
+def admin_usuarios():
+    """Página de gerenciamento de usuários (apenas admin)"""
+    usuarios = auth.listar_todos_usuarios(str(DB_PATH))
+    pendentes = auth.listar_usuarios_pendentes(str(DB_PATH))
+    return render_template('admin_usuarios.html', usuarios=usuarios, pendentes=pendentes)
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/aprovar', methods=['POST'])
+@admin_required
+def aprovar_usuario(usuario_id):
+    """Aprovar cadastro de usuário"""
+    sucesso, mensagem = auth.aprovar_usuario(str(DB_PATH), usuario_id, current_user.id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/rejeitar', methods=['POST'])
+@admin_required
+def rejeitar_usuario(usuario_id):
+    """Rejeitar cadastro de usuário"""
+    sucesso, mensagem = auth.rejeitar_usuario(str(DB_PATH), usuario_id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/desativar', methods=['POST'])
+@admin_required
+def desativar_usuario(usuario_id):
+    """Desativar usuário"""
+    sucesso, mensagem = auth.desativar_usuario(str(DB_PATH), usuario_id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/ativar', methods=['POST'])
+@admin_required
+def ativar_usuario(usuario_id):
+    """Reativar usuário"""
+    sucesso, mensagem = auth.ativar_usuario(str(DB_PATH), usuario_id)
+    flash(mensagem, 'success' if sucesso else 'error')
+    return redirect(url_for('admin_usuarios'))
+
+
+# ============================================
+#  ROTAS DE AUTENTICAÇÃO
+# ============================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Página de login"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        senha = request.form.get('senha', '')
+
+        if not email or not senha:
+            flash('Preencha todos os campos', 'error')
+            return render_template('login.html')
+
+        sucesso, usuario, mensagem = auth.fazer_login(str(DB_PATH), email, senha)
+
+        if sucesso:
+            login_user(usuario, remember=request.form.get('lembrar') == 'on')
+            next_page = request.args.get('next')
+            flash(mensagem, 'success')
+            return redirect(next_page or url_for('dashboard'))
+        else:
+            flash(mensagem, 'error')
+
+    return render_template('login.html')
+
+
+@app.route('/registrar', methods=['GET', 'POST'])
+def registrar():
+    """Página de registro"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip()
+        senha = request.form.get('senha', '')
+        confirmar_senha = request.form.get('confirmar_senha', '')
+
+        if not all([nome, email, senha, confirmar_senha]):
+            flash('Preencha todos os campos', 'error')
+            return render_template('registrar.html')
+
+        if senha != confirmar_senha:
+            flash('As senhas não coincidem', 'error')
+            return render_template('registrar.html')
+
+        sucesso, mensagem = auth.registrar_usuario(str(DB_PATH), nome, email, senha)
+
+        if sucesso:
+            flash(mensagem + ' Você já pode fazer login!', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash(mensagem, 'error')
+
+    return render_template('registrar.html')
+
+
+@app.route('/recuperar-senha', methods=['GET', 'POST'])
+def recuperar_senha():
+    """Solicita recuperação de senha"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+
+        if not email:
+            flash('Digite seu email', 'error')
+            return render_template('recuperar_senha.html')
+
+        sucesso, mensagem = auth.solicitar_reset_senha(str(DB_PATH), app, email)
+        flash(mensagem, 'success' if sucesso else 'error')
+
+        if sucesso:
+            return redirect(url_for('login'))
+
+    return render_template('recuperar_senha.html')
+
+
+@app.route('/resetar-senha/<token>', methods=['GET', 'POST'])
+def resetar_senha(token):
+    """Redefine senha usando token"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        senha = request.form.get('senha', '')
+        confirmar_senha = request.form.get('confirmar_senha', '')
+
+        if not senha or not confirmar_senha:
+            flash('Preencha todos os campos', 'error')
+            return render_template('resetar_senha.html', token=token)
+
+        if senha != confirmar_senha:
+            flash('As senhas não coincidem', 'error')
+            return render_template('resetar_senha.html', token=token)
+
+        sucesso, mensagem = auth.resetar_senha(str(DB_PATH), app, token, senha)
+
+        if sucesso:
+            flash(mensagem + ' Você já pode fazer login!', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash(mensagem, 'error')
+
+    return render_template('resetar_senha.html', token=token)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Faz logout do usuário"""
+    logout_user()
+    flash('Você saiu do sistema', 'success')
+    return redirect(url_for('login'))
+
+
 if __name__ == '__main__':
+    # Criar usuário admin na primeira execução
+    try:
+        auth.criar_usuario_admin(str(DB_PATH))
+    except Exception as e:
+        print(f"[INFO] Admin já existe ou erro: {e}")
     print("\n" + "="*70)
     print("  SISTEMA DE GESTAO DE DOCUMENTOS - ULTRA OTIMIZADO")
-    print("  ACESSO DIRETO - SEM LOGIN - SEM SENHA")
+    print("  COM SISTEMA DE AUTENTICACAO SEGURO")
     print("="*70)
     print("\n  OTIMIZACOES ATIVAS:")
     print("     - SQLite com WAL mode e cache de 64MB")

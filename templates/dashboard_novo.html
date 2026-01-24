@@ -322,6 +322,11 @@
                 <p class="text-indigo-600 mt-2">Bem-vindo ao sistema de gestão de documentos</p>
             </div>
             <div class="flex gap-3">
+                {% if current_user.is_admin %}
+                <button onclick="window.location.href='/admin/usuarios'" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition shadow-lg">
+                    <i data-lucide="shield-check" class="w-5 h-5 inline mr-2"></i> Administração
+                </button>
+                {% endif %}
                 <button onclick="window.location.href='/prospeccao'" class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition shadow-lg">
                     <i data-lucide="target" class="w-5 h-5 inline mr-2"></i> Prospecção
                 </button>
@@ -355,24 +360,10 @@
                     <div>
                         <p class="text-sm text-gray-600 font-medium">Documentos Gerados</p>
                         <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-documentos">0</p>
-                        <p class="text-xs text-gray-500 mt-1">Este mês</p>
+                        <p class="text-xs text-gray-500 mt-1">Total no sistema</p>
                     </div>
                     <div class="bg-green-100 rounded-full p-3">
                         <i data-lucide="file-text" class="w-8 h-8 text-green-600"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card: Receita Mensal -->
-            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600 font-medium">Receita Estimada</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-receita">R$ 0</p>
-                        <p class="text-xs text-gray-500 mt-1">Este mês</p>
-                    </div>
-                    <div class="bg-purple-100 rounded-full p-3">
-                        <i data-lucide="dollar-sign" class="w-8 h-8 text-purple-600"></i>
                     </div>
                 </div>
             </div>
@@ -387,6 +378,20 @@
                     </div>
                     <div class="bg-orange-100 rounded-full p-3">
                         <i data-lucide="activity" class="w-8 h-8 text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Garantias Vencendo -->
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500 hover:shadow-xl transition cursor-pointer" onclick="abrirModalGarantias()">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Garantias Vencendo</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-garantias">0</p>
+                        <p class="text-xs text-gray-500 mt-1">Próximas de vencer</p>
+                    </div>
+                    <div class="bg-red-100 rounded-full p-3">
+                        <i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i>
                     </div>
                 </div>
             </div>
@@ -409,9 +414,6 @@
             </button>
             <button onclick="mostrarView('documentos')" id="btn-documentos" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
                 <i data-lucide="folder" class="w-5 h-5 inline mr-2"></i> Arquivos
-            </button>
-            <button onclick="mostrarView('analise')" id="btn-analise" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
-                <i data-lucide="bar-chart-3" class="w-5 h-5 inline mr-2"></i> Análise
             </button>
         </div>
     </div>
@@ -1407,539 +1409,62 @@
             </div>
         </div>
 
-        <!-- VIEW: ANÁLISE -->
-        <div id="view-analise" class="view-content hidden">
-            <!-- Header Moderno com Animação -->
-            <div class="relative overflow-hidden bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 rounded-2xl shadow-2xl p-8 mb-6 text-white">
-                <!-- Padrão de fundo animado -->
-                <div class="absolute inset-0 opacity-10">
-                    <div class="absolute transform rotate-45 -left-20 top-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-                    <div class="absolute transform -rotate-45 -right-20 bottom-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-                </div>
-
-                <div class="relative z-10">
-                    <div class="flex items-center justify-between mb-6">
+        <!-- MODAL: Garantias Vencendo -->
+        <div id="modal-garantias" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-red-600 via-orange-600 to-red-600 text-white p-6">
+                    <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-                                <i data-lucide="activity" class="w-10 h-10"></i>
+                            <div class="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                                <i data-lucide="alert-triangle" class="w-8 h-8"></i>
                             </div>
                             <div>
-                                <h2 class="text-4xl font-bold mb-1">Dashboard de Análises</h2>
-                                <p class="text-violet-100 text-lg">Dados em tempo real e insights inteligentes</p>
+                                <h2 class="text-2xl font-bold">Garantias Vencendo</h2>
+                                <p class="text-red-100 text-sm mt-1">Acompanhamento de vencimentos</p>
                             </div>
                         </div>
-                        <button onclick="exportarRelatorio()" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg">
-                            <i data-lucide="download" class="w-5 h-5"></i>
-                            Exportar Relatório
+                        <button onclick="fecharModalGarantias()" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-2 transition">
+                            <i data-lucide="x" class="w-6 h-6"></i>
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Gráficos Avançados</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Visualização interativa</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="zap" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Dados em Tempo Real</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Atualização automática</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="filter" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Filtros Inteligentes</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Análise personalizada</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="target" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Insights Precisos</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Decisões baseadas em dados</p>
-                                </div>
-                            </div>
+                    <!-- Filtros -->
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <button onclick="filtrarGarantias('todos')" id="filtro-todos" class="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-lg font-semibold hover:bg-white/40 transition">
+                            📊 Todos (<span id="count-todos">0</span>)
+                        </button>
+                        <button onclick="filtrarGarantias('vencidas')" id="filtro-vencidas" class="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-lg font-semibold hover:bg-white/40 transition">
+                            ❌ Vencidas (<span id="count-vencidas">0</span>)
+                        </button>
+                        <button onclick="filtrarGarantias('7dias')" id="filtro-7dias" class="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-lg font-semibold hover:bg-white/40 transition">
+                            🔥 Esta Semana (<span id="count-7dias">0</span>)
+                        </button>
+                        <button onclick="filtrarGarantias('30dias')" id="filtro-30dias" class="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-lg font-semibold hover:bg-white/40 transition">
+                            ⚠️ Este Mês (<span id="count-30dias">0</span>)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Corpo do Modal -->
+                <div class="p-6 overflow-y-auto" style="max-height: 60vh;">
+                    <div id="lista-garantias" class="space-y-3">
+                        <!-- Preenchido via JavaScript -->
+                        <div class="text-center py-12 text-gray-400">
+                            <div class="spinner w-12 h-12 border-4 border-gray-200 border-t-red-600 rounded-full mx-auto mb-4" style="animation: spin 1s linear infinite;"></div>
+                            <p>Carregando garantias...</p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Painel de Filtros Avançados -->
-            <div class="bg-white rounded-2xl shadow-xl p-6 mb-6 border-2 border-gray-100">
-                <div class="flex items-center justify-between mb-6">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-violet-100 rounded-lg p-2">
-                            <i data-lucide="sliders" class="w-6 h-6 text-violet-600"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Filtros Avançados</h3>
-                            <p class="text-sm text-gray-500">Personalize sua análise de dados</p>
-                        </div>
-                    </div>
-                    <button onclick="limparTodosFiltrosAnalise()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all flex items-center gap-2">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        Limpar Todos
+                <!-- Footer -->
+                <div class="bg-gray-50 p-4 border-t flex justify-between items-center">
+                    <p class="text-sm text-gray-600">
+                        <span class="font-bold" id="total-garantias-exibidas">0</span> garantia(s) encontrada(s)
+                    </p>
+                    <button onclick="fecharModalGarantias()" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition">
+                        Fechar
                     </button>
-                </div>
-
-                <!-- Grade de Filtros -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <!-- Filtro por Cliente com Pesquisa -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="user" class="w-4 h-4 text-violet-600"></i>
-                            Cliente
-                        </label>
-                        <div class="relative">
-                            <input type="text" id="pesquisa-cliente-analise" placeholder="🔍 Pesquisar cliente..." autocomplete="off" class="w-full px-4 py-3 pr-20 border-2 border-gray-300 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-200 focus:outline-none transition-all bg-white shadow-sm hover:border-gray-400">
-                            <button id="limpar-pesquisa-cliente" class="hidden absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors" title="Limpar pesquisa">
-                                <i data-lucide="x" class="w-5 h-5"></i>
-                            </button>
-                            <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2"></i>
-                            <!-- Dropdown de Sugestões -->
-                            <div id="sugestoes-cliente-analise" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-violet-300 rounded-xl shadow-2xl max-h-64 overflow-y-auto"></div>
-                        </div>
-                        <input type="hidden" id="filtro-analise-cliente" value="">
-                    </div>
-
-                    <!-- Filtro por Tipo de Documento -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
-                            Tipo de Documento
-                        </label>
-                        <select id="filtro-analise-tipo" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all bg-white cursor-pointer shadow-sm hover:border-gray-400">
-                            <option value="">📄 Todos os Tipos</option>
-                            <option value="laudo">📋 Laudos</option>
-                            <option value="contrato">📝 Contratos</option>
-                            <option value="orcamento">💰 Orçamentos</option>
-                            <option value="recibo">🧾 Recibos</option>
-                        </select>
-                    </div>
-
-                    <!-- Filtro por Cidade -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="map-pin" class="w-4 h-4 text-orange-600"></i>
-                            Cidade
-                        </label>
-                        <select id="filtro-analise-cidade" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all bg-white cursor-pointer shadow-sm hover:border-gray-400">
-                            <option value="">🗺️ Todas as Cidades</option>
-                        </select>
-                    </div>
-
-                    <!-- Filtro por Período -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="calendar" class="w-4 h-4 text-green-600"></i>
-                            Período
-                        </label>
-                        <select id="filtro-analise-periodo" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none transition-all bg-white cursor-pointer shadow-sm hover:border-gray-400">
-                            <option value="todos">📅 Todos os Períodos</option>
-                            <option value="hoje">📌 Hoje</option>
-                            <option value="semana">📆 Última Semana</option>
-                            <option value="mes">📊 Este Mês</option>
-                            <option value="trimestre">📈 Último Trimestre</option>
-                            <option value="ano">🗓️ Este Ano</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Banner de Filtros Ativos -->
-                <div id="info-filtros-ativos" class="hidden mt-6 p-5 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border-2 border-violet-200">
-                    <div class="flex items-start gap-3">
-                        <div class="bg-violet-500 rounded-lg p-2">
-                            <i data-lucide="filter" class="w-5 h-5 text-white"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-bold text-violet-900 text-lg mb-2">Filtros Ativos</p>
-                            <div id="lista-filtros-ativos" class="flex flex-wrap gap-2">
-                                <!-- Preenchido dinamicamente -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Cards KPI Estilo Power BI - Design Ultra Moderno -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
-                <!-- Card 1: Total Documentos -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-total-docs">0</p>
-                            <p class="text-xs font-semibold text-blue-100">Total de Documentos</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+12%</span>
-                                <span class="text-xs text-blue-200">vs mês anterior</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 2: Total Clientes -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="users" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="user-plus" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-total-clientes">0</p>
-                            <p class="text-xs font-semibold text-emerald-100">Clientes Ativos</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+8%</span>
-                                <span class="text-xs text-emerald-200">crescimento</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 3: Este Mês -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="calendar-check" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="zap" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-mes-atual">0</p>
-                            <p class="text-xs font-semibold text-purple-100">Documentos Este Mês</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+23%</span>
-                                <span class="text-xs text-purple-200">produtividade</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 4: Cidades -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-orange-600 to-orange-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="map-pin" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="globe" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-cidades">0</p>
-                            <p class="text-xs font-semibold text-orange-100">Cidades Atendidas</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+3</span>
-                                <span class="text-xs text-orange-200">novas cidades</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 5: Média por Cliente -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="trending-up" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-media-docs">0</p>
-                            <p class="text-xs font-semibold text-cyan-100">Média Docs/Cliente</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">↑ 1.2</span>
-                                <span class="text-xs text-cyan-200">vs anterior</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 6: Última Semana -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-pink-600 to-pink-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="activity" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="clock" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-semana">0</p>
-                            <p class="text-xs font-semibold text-pink-100">Docs Última Semana</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+18%</span>
-                                <span class="text-xs text-pink-200">atividade</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card Tipo Mais Popular - Destaque -->
-            <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-6 mb-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                            <i data-lucide="award" class="w-10 h-10 text-white"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-white/80">Tipo de Documento Mais Gerado</p>
-                            <p class="text-4xl font-black text-white" id="stat-tipo-popular">-</p>
-                            <p class="text-sm text-white/60 mt-1">Categoria mais utilizada no sistema</p>
-                        </div>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-3">
-                        <p class="text-xs font-bold text-white/70">DESTAQUE DO MÊS</p>
-                        <div class="flex items-center gap-2 mt-1">
-                            <i data-lucide="star" class="w-5 h-5 text-yellow-300"></i>
-                            <p class="text-2xl font-black text-white">TOP 1</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos Principais - Layout Power BI -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-                <!-- Gráfico: Documentos por Mês -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-violet-500 to-purple-600 p-5">
-                        <div class="flex items-center justify-between text-white">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                    <i data-lucide="line-chart" class="w-6 h-6"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-bold">Documentos por Mês</h3>
-                                    <p class="text-xs text-violet-100">Evolução temporal de geração</p>
-                                </div>
-                            </div>
-                            <div class="bg-white/10 rounded-full px-3 py-1">
-                                <p class="text-xs font-bold">2026</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-documentos-mes" class="w-full" style="height: 280px;"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gráfico: Clientes por Cidade -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-fuchsia-500 to-pink-600 p-5">
-                        <div class="flex items-center justify-between text-white">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                    <i data-lucide="map" class="w-6 h-6"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-bold">Distribuição por Cidade</h3>
-                                    <p class="text-xs text-fuchsia-100">Localização dos clientes</p>
-                                </div>
-                            </div>
-                            <div class="bg-white/10 rounded-full px-3 py-1">
-                                <p class="text-xs font-bold">MAPA</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-clientes-cidade" class="w-full" style="height: 280px;"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos Secundários - 3 Colunas em Desktop -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
-                <!-- Gráfico: Documentos por Tipo -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-                                <i data-lucide="layers" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold">Tipos de Documentos</h3>
-                                <p class="text-xs text-blue-100">Categorias principais</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-documentos-tipo" style="height: 240px;"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gráfico: Documentos por Categoria CNAE -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-green-500 to-green-600 p-4">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-                                <i data-lucide="tag" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold">Categorias CNAE</h3>
-                                <p class="text-xs text-green-100">Segmentos de atuação</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-documentos-categoria" style="height: 240px;"></canvas>
-                    </div>
-                </div>
-
-                <!-- Top 10 Clientes -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden md:col-span-2 lg:col-span-1">
-                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-                                <i data-lucide="trophy" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold">Top 10 Clientes</h3>
-                                <p class="text-xs text-indigo-100">Ranking por documentos</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-top-clientes" style="height: 240px;"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabela de Resumo por Cliente - Estilo Power BI -->
-            <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-                <!-- Header da Tabela -->
-                <div class="bg-gradient-to-r from-amber-500 to-orange-600 p-5">
-                    <div class="flex items-center justify-between text-white">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="database" class="w-6 h-6"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold">Resumo Detalhado por Cliente</h3>
-                                <p class="text-xs text-amber-100">Análise completa de documentos gerados</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="pesquisa-tabela-clientes" placeholder="🔍 Pesquisar na tabela..." class="px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-white/50">
-                            <button onclick="exportarTabelaExcel()" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-2.5 transition-all" title="Exportar para Excel">
-                                <i data-lucide="download" class="w-5 h-5"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Corpo da Tabela com Scroll -->
-                <div class="overflow-x-auto">
-                    <div class="max-h-96 overflow-y-auto">
-                        <table class="w-full">
-                            <thead class="bg-gradient-to-r from-gray-100 to-gray-200 sticky top-0 z-10">
-                                <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center gap-2 cursor-pointer hover:text-amber-600" onclick="ordenarTabela('cliente')">
-                                            <i data-lucide="user" class="w-4 h-4"></i>
-                                            Cliente
-                                            <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2 cursor-pointer hover:text-blue-600" onclick="ordenarTabela('total')">
-                                            <i data-lucide="hash" class="w-4 h-4"></i>
-                                            Total
-                                            <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
-                                            Laudos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="file-signature" class="w-4 h-4"></i>
-                                            Contratos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="calculator" class="w-4 h-4"></i>
-                                            Orçamentos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="receipt" class="w-4 h-4"></i>
-                                            Recibos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2 cursor-pointer hover:text-purple-600" onclick="ordenarTabela('data')">
-                                            <i data-lucide="calendar" class="w-4 h-4"></i>
-                                            Último Doc
-                                            <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <i data-lucide="settings" class="w-4 h-4"></i>
-                                        Ações
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbody-resumo-clientes" class="bg-white divide-y divide-gray-100">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Footer da Tabela -->
-                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                    <div class="flex items-center justify-between text-sm">
-                        <p class="text-gray-600">
-                            <span class="font-bold" id="total-registros-tabela">0</span> cliente(s) encontrado(s)
-                        </p>
-                        <div class="flex items-center gap-2">
-                            <span class="text-gray-500">Última atualização:</span>
-                            <span class="font-semibold text-gray-700" id="ultima-atualizacao-tabela">Agora</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1980,13 +1505,10 @@ async function carregarEstatisticas() {
         document.getElementById('stat-clientes').textContent = dataClientes.length;
         document.getElementById('stat-ativos').textContent = dataClientes.length;
 
-        const responseDocs = await fetch('/api/documentos-gerados');
+        // Buscar total de documentos gerados
+        const responseDocs = await fetch('/api/documentos-gerados/total');
         const dataDocs = await responseDocs.json();
-        document.getElementById('stat-documentos').textContent = dataDocs.length;
-
-        // Calcular receita estimada (exemplo)
-        const receita = dataDocs.reduce((sum, doc) => sum + (doc.valor_total || 0), 0);
-        document.getElementById('stat-receita').textContent = `R$ ${receita.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('stat-documentos').textContent = dataDocs.total || 0;
     } catch (error) {
         console.error('Erro ao carregar estatísticas:', error);
     } finally {
@@ -2178,9 +1700,6 @@ function renderizarClientes(lista) {
                     </button>
                     <button onclick="irParaDocumentosCliente('${cliente.nome_fantasia}')" class="px-2.5 py-1.5 bg-indigo-600 text-white rounded text-xs font-bold hover:bg-indigo-700 transition" title="Ver Documentos">
                         <i data-lucide="files" class="w-3.5 h-3.5 inline"></i>
-                    </button>
-                    <button onclick="irParaAnaliseCliente('${cliente.nome_fantasia}')" class="px-2.5 py-1.5 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-700 transition" title="Ver Análises">
-                        <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 inline"></i>
                     </button>
                     <button onclick="editarCliente(${cliente.id})" class="px-2.5 py-1.5 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition" title="Editar">
                         <i data-lucide="edit-2" class="w-3.5 h-3.5 inline"></i>
@@ -2523,9 +2042,7 @@ function mostrarView(view) {
     localStorage.setItem('ultimaView', view);
 
     // Carregar dados específicos da view
-    if (view === 'analise') {
-        carregarAnalise();
-    } else if (view === 'documentos') {
+    if (view === 'documentos') {
         buscarDocumentos();
     }
 
@@ -3368,158 +2885,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Adicionar listener ao filtro de análise
-    const filtroAnaliseCliente = document.getElementById('filtro-analise-cliente');
-    if (filtroAnaliseCliente) {
-        filtroAnaliseCliente.addEventListener('change', (e) => {
-            aplicarFiltroAnalise(e.target.value);
-        });
-    }
-
-    // Adicionar listener à pesquisa de clientes na análise
-    const pesquisaClienteAnalise = document.getElementById('pesquisa-cliente-analise');
-    const sugestoesDropdown = document.getElementById('sugestoes-cliente-analise');
-    const limparPesquisaBtn = document.getElementById('limpar-pesquisa-cliente');
-
-    if (pesquisaClienteAnalise && filtroAnaliseCliente && sugestoesDropdown && limparPesquisaBtn) {
-        // Listener para mostrar sugestões enquanto digita
-        pesquisaClienteAnalise.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase().trim();
-
-            // Mostrar/ocultar botão de limpar
-            if (searchTerm) {
-                limparPesquisaBtn.classList.remove('hidden');
-            } else {
-                limparPesquisaBtn.classList.add('hidden');
-            }
-
-            if (!searchTerm) {
-                // Se campo vazio, limpar filtro e ocultar sugestões
-                sugestoesDropdown.classList.add('hidden');
-                filtroAnaliseCliente.value = '';
-                filtroAnaliseCliente.dispatchEvent(new Event('change'));
-                return;
-            }
-
-            // Filtrar clientes que correspondem à pesquisa
-            const clientesFiltrados = todosClientesAnalise.filter(cliente =>
-                cliente.nome_fantasia.toLowerCase().includes(searchTerm) ||
-                (cliente.cidade && cliente.cidade.toLowerCase().includes(searchTerm))
-            );
-
-            // Mostrar sugestões
-            if (clientesFiltrados.length > 0) {
-                sugestoesDropdown.innerHTML = `
-                    <div class="p-2 bg-violet-50 border-b border-violet-200 text-xs font-semibold text-violet-700">
-                        ${clientesFiltrados.length} cliente(s) encontrado(s)
-                    </div>
-                    ${clientesFiltrados.map(cliente => `
-                        <div class="px-4 py-3 hover:bg-violet-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
-                             data-cliente="${cliente.nome_fantasia}">
-                            <div class="font-medium text-gray-900">${cliente.nome_fantasia}</div>
-                            <div class="text-xs text-gray-500 mt-0.5">
-                                <i data-lucide="map-pin" class="w-3 h-3 inline"></i> ${cliente.cidade || 'Sem cidade'}
-                            </div>
-                        </div>
-                    `).join('')}
-                `;
-                sugestoesDropdown.classList.remove('hidden');
-                lucide.createIcons();
-            } else {
-                sugestoesDropdown.innerHTML = `
-                    <div class="p-4 text-center text-gray-500">
-                        <i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2 text-gray-400"></i>
-                        <div class="text-sm">Nenhum cliente encontrado</div>
-                    </div>
-                `;
-                sugestoesDropdown.classList.remove('hidden');
-                lucide.createIcons();
-            }
-        });
-
-        // Listener para clicar em uma sugestão
-        sugestoesDropdown.addEventListener('click', (e) => {
-            const item = e.target.closest('[data-cliente]');
-            if (item) {
-                const clienteNome = item.dataset.cliente;
-                pesquisaClienteAnalise.value = clienteNome;
-                filtroAnaliseCliente.value = clienteNome;
-                filtroAnaliseCliente.dispatchEvent(new Event('change'));
-                sugestoesDropdown.classList.add('hidden');
-            }
-        });
-
-        // Ocultar sugestões ao clicar fora
-        document.addEventListener('click', (e) => {
-            if (!pesquisaClienteAnalise.contains(e.target) && !sugestoesDropdown.contains(e.target)) {
-                sugestoesDropdown.classList.add('hidden');
-            }
-        });
-
-        // Mostrar sugestões ao focar no campo
-        pesquisaClienteAnalise.addEventListener('focus', () => {
-            if (pesquisaClienteAnalise.value.trim()) {
-                pesquisaClienteAnalise.dispatchEvent(new Event('input'));
-            }
-        });
-
-        // Botão de limpar pesquisa
-        limparPesquisaBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            pesquisaClienteAnalise.value = '';
-            limparPesquisaBtn.classList.add('hidden');
-            sugestoesDropdown.classList.add('hidden');
-            filtroAnaliseCliente.value = '';
-            filtroAnaliseCliente.dispatchEvent(new Event('change'));
-            pesquisaClienteAnalise.focus();
-        });
-
-        // Navegação por teclado nas sugestões
-        let selectedIndex = -1;
-        pesquisaClienteAnalise.addEventListener('keydown', (e) => {
-            const items = sugestoesDropdown.querySelectorAll('[data-cliente]');
-            if (items.length === 0) return;
-
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-                updateSelection(items, selectedIndex);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                selectedIndex = Math.max(selectedIndex - 1, -1);
-                updateSelection(items, selectedIndex);
-            } else if (e.key === 'Enter' && selectedIndex >= 0) {
-                e.preventDefault();
-                items[selectedIndex].click();
-                selectedIndex = -1;
-            } else if (e.key === 'Escape') {
-                sugestoesDropdown.classList.add('hidden');
-                selectedIndex = -1;
-            }
-        });
-
-        function updateSelection(items, index) {
-            items.forEach((item, i) => {
-                if (i === index) {
-                    item.classList.add('bg-violet-100');
-                    item.scrollIntoView({ block: 'nearest' });
-                } else {
-                    item.classList.remove('bg-violet-100');
-                }
-            });
-        }
-
-        // Resetar seleção quando o dropdown fecha
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.attributeName === 'class' && sugestoesDropdown.classList.contains('hidden')) {
-                    selectedIndex = -1;
-                }
-            });
-        });
-        observer.observe(sugestoesDropdown, { attributes: true });
-    }
 });
 
 function detectarTipoDocumento(nomeArquivo) {
@@ -4115,850 +3480,29 @@ function irParaDocumentosCliente(nomeCliente) {
     }, 100);
 }
 
-function irParaAnaliseCliente(nomeCliente) {
-    // Muda para a aba de análise
-    mostrarView('analise');
-
-    // Aguarda um momento para a view carregar
-    setTimeout(() => {
-        // Seleciona o cliente no filtro
-        const filtroCliente = document.getElementById('filtro-analise-cliente');
-        if (filtroCliente) {
-            // Procura a opção pelo nome do cliente
-            const options = Array.from(filtroCliente.options);
-            const option = options.find(opt => opt.textContent.includes(nomeCliente));
-            if (option) {
-                filtroCliente.value = option.value;
-                // Dispara o evento de mudança para aplicar o filtro
-                filtroCliente.dispatchEvent(new Event('change'));
-            }
-        }
-
-        // Scroll suave para o topo da seção de análise
-        document.getElementById('view-analise')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        showToast(`Mostrando análises de ${nomeCliente}`, 'info');
-    }, 100);
-}
-
-// ============================================
-// FUNÇÕES PARA ABA DE ANÁLISE
-// ============================================
-
-let todosClientesAnalise = [];
-let todosDocumentosAnalise = [];
-let clienteFiltradoAnalise = null;
-
-async function carregarAnalise(clienteNome = null) {
-    try {
-        console.log('[DEBUG] Iniciando carregamento de análise...');
-
-        // Buscar TODAS as fontes de documentos
-        const [resClientes, resDocsGerados, resArquivos] = await Promise.all([
-            fetch('/api/clientes'),
-            fetch('/api/documentos-gerados'),
-            fetch('/api/arquivos')
-        ]);
-
-        console.log('[DEBUG] Respostas recebidas:', {
-            clientes: resClientes.ok,
-            documentosGerados: resDocsGerados.ok,
-            arquivos: resArquivos.ok
-        });
-
-        todosClientesAnalise = await resClientes.json();
-        const docsGerados = await resDocsGerados.json();
-        const arquivosData = await resArquivos.json();
-
-        // Combinar documentos gerados + arquivos
-        const arquivos = arquivosData.data || arquivosData || [];
-
-        // Converter arquivos para o formato de documentos
-        const arquivosConvertidos = arquivos.map(arq => ({
-            nome_arquivo: arq.nome,
-            data_geracao: arq.data_modificacao,
-            data_criacao: arq.data_modificacao,
-            tipo_documento: detectarTipoDocumento(arq.nome),
-            cliente_nome: extrairClienteDoNome(arq.nome),
-            caminho_arquivo: arq.caminho,
-            origem: arq.origem || 'Arquivo'
-        }));
-
-        // UNIR todos os documentos
-        todosDocumentosAnalise = [...docsGerados, ...arquivosConvertidos];
-
-        console.log('[DEBUG] Dados carregados:', {
-            totalClientes: todosClientesAnalise.length,
-            documentosGerados: docsGerados.length,
-            arquivos: arquivosConvertidos.length,
-            totalDocumentos: todosDocumentosAnalise.length
-        });
-
-        // Popular o select de clientes
-        popularSelectClientesAnalise();
-
-        // Se foi passado um cliente específico, filtrar por ele
-        if (clienteNome) {
-            clienteFiltradoAnalise = clienteNome;
-            aplicarFiltroAnalise(clienteNome);
-        } else {
-            // Renderizar estatísticas gerais
-            console.log('[DEBUG] Chamando renderizarEstatisticas...');
-            renderizarEstatisticas(todosClientesAnalise, todosDocumentosAnalise);
-        }
-
-    } catch (error) {
-        console.error('[ERRO] Erro ao carregar análise:', error);
-    }
-}
-
-function popularSelectClientesAnalise() {
-    // Função mantida para compatibilidade, mas não faz mais nada
-    // Os clientes agora são mostrados diretamente via autocomplete
-}
-
-function aplicarFiltroAnalise(nomeCliente) {
-    if (!nomeCliente) {
-        // Sem filtro - mostrar todos
-        clienteFiltradoAnalise = null;
-        document.getElementById('info-cliente-filtrado').classList.add('hidden');
-        renderizarEstatisticas(todosClientesAnalise, todosDocumentosAnalise);
-        return;
-    }
-
-    clienteFiltradoAnalise = nomeCliente;
-
-    // Filtrar cliente
-    const clienteFiltrado = todosClientesAnalise.find(c => c.nome_fantasia === nomeCliente);
-
-    // Filtrar documentos do cliente
-    const documentosFiltrados = todosDocumentosAnalise.filter(doc => {
-        const nomeDocCliente = doc.cliente_nome || extrairClienteDoNome(doc.nome_arquivo || '');
-        return nomeDocCliente.toUpperCase().trim() === nomeCliente.toUpperCase().trim();
-    });
-
-    // Mostrar info do filtro
-    document.getElementById('info-cliente-filtrado').classList.remove('hidden');
-    document.getElementById('nome-cliente-filtrado').textContent =
-        `${nomeCliente}${clienteFiltrado ? ' - ' + (clienteFiltrado.cidade || 'Sem cidade') : ''}`;
-
-    // Renderizar estatísticas filtradas
-    renderizarEstatisticas(
-        clienteFiltrado ? [clienteFiltrado] : [],
-        documentosFiltrados,
-        nomeCliente
-    );
-
-    lucide.createIcons();
-}
-
-function limparFiltroAnalise() {
-    const select = document.getElementById('filtro-analise-cliente');
-    if (select) {
-        select.value = '';
-    }
-    aplicarFiltroAnalise(null);
-}
-
-let chartDocumentosMes = null;
-let chartClientesCidade = null;
-
-function renderizarEstatisticas(clientes, documentos, nomeClienteFiltro = null) {
-    console.log('[DEBUG] renderizarEstatisticas chamada com:', {
-        clientes: clientes.length,
-        documentos: documentos.length,
-        filtro: nomeClienteFiltro
-    });
-
-    // Total de documentos
-    const totalDocs = documentos.length;
-    const elemTotalDocs = document.getElementById('stat-total-docs');
-    console.log('[DEBUG] Atualizando stat-total-docs:', totalDocs, 'Elemento existe?', !!elemTotalDocs);
-    if (elemTotalDocs) elemTotalDocs.textContent = totalDocs;
-
-    // Total de clientes
-    const totalClientes = nomeClienteFiltro ? 1 : clientes.length;
-    const elemTotalClientes = document.getElementById('stat-total-clientes');
-    console.log('[DEBUG] Atualizando stat-total-clientes:', totalClientes, 'Elemento existe?', !!elemTotalClientes);
-    if (elemTotalClientes) elemTotalClientes.textContent = totalClientes;
-
-    // Documentos este mês
-    const mesAtual = new Date().getMonth();
-    const anoAtual = new Date().getFullYear();
-    const docsEsteMes = documentos.filter(doc => {
-        const dataDoc = new Date(doc.data_geracao || doc.created_at);
-        return dataDoc.getMonth() === mesAtual && dataDoc.getFullYear() === anoAtual;
-    });
-    const elemMesAtual = document.getElementById('stat-mes-atual');
-    console.log('[DEBUG] Atualizando stat-mes-atual:', docsEsteMes.length, 'Elemento existe?', !!elemMesAtual);
-    if (elemMesAtual) elemMesAtual.textContent = docsEsteMes.length;
-
-    // Cidades únicas
-    const cidadesUnicas = new Set(clientes.map(c => c.cidade).filter(c => c));
-    const elemCidades = document.getElementById('stat-cidades');
-    const valorCidades = cidadesUnicas.size || (nomeClienteFiltro && clientes.length > 0 ? 1 : 0);
-    console.log('[DEBUG] Atualizando stat-cidades:', valorCidades, 'Elemento existe?', !!elemCidades);
-    if (elemCidades) elemCidades.textContent = valorCidades;
-
-    console.log('[DEBUG] Estatísticas carregadas:', {
-        clientes: clientes.length,
-        documentos: documentos.length,
-        esteMes: docsEsteMes.length,
-        cidades: cidadesUnicas.size,
-        filtrado: !!nomeClienteFiltro
-    });
-
-    // Calcular estatísticas adicionais
-    // Média de documentos por cliente
-    const mediaDocsCliente = totalClientes > 0 ? (totalDocs / totalClientes).toFixed(1) : 0;
-    document.getElementById('stat-media-docs').textContent = mediaDocsCliente;
-
-    // Tipo de documento mais gerado
-    const tiposCount = {};
-    documentos.forEach(doc => {
-        const tipo = doc.tipo_documento || detectarTipoDocumento(doc.nome_arquivo || '');
-        tiposCount[tipo] = (tiposCount[tipo] || 0) + 1;
-    });
-    const tipoMaisGerado = Object.entries(tiposCount).sort((a, b) => b[1] - a[1])[0];
-    document.getElementById('stat-tipo-popular').textContent = tipoMaisGerado ? tipoMaisGerado[0] : '-';
-
-    // Documentos na última semana
-    const umaSemanaAtras = new Date();
-    umaSemanaAtras.setDate(umaSemanaAtras.getDate() - 7);
-    const docsUltimaSemana = documentos.filter(doc => {
-        const dataDoc = new Date(doc.data_geracao || doc.created_at || doc.data_criacao);
-        return dataDoc >= umaSemanaAtras;
-    });
-    document.getElementById('stat-semana').textContent = docsUltimaSemana.length;
-
-    // Renderizar gráficos
-    renderizarGraficoDocumentosPorMes(documentos, nomeClienteFiltro);
-    renderizarGraficoClientesPorCidade(clientes, nomeClienteFiltro);
-    renderizarGraficoDocumentosPorTipo(documentos, nomeClienteFiltro);
-    renderizarGraficoDocumentosPorCategoria(documentos, nomeClienteFiltro);
-    renderizarGraficoTopClientes(documentos, clientes, nomeClienteFiltro);
-    renderizarTabelaResumoClientes(documentos, clientes, nomeClienteFiltro);
-}
-
-function renderizarGraficoDocumentosPorMes(documentos, nomeClienteFiltro = null) {
-    // Agrupar documentos por mês
-    const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const docsPorMes = new Array(12).fill(0);
-
-    documentos.forEach(doc => {
-        const data = new Date(doc.data_geracao || doc.created_at || doc.data_criacao);
-        if (!isNaN(data.getTime())) {
-            const mes = data.getMonth();
-            docsPorMes[mes]++;
-        }
-    });
-
-    const ctx = document.getElementById('chart-documentos-mes');
-    if (!ctx) return;
-
-    // Destruir gráfico anterior se existir
-    if (chartDocumentosMes) {
-        chartDocumentosMes.destroy();
-    }
-
-    chartDocumentosMes = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: mesesNomes,
-            datasets: [{
-                label: nomeClienteFiltro ? `Documentos de ${nomeClienteFiltro}` : 'Documentos Gerados',
-                data: docsPorMes,
-                backgroundColor: 'rgba(139, 92, 246, 0.7)',
-                borderColor: 'rgba(139, 92, 246, 1)',
-                borderWidth: 2,
-                borderRadius: 8,
-                hoverBackgroundColor: 'rgba(139, 92, 246, 0.9)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        font: {
-                            size: 12,
-                            weight: 'bold'
-                        },
-                        padding: 15
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    titleFont: {
-                        size: 14
-                    },
-                    bodyFont: {
-                        size: 13
-                    },
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.parsed.y + ' documento(s)';
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1,
-                        font: {
-                            size: 11
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    }
-                },
-                x: {
-                    ticks: {
-                        font: {
-                            size: 11
-                        }
-                    },
-                    grid: {
-                        display: false
-                    }
-                }
-            }
-        }
-    });
-}
-
-function renderizarGraficoClientesPorCidade(clientes, nomeClienteFiltro = null) {
-    // Agrupar clientes por cidade
-    const cidadesCount = {};
-
-    clientes.forEach(cliente => {
-        const cidade = cliente.cidade || 'Não informada';
-        cidadesCount[cidade] = (cidadesCount[cidade] || 0) + 1;
-    });
-
-    // Ordenar por quantidade e pegar top 10
-    const cidadesOrdenadas = Object.entries(cidadesCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
-
-    const labels = cidadesOrdenadas.map(item => item[0]);
-    const valores = cidadesOrdenadas.map(item => item[1]);
-
-    const ctx = document.getElementById('chart-clientes-cidade');
-    if (!ctx) return;
-
-    // Destruir gráfico anterior se existir
-    if (chartClientesCidade) {
-        chartClientesCidade.destroy();
-    }
-
-    // Cores variadas para o gráfico de pizza
-    const cores = [
-        'rgba(59, 130, 246, 0.7)',   // Azul
-        'rgba(16, 185, 129, 0.7)',   // Verde
-        'rgba(239, 68, 68, 0.7)',    // Vermelho
-        'rgba(245, 158, 11, 0.7)',   // Laranja
-        'rgba(168, 85, 247, 0.7)',   // Roxo
-        'rgba(236, 72, 153, 0.7)',   // Rosa
-        'rgba(20, 184, 166, 0.7)',   // Teal
-        'rgba(251, 146, 60, 0.7)',   // Laranja claro
-        'rgba(99, 102, 241, 0.7)',   // Indigo
-        'rgba(132, 204, 22, 0.7)'    // Lima
-    ];
-
-    const coresBorda = cores.map(cor => cor.replace('0.7', '1'));
-
-    chartClientesCidade = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Clientes',
-                data: valores,
-                backgroundColor: cores,
-                borderColor: coresBorda,
-                borderWidth: 2,
-                hoverOffset: 15
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'right',
-                    labels: {
-                        font: {
-                            size: 11,
-                            weight: 'bold'
-                        },
-                        padding: 10,
-                        boxWidth: 15,
-                        boxHeight: 15
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    titleFont: {
-                        size: 14
-                    },
-                    bodyFont: {
-                        size: 13
-                    },
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentual = ((context.parsed / total) * 100).toFixed(1);
-                            return context.label + ': ' + context.parsed + ' cliente(s) (' + percentual + '%)';
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-let chartDocumentosTipo = null;
-let chartDocumentosCategoria = null;
-let chartTopClientes = null;
-
-function renderizarGraficoDocumentosPorTipo(documentos, nomeClienteFiltro = null) {
-    const tiposCount = {};
-
-    documentos.forEach(doc => {
-        const tipo = doc.tipo_documento || detectarTipoDocumento(doc.nome_arquivo || '');
-        tiposCount[tipo] = (tiposCount[tipo] || 0) + 1;
-    });
-
-    const labels = Object.keys(tiposCount);
-    const valores = Object.values(tiposCount);
-
-    const ctx = document.getElementById('chart-documentos-tipo');
-    if (!ctx) return;
-
-    if (chartDocumentosTipo) {
-        chartDocumentosTipo.destroy();
-    }
-
-    chartDocumentosTipo = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Documentos',
-                data: valores,
-                backgroundColor: [
-                    'rgba(59, 130, 246, 0.7)',
-                    'rgba(168, 85, 247, 0.7)',
-                    'rgba(16, 185, 129, 0.7)',
-                    'rgba(245, 158, 11, 0.7)'
-                ],
-                borderColor: [
-                    'rgba(59, 130, 246, 1)',
-                    'rgba(168, 85, 247, 1)',
-                    'rgba(16, 185, 129, 1)',
-                    'rgba(245, 158, 11, 1)'
-                ],
-                borderWidth: 2,
-                hoverOffset: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom',
-                    labels: {
-                        font: { size: 12, weight: 'bold' },
-                        padding: 15
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentual = ((context.parsed / total) * 100).toFixed(1);
-                            return context.label + ': ' + context.parsed + ' (' + percentual + '%)';
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function renderizarGraficoDocumentosPorCategoria(documentos, nomeClienteFiltro = null) {
-    const categoriasCount = {};
-
-    documentos.forEach(doc => {
-        const categoria = extrairCategoria(doc.nome_arquivo || '');
-        if (categoria) {
-            const catInfo = getCategoriaInfo(categoria);
-            const catNome = `${catInfo.emoji} ${catInfo.nome}`;
-            categoriasCount[catNome] = (categoriasCount[catNome] || 0) + 1;
-        }
-    });
-
-    const labels = Object.keys(categoriasCount);
-    const valores = Object.values(categoriasCount);
-
-    const ctx = document.getElementById('chart-documentos-categoria');
-    if (!ctx) return;
-
-    if (chartDocumentosCategoria) {
-        chartDocumentosCategoria.destroy();
-    }
-
-    chartDocumentosCategoria = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Documentos por Categoria',
-                data: valores,
-                backgroundColor: 'rgba(16, 185, 129, 0.7)',
-                borderColor: 'rgba(16, 185, 129, 1)',
-                borderWidth: 2,
-                borderRadius: 8
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12
-                }
-            },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                }
-            }
-        }
-    });
-}
-
-function renderizarGraficoTopClientes(documentos, clientes, nomeClienteFiltro = null) {
-    // Se filtrado, não mostrar este gráfico
-    if (nomeClienteFiltro) {
-        const ctx = document.getElementById('chart-top-clientes');
-        if (ctx) {
-            if (chartTopClientes) chartTopClientes.destroy();
-            const parent = ctx.parentElement;
-            parent.innerHTML = '<p class="text-center text-gray-500 py-8">Gráfico não disponível para cliente específico</p>';
-        }
-        return;
-    }
-
-    // Contar documentos por cliente
-    const clientesCount = {};
-
-    documentos.forEach(doc => {
-        const nomeCliente = doc.cliente_nome || extrairClienteDoNome(doc.nome_arquivo || '');
-        clientesCount[nomeCliente] = (clientesCount[nomeCliente] || 0) + 1;
-    });
-
-    // Top 10
-    const top10 = Object.entries(clientesCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
-
-    const labels = top10.map(item => item[0]);
-    const valores = top10.map(item => item[1]);
-
-    const ctx = document.getElementById('chart-top-clientes');
-    if (!ctx) return;
-
-    if (chartTopClientes) {
-        chartTopClientes.destroy();
-    }
-
-    chartTopClientes = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Documentos Gerados',
-                data: valores,
-                backgroundColor: 'rgba(99, 102, 241, 0.7)',
-                borderColor: 'rgba(99, 102, 241, 1)',
-                borderWidth: 2,
-                borderRadius: 8
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12
-                }
-            },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                }
-            }
-        }
-    });
-}
-
-let dadosTabelaOriginais = [];
-
-function renderizarTabelaResumoClientes(documentos, clientes, nomeClienteFiltro = null) {
-    const tbody = document.getElementById('tbody-resumo-clientes');
-    if (!tbody) return;
-
-    // Se filtrado, mostrar apenas o cliente filtrado
-    let clientesParaMostrar = clientes;
-    if (nomeClienteFiltro) {
-        clientesParaMostrar = clientes.filter(c => c.nome_fantasia === nomeClienteFiltro);
-    }
-
-    if (clientesParaMostrar.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-12"><div class="flex flex-col items-center gap-3"><i data-lucide="inbox" class="w-16 h-16 text-gray-300"></i><p class="text-gray-500 font-semibold">Nenhum cliente para exibir</p></div></td></tr>';
-        lucide.createIcons();
-        return;
-    }
-
-    // Preparar dados por cliente
-    dadosTabelaOriginais = clientesParaMostrar.map(cliente => {
-        const docsCliente = documentos.filter(doc => {
-            const nomeDoc = doc.cliente_nome || extrairClienteDoNome(doc.nome_arquivo || '');
-            return nomeDoc.toUpperCase().trim() === cliente.nome_fantasia.toUpperCase().trim();
-        });
-
-        const laudos = docsCliente.filter(d => (d.tipo_documento || detectarTipoDocumento(d.nome_arquivo || '')).toLowerCase().includes('laudo')).length;
-        const contratos = docsCliente.filter(d => (d.tipo_documento || detectarTipoDocumento(d.nome_arquivo || '')).toLowerCase().includes('contrato')).length;
-        const orcamentos = docsCliente.filter(d => (d.tipo_documento || detectarTipoDocumento(d.nome_arquivo || '')).toLowerCase().includes('orcamento')).length;
-        const recibos = docsCliente.filter(d => (d.tipo_documento || detectarTipoDocumento(d.nome_arquivo || '')).toLowerCase().includes('recibo')).length;
-
-        // Data do último documento
-        let ultimoDoc = '-';
-        let ultimaDataTimestamp = 0;
-        if (docsCliente.length > 0) {
-            const datasValidas = docsCliente
-                .map(d => new Date(d.data_geracao || d.created_at || d.data_criacao))
-                .filter(d => !isNaN(d.getTime()))
-                .sort((a, b) => b - a);
-
-            if (datasValidas.length > 0) {
-                ultimaDataTimestamp = datasValidas[0].getTime();
-                ultimoDoc = datasValidas[0].toLocaleDateString('pt-BR');
-            }
-        }
-
-        return {
-            nome: cliente.nome_fantasia,
-            total: docsCliente.length,
-            laudos,
-            contratos,
-            orcamentos,
-            recibos,
-            ultimoDoc,
-            ultimaDataTimestamp
-        };
-    });
-
-    // Ordenar por total de documentos (decrescente) por padrão
-    aplicarOrdenacaoTabela();
-
-    // Atualizar contador
-    document.getElementById('total-registros-tabela').textContent = dadosTabelaOriginais.length;
-    document.getElementById('ultima-atualizacao-tabela').textContent = new Date().toLocaleTimeString('pt-BR');
-}
-
-function aplicarOrdenacaoTabela(dados = dadosTabelaOriginais) {
-    const tbody = document.getElementById('tbody-resumo-clientes');
-    if (!tbody) return;
-
-    // Ordenar dados
-    const dadosOrdenados = [...dados].sort((a, b) => {
-        let valorA, valorB;
-
-        switch (ordenacaoAtual.campo) {
-            case 'cliente':
-                valorA = a.nome.toLowerCase();
-                valorB = b.nome.toLowerCase();
-                break;
-            case 'total':
-                valorA = a.total;
-                valorB = b.total;
-                break;
-            case 'data':
-                valorA = a.ultimaDataTimestamp;
-                valorB = b.ultimaDataTimestamp;
-                break;
-            default:
-                valorA = a.total;
-                valorB = b.total;
-        }
-
-        if (ordenacaoAtual.direcao === 'asc') {
-            return valorA > valorB ? 1 : -1;
-        } else {
-            return valorA < valorB ? 1 : -1;
-        }
-    });
-
-    // Renderizar linhas com visual moderno
-    tbody.innerHTML = '';
-    dadosOrdenados.forEach((cliente, index) => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-gradient-to-r hover:from-violet-50 hover:to-purple-50 transition-all duration-200 cursor-pointer';
-        tr.innerHTML = `
-            <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                    <div class="bg-gradient-to-br from-violet-100 to-purple-100 rounded-lg p-2">
-                        <i data-lucide="building-2" class="w-4 h-4 text-violet-600"></i>
-                    </div>
-                    <div>
-                        <div class="font-bold text-gray-800">${cliente.nome}</div>
-                        <div class="text-xs text-gray-500">#${index + 1} no ranking</div>
-                    </div>
-                </div>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold shadow-md">
-                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-                    ${cliente.total}
-                </div>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 ${cliente.laudos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'} rounded-lg text-sm font-semibold">
-                    ${cliente.laudos}
-                </span>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 ${cliente.contratos > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'} rounded-lg text-sm font-semibold">
-                    ${cliente.contratos}
-                </span>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 ${cliente.orcamentos > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'} rounded-lg text-sm font-semibold">
-                    ${cliente.orcamentos}
-                </span>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 ${cliente.recibos > 0 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'} rounded-lg text-sm font-semibold">
-                    ${cliente.recibos}
-                </span>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <div class="inline-flex items-center gap-1.5 text-sm text-gray-600">
-                    <i data-lucide="calendar" class="w-4 h-4"></i>
-                    ${cliente.ultimoDoc}
-                </div>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <button onclick="verDetalhesCliente('${cliente.nome}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg text-xs font-semibold hover:shadow-lg transition-all">
-                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                    Ver
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    lucide.createIcons();
-}
-
-function ordenarTabela(campo) {
-    if (ordenacaoAtual.campo === campo) {
-        ordenacaoAtual.direcao = ordenacaoAtual.direcao === 'asc' ? 'desc' : 'asc';
-    } else {
-        ordenacaoAtual.campo = campo;
-        ordenacaoAtual.direcao = 'desc';
-    }
-    aplicarOrdenacaoTabela();
-}
-
-function verDetalhesCliente(nomeCliente) {
-    // Aplicar filtro de cliente e mostrar análises
-    document.getElementById('pesquisa-cliente-analise').value = nomeCliente;
-    document.getElementById('filtro-analise-cliente').value = nomeCliente;
-    document.getElementById('filtro-analise-cliente').dispatchEvent(new Event('change'));
-
-    showToast(`Visualizando dados de: ${nomeCliente}`, 'info');
-}
-
-function exportarTabelaExcel() {
-    showToast('Funcionalidade de exportação em desenvolvimento', 'info');
-}
-
-// Listener para pesquisa na tabela
-document.addEventListener('DOMContentLoaded', () => {
-    const pesquisaTabela = document.getElementById('pesquisa-tabela-clientes');
-    if (pesquisaTabela) {
-        pesquisaTabela.addEventListener('input', (e) => {
-            const termo = e.target.value.toLowerCase().trim();
-
-            if (!termo) {
-                aplicarOrdenacaoTabela(dadosTabelaOriginais);
-                document.getElementById('total-registros-tabela').textContent = dadosTabelaOriginais.length;
-                return;
-            }
-
-            const dadosFiltrados = dadosTabelaOriginais.filter(cliente =>
-                cliente.nome.toLowerCase().includes(termo)
-            );
-
-            aplicarOrdenacaoTabela(dadosFiltrados);
-            document.getElementById('total-registros-tabela').textContent = dadosFiltrados.length;
-        });
-    }
-});
-
-// Carregar documentos quando a view de documentos for exibida
-const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        if (mutation.target.id === 'view-documentos' && !mutation.target.classList.contains('hidden')) {
-            buscarDocumentos();
-        }
-        if (mutation.target.id === 'view-analise' && !mutation.target.classList.contains('hidden')) {
-            carregarAnalise();
-        }
-    });
-});
-
-// Observar mudanças nas views
-document.querySelectorAll('.view-content').forEach(view => {
-    observer.observe(view, { attributes: true, attributeFilter: ['class'] });
-});
-
 // ============================================
 //  FUNÇÕES DE GERENCIAMENTO DE ARQUIVOS
 // ============================================
 
 // Excluir documento
-// Função para visualizar documento online
+// Função para visualizar documento online (mantém formatação original do Word)
 function visualizarDocumento(nomeArquivo) {
+    // Usar visualização PDF com interface moderna (mantém toda formatação)
     const url = `/api/visualizar-documento/${encodeURIComponent(nomeArquivo)}`;
 
-    // Abrir em nova janela/aba
-    window.open(url, '_blank', 'width=1000,height=800,scrollbars=yes,resizable=yes');
+    // Abrir em nova janela/aba maximizada
+    const width = screen.width * 0.9;
+    const height = screen.height * 0.9;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
+
+    window.open(
+        url,
+        '_blank',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+
+    showToast('📄 Preparando visualização...', 'info');
 }
 
 async function excluirDocumento(nomeArquivo) {
@@ -5099,6 +3643,177 @@ Digite o número da opção:`;
         alert('❌ Erro ao mover documento. Verifique o console para mais detalhes.');
     }
 }
+
+// ============================================
+//  FUNÇÕES DO MODAL DE GARANTIAS
+// ============================================
+
+let todasGarantias = [];
+let garantiasFiltradas = [];
+let filtroAtualGarantias = 'todos';
+
+async function carregarGarantias() {
+    try {
+        const response = await fetch('/api/garantias/vencimentos?dias_antecedencia=90');
+        const data = await response.json();
+
+        todasGarantias = data;
+        aplicarFiltroGarantias(filtroAtualGarantias);
+        atualizarContadores();
+
+        // Atualizar contador do card principal
+        const garantiasProximas = todasGarantias.filter(g => g.dias_restantes <= 30).length;
+        document.getElementById('stat-garantias').textContent = garantiasProximas;
+
+    } catch (error) {
+        console.error('Erro ao carregar garantias:', error);
+        document.getElementById('lista-garantias').innerHTML = `
+            <div class="text-center py-12 text-red-500">
+                <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-4"></i>
+                <p class="font-semibold">Erro ao carregar garantias</p>
+                <p class="text-sm text-gray-500 mt-2">${error.message}</p>
+            </div>
+        `;
+        lucide.createIcons();
+    }
+}
+
+function atualizarContadores() {
+    const vencidas = todasGarantias.filter(g => g.dias_restantes < 0).length;
+    const seteDias = todasGarantias.filter(g => g.dias_restantes >= 0 && g.dias_restantes <= 7).length;
+    const trintaDias = todasGarantias.filter(g => g.dias_restantes > 7 && g.dias_restantes <= 30).length;
+
+    document.getElementById('count-todos').textContent = todasGarantias.length;
+    document.getElementById('count-vencidas').textContent = vencidas;
+    document.getElementById('count-7dias').textContent = seteDias;
+    document.getElementById('count-30dias').textContent = trintaDias;
+}
+
+function filtrarGarantias(filtro) {
+    filtroAtualGarantias = filtro;
+    aplicarFiltroGarantias(filtro);
+
+    // Atualizar estilo dos botões
+    document.querySelectorAll('[id^="filtro-"]').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-red-600');
+        btn.classList.add('bg-white/30');
+    });
+    document.getElementById(`filtro-${filtro}`).classList.remove('bg-white/30');
+    document.getElementById(`filtro-${filtro}`).classList.add('bg-white', 'text-red-600');
+}
+
+function aplicarFiltroGarantias(filtro) {
+    switch(filtro) {
+        case 'vencidas':
+            garantiasFiltradas = todasGarantias.filter(g => g.dias_restantes < 0);
+            break;
+        case '7dias':
+            garantiasFiltradas = todasGarantias.filter(g => g.dias_restantes >= 0 && g.dias_restantes <= 7);
+            break;
+        case '30dias':
+            garantiasFiltradas = todasGarantias.filter(g => g.dias_restantes > 7 && g.dias_restantes <= 30);
+            break;
+        default:
+            garantiasFiltradas = [...todasGarantias];
+    }
+
+    renderizarListaGarantias();
+}
+
+function renderizarListaGarantias() {
+    const container = document.getElementById('lista-garantias');
+    document.getElementById('total-garantias-exibidas').textContent = garantiasFiltradas.length;
+
+    if (garantiasFiltradas.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-400">
+                <i data-lucide="check-circle" class="w-16 h-16 mx-auto mb-4"></i>
+                <p class="text-lg font-semibold">Nenhuma garantia encontrada</p>
+                <p class="text-sm mt-2">Não há clientes neste filtro</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = garantiasFiltradas.map(garantia => {
+        const urgenciaClass = {
+            'critico': 'bg-red-50 border-red-200',
+            'urgente': 'bg-orange-50 border-orange-200',
+            'atencao': 'bg-yellow-50 border-yellow-200'
+        }[garantia.urgencia] || 'bg-gray-50 border-gray-200';
+
+        const urgenciaIcon = {
+            'critico': '❌',
+            'urgente': '🔥',
+            'atencao': '⚠️'
+        }[garantia.urgencia] || '📅';
+
+        const statusTexto = garantia.dias_restantes < 0
+            ? `Vencida há ${Math.abs(garantia.dias_restantes)} dia(s)`
+            : `Vence em ${garantia.dias_restantes} dia(s)`;
+
+        const dataVencimento = new Date(garantia.data_vencimento).toLocaleDateString('pt-BR');
+
+        return `
+            <div class="border rounded-xl p-4 ${urgenciaClass} hover:shadow-md transition">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-2xl">${urgenciaIcon}</span>
+                            <div>
+                                <h3 class="font-bold text-gray-900">${garantia.cliente_nome}</h3>
+                                <p class="text-sm text-gray-600">${garantia.cidade || 'Sem cidade'}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mt-3">
+                            <div class="text-sm">
+                                <p class="text-gray-500">CNPJ</p>
+                                <p class="font-mono font-semibold">${garantia.cnpj || 'Não informado'}</p>
+                            </div>
+                            <div class="text-sm">
+                                <p class="text-gray-500">Telefone</p>
+                                <p class="font-semibold">${garantia.telefone || 'Não informado'}</p>
+                            </div>
+                            <div class="text-sm">
+                                <p class="text-gray-500">Data Vencimento</p>
+                                <p class="font-semibold">${dataVencimento}</p>
+                            </div>
+                            <div class="text-sm">
+                                <p class="text-gray-500">Status</p>
+                                <p class="font-semibold ${garantia.dias_restantes < 0 ? 'text-red-600' : 'text-orange-600'}">
+                                    ${statusTexto}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <button onclick="editarCliente(${garantia.cliente_id}); fecharModalGarantias();"
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition">
+                            <i data-lucide="edit-2" class="w-4 h-4 inline mr-1"></i> Editar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    lucide.createIcons();
+}
+
+function abrirModalGarantias() {
+    document.getElementById('modal-garantias').classList.remove('hidden');
+    carregarGarantias();
+}
+
+function fecharModalGarantias() {
+    document.getElementById('modal-garantias').classList.add('hidden');
+}
+
+// Carregar contador de garantias ao iniciar
+setTimeout(() => {
+    carregarGarantias();
+}, 2000);
 
 </script>
 {% endblock %}
