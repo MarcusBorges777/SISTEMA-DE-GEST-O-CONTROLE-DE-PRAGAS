@@ -3412,12 +3412,15 @@ function irParaDocumentosCliente(nomeCliente) {
 // ============================================
 
 // Excluir documento
-// Função para visualizar documento online
+// Função para visualizar documento online (RÁPIDO - usa HTML ao invés de PDF)
 function visualizarDocumento(nomeArquivo) {
-    const url = `/api/visualizar-documento/${encodeURIComponent(nomeArquivo)}`;
+    // Usar visualização HTML (instantânea) ao invés de PDF (lenta)
+    const url = `/api/visualizar-html/${encodeURIComponent(nomeArquivo)}`;
 
     // Abrir em nova janela/aba
     window.open(url, '_blank', 'width=1000,height=800,scrollbars=yes,resizable=yes');
+
+    showToast('📄 Abrindo documento...', 'info');
 }
 
 async function excluirDocumento(nomeArquivo) {

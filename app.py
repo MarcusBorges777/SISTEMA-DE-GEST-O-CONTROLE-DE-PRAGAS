@@ -3287,6 +3287,188 @@ def visualizar_documento_html(filename):
         return jsonify({"error": f"Erro ao visualizar documento: {str(e)}"}), 500
 
 
+@app.route('/api/visualizar-html/<path:filename>')
+def visualizar_documento_html_rapido(filename):
+    """Converte DOCX para HTML instantaneamente usando mammoth (RÁPIDO!)"""
+    try:
+        import mammoth
+
+        caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+
+        if not caminho_arquivo:
+            return jsonify({"error": "Arquivo não encontrado"}), 404
+
+        # Verificar se é um arquivo DOCX
+        if not filename.lower().endswith('.docx'):
+            return jsonify({"error": "Apenas arquivos DOCX podem ser visualizados"}), 400
+
+        # Converter DOCX para HTML usando mammoth (INSTANTÂNEO!)
+        with open(caminho_arquivo, "rb") as docx_file:
+            result = mammoth.convert_to_html(docx_file)
+            html_content = result.value
+
+        # Criar página HTML completa com estilos
+        html_page = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{filename}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .header h1 {{
+            font-size: 18px;
+            font-weight: 600;
+        }}
+        .actions {{
+            display: flex;
+            gap: 10px;
+        }}
+        .btn {{
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .btn-download {{
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }}
+        .btn-download:hover {{
+            background: rgba(255,255,255,0.3);
+        }}
+        .btn-close {{
+            background: rgba(220,38,38,0.9);
+            color: white;
+        }}
+        .btn-close:hover {{
+            background: rgba(220,38,38,1);
+        }}
+        .content {{
+            padding: 40px;
+            line-height: 1.8;
+            color: #333;
+        }}
+        .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {{
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #1a202c;
+            font-weight: 600;
+        }}
+        .content h1 {{ font-size: 2em; }}
+        .content h2 {{ font-size: 1.5em; }}
+        .content h3 {{ font-size: 1.25em; }}
+        .content p {{
+            margin-bottom: 1em;
+            text-align: justify;
+        }}
+        .content table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+        }}
+        .content table td, .content table th {{
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+        }}
+        .content table th {{
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }}
+        .content ul, .content ol {{
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }}
+        .content li {{
+            margin-bottom: 0.5em;
+        }}
+        .content strong {{
+            font-weight: 600;
+            color: #1a202c;
+        }}
+        @media print {{
+            body {{
+                background: white;
+                padding: 0;
+            }}
+            .header, .actions {{
+                display: none;
+            }}
+            .container {{
+                box-shadow: none;
+                max-width: 100%;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 {filename}</h1>
+            <div class="actions">
+                <a href="/api/download/{filename}" class="btn btn-download">
+                    ⬇️ Download
+                </a>
+                <button onclick="window.print()" class="btn btn-download">
+                    🖨️ Imprimir
+                </button>
+                <button onclick="window.close()" class="btn btn-close">
+                    ✖️ Fechar
+                </button>
+            </div>
+        </div>
+        <div class="content">
+            {html_content}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        return html_page
+
+    except ImportError:
+        return jsonify({"error": "Biblioteca mammoth não instalada. Execute: pip install mammoth"}), 500
+    except Exception as e:
+        print(f"[ERRO] Ao visualizar documento HTML: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Erro ao visualizar documento: {str(e)}"}), 500
+
+
 
 @app.route('/api/compartilhar/<path:filename>')
 def compartilhar_arquivo(filename):
