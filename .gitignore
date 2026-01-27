@@ -63,7 +63,11 @@ Thumbs.db
 desktop.ini
 
 # === .bat ===
+# Ignora .bat genéricos, mas permite os scripts do sistema
 *.bat
+!INSTALAR.bat
+!INICIAR_SISTEMA.bat
+!FECHAR_SISTEMA.bat
 
 # === Sincronização (OneDrive) ===
 # Evita conflitos com arquivos temporários do OneDrive

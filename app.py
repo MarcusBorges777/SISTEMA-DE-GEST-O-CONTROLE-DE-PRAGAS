@@ -366,6 +366,13 @@ def criar_tabelas():
     adicionar_coluna_segura(db, 'clientes_web', 'data_garantia', 'TEXT')
     adicionar_coluna_segura(db, 'clientes_web', 'periodo_garantia_meses', 'INTEGER', '12')
 
+    # Adicionar campo de status para soft-delete (ativo/inativo)
+    adicionar_coluna_segura(db, 'clientes_web', 'status', 'TEXT', "'ativo'")
+    adicionar_coluna_segura(db, 'clientes_web', 'data_inativacao', 'TEXT')
+
+    # Garantir que clientes existentes sem status fiquem como 'ativo'
+    db.execute("UPDATE clientes_web SET status = 'ativo' WHERE status IS NULL")
+
 
     # Criar índices para melhorar performance de queries
     db.execute('CREATE INDEX IF NOT EXISTS idx_clientes_cnpj ON clientes_web(cnpj)')
@@ -1537,9 +1544,15 @@ def api_clientes():
     conn = get_db()
 
     if request.method == 'GET':
-        query = "SELECT * FROM clientes_web WHERE 1=1"
-        count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
-        params = []
+        # Filtrar por status: por padrao mostra apenas ativos
+        status_filtro = request.args.get('status', 'ativo')
+        if status_filtro == 'todos':
+            query = "SELECT * FROM clientes_web WHERE 1=1"
+            count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
+        else:
+            query = "SELECT * FROM clientes_web WHERE (status = ? OR status IS NULL)"
+            count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE (status = ? OR status IS NULL)"
+        params = [] if status_filtro == 'todos' else [status_filtro]
 
         nome = request.args.get('nome', '')
         if nome:
@@ -1652,9 +1665,73 @@ def api_clientes():
 
 @app.route('/api/clientes/<int:id>', methods=['DELETE'])
 def deletar_cliente(id):
-    get_db().execute("DELETE FROM clientes_web WHERE id = ?", (id,))
-    get_db().commit()
-    return jsonify({"message": "Cliente excluido"})
+    """Soft-delete: marca cliente como inativo ao inves de excluir permanentemente"""
+    db = get_db()
+    db.execute(
+        "UPDATE clientes_web SET status = 'inativo', data_inativacao = ? WHERE id = ?",
+        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), id)
+    )
+    db.commit()
+    return jsonify({"message": "Cliente desativado com sucesso"})
+
+
+@app.route('/api/clientes/inativos', methods=['GET'])
+def listar_clientes_inativos():
+    """Lista todos os clientes inativos (excluidos) para possivel reativacao"""
+    try:
+        conn = get_db()
+        clientes = conn.execute(
+            "SELECT * FROM clientes_web WHERE status = 'inativo' ORDER BY data_inativacao DESC"
+        ).fetchall()
+
+        resultado = []
+        for cliente in clientes:
+            cliente_dict = dict(cliente)
+            if 'cidade' in cliente_dict:
+                cliente_dict['cidade'] = converter_municipios_rapido(cliente_dict['cidade'])
+            resultado.append(cliente_dict)
+
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/clientes/<int:id>/reativar', methods=['POST'])
+def reativar_cliente(id):
+    """Reativa um cliente que foi desativado (soft-delete)"""
+    try:
+        db = get_db()
+        cliente = db.execute("SELECT * FROM clientes_web WHERE id = ?", (id,)).fetchone()
+
+        if not cliente:
+            return jsonify({"error": "Cliente nao encontrado"}), 404
+
+        if dict(cliente).get('status') == 'ativo':
+            return jsonify({"message": "Cliente ja esta ativo"}), 200
+
+        db.execute(
+            "UPDATE clientes_web SET status = 'ativo', data_inativacao = NULL WHERE id = ?",
+            (id,)
+        )
+        db.commit()
+        return jsonify({"message": "Cliente reativado com sucesso!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/clientes/reativar-todos', methods=['POST'])
+def reativar_todos_clientes():
+    """Reativa TODOS os clientes inativos de uma vez"""
+    try:
+        db = get_db()
+        resultado = db.execute(
+            "UPDATE clientes_web SET status = 'ativo', data_inativacao = NULL WHERE status = 'inativo'"
+        )
+        db.commit()
+        total = resultado.rowcount
+        return jsonify({"message": f"{total} cliente(s) reativado(s) com sucesso!", "total": total})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/cnpj/autocomplete', methods=['GET'])
