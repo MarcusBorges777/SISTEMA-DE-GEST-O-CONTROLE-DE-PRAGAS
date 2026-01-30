@@ -1,12 +1,14 @@
-<!--
+{#
   BOTÕES DE EXPORTAÇÃO - Componente Reutilizável
 
   Como usar:
   {% include 'components/export_buttons.html' %}
 
-  Ou com parâmetros:
-  {% include 'components/export_buttons.html' with data_endpoint='/api/seus-dados' %}
--->
+  Ou com parâmetros (usando with):
+  {% with data_endpoint='/api/seus-dados' %}
+    {% include 'components/export_buttons.html' %}
+  {% endwith %}
+#}
 
 <style>
 .export-button {

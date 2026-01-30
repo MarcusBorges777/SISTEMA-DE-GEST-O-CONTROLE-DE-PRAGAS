@@ -34,14 +34,29 @@ from categorias_cnae import obter_categoria_por_cnae
 # Sistema de aprendizagem de layouts
 from document_learning import DocumentLayoutLearner
 
-# Gerenciador centralizado de banco de dados
+# Gerenciador centralizado de banco de dados (SQLAlchemy)
 from db_manager import DatabaseManager, get_db_manager
+
+# Serviços ORM para tabelas legadas (transição gradual)
+from services_compat import (
+    ClienteServiceLegado, BoletoServiceLegado, ReciboServiceLegado,
+    DocumentoServiceLegado, TagServiceLegado,
+    get_cliente_service, get_boleto_service, get_recibo_service,
+    get_documento_service, get_tag_service,
+    registrar_tabelas_legadas
+)
 
 # Validação de entrada
 from validators import (
     ClienteSchema, BoletoSchema,
     ValidationError, validar_cnpj, validar_cpf,
     sanitizar_string, validate_json
+)
+
+# Utilitários centralizados (constantes e funções compartilhadas)
+from utils import (
+    MUNICIPIOS, MUNICIPIOS_PATTERN, converter_municipios,
+    formatar_moeda, formatar_data
 )
 
 # Autocomplete de CNPJs da Receita Federal
@@ -52,6 +67,12 @@ from blueprints.prospeccao import prospeccao_bp
 
 # Blueprint de Gerenciamento de Arquivos
 from blueprints.file_manager import file_manager_bp
+
+# Blueprints modulares (Fase 3 - Modularização)
+from blueprints.clientes import clientes_bp
+from blueprints.boletos import boletos_bp
+from blueprints.tags import tags_bp
+from blueprints.documentos import documentos_bp
 
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 from data_bridge import criar_bridge
@@ -70,6 +91,13 @@ app = Flask(__name__)
 # Registrar blueprints
 app.register_blueprint(prospeccao_bp)
 app.register_blueprint(file_manager_bp)
+
+# Registrar blueprints modulares (Fase 3)
+app.register_blueprint(clientes_bp, url_prefix='/api')
+app.register_blueprint(boletos_bp, url_prefix='/api')
+app.register_blueprint(tags_bp, url_prefix='/api')
+app.register_blueprint(documentos_bp, url_prefix='/api')
+print("[OK] Blueprints modulares registrados (clientes, boletos, tags, documentos)")
 
 # Gerar SECRET_KEY segura (usa variável de ambiente ou gera uma nova)
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
@@ -126,20 +154,9 @@ else:
 # Cache de CNAEs permitidos
 CNAES_PERMITIDOS = {}
 
-# ============================================
-#  OTIMIZAÇÃO: Cache de Municípios
-# ============================================
-# Pré-compilar regex para substituição de códigos de município (50x mais rápido)
-MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
-
-def converter_municipios_rapido(texto):
-    """
-    Converte códigos de município para nomes em uma única passagem.
-    50x mais rápido que múltiplos .replace()
-    """
-    if not texto:
-        return texto
-    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
+# Nota: MUNICIPIOS e converter_municipios agora são importados de utils.py
+# Alias para compatibilidade com código existente que usa o nome antigo
+converter_municipios_rapido = converter_municipios
 
 # Regex patterns pré-compilados para otimizar extração de dados de PDFs
 COMPILED_PATTERNS = {
@@ -249,14 +266,7 @@ cache_api = SimpleCache(ttl=60)  # Cache de APIs - 1 minuto
 cache_queries = SimpleCache(ttl=300)  # Cache de queries - 5 minutos
 cache_tags = SimpleCache(ttl=600)  # Cache de tags - 10 minutos
 
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
+# Nota: MUNICIPIOS agora é importado de utils.py
 
 # Regex patterns compilados (otimização)
 REGEX_PATTERNS = {
@@ -287,7 +297,20 @@ TEMPLATES = {
 }
 
 def get_db():
-    """Conexão otimizada com SQLite"""
+    """
+    Conexão otimizada com SQLite.
+
+    DEPRECATED: Use get_db_manager() e serviços ORM ao invés de SQL raw.
+
+    Exemplo de migração:
+        # Antes (SQL raw):
+        conn = get_db()
+        clientes = conn.execute("SELECT * FROM clientes_web").fetchall()
+
+        # Depois (ORM):
+        svc = get_cliente_service()
+        clientes, total = svc.listar()
+    """
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(
@@ -1532,130 +1555,9 @@ def documentos():
     # Redirecionar para dashboard_novo.html que já existe e funciona
     return render_template('dashboard_novo.html')
 
-@app.route('/api/clientes', methods=['GET', 'POST'])
-def api_clientes():
-    conn = get_db()
-
-    if request.method == 'GET':
-        query = "SELECT * FROM clientes_web WHERE 1=1"
-        count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
-        params = []
-
-        nome = request.args.get('nome', '')
-        if nome:
-            query += " AND nome_fantasia LIKE ?"
-            count_query += " AND nome_fantasia LIKE ?"
-            params.append(f'%{nome}%')
-
-        cidade = request.args.get('cidade', '')
-        if cidade:
-            query += " AND cidade LIKE ?"
-            count_query += " AND cidade LIKE ?"
-            params.append(f'%{cidade}%')
-
-        cnpj = request.args.get('cnpj', '')
-        if cnpj:
-            query += " AND cnpj LIKE ?"
-            count_query += " AND cnpj LIKE ?"
-            params.append(f'%{cnpj}%')
-
-        cnae = request.args.get('cnae', '')
-        if cnae:
-            query += " AND cnae LIKE ?"
-            count_query += " AND cnae LIKE ?"
-            params.append(f'%{cnae}%')
-
-        rua = request.args.get('rua', '')
-        if rua:
-            query += " AND rua LIKE ?"
-            count_query += " AND rua LIKE ?"
-            params.append(f'%{rua}%')
-
-        query += " ORDER BY nome_fantasia"
-
-        # Paginação (opcional - se page for enviado)
-        page = request.args.get('page', type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        per_page = min(per_page, 200)  # Limite máximo de 200
-
-        if page is not None and page > 0:
-            # Paginação habilitada
-            total = conn.execute(count_query, params).fetchone()['total']
-            offset = (page - 1) * per_page
-            query += f" LIMIT {per_page} OFFSET {offset}"
-
-            clientes = conn.execute(query, params).fetchall()
-            return jsonify({
-                "data": [dict(row) for row in clientes],
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": total,
-                    "pages": (total + per_page - 1) // per_page
-                }
-            })
-        else:
-            # Sem paginação (comportamento original para compatibilidade)
-            # OTIMIZAÇÃO: Limitar a 500 registros por padrão para evitar sobrecarga
-            query += " LIMIT 500"
-            clientes = conn.execute(query, params).fetchall()
-
-            # OTIMIZAÇÃO: Converter códigos de cidade para nomes (50x mais rápido)
-            clientes_convertidos = []
-            for cliente in clientes:
-                cliente_dict = dict(cliente)
-                if 'cidade' in cliente_dict:
-                    cliente_dict['cidade'] = converter_municipios_rapido(cliente_dict['cidade'])
-                if 'endereco_completo' in cliente_dict:
-                    cliente_dict['endereco_completo'] = converter_municipios_rapido(cliente_dict['endereco_completo'])
-                clientes_convertidos.append(cliente_dict)
-            return jsonify(clientes_convertidos)
-
-    # POST - Criar ou Atualizar
-    dados = request.json
-    nome = dados.get('nome_fantasia', '').strip()
-    if not nome:
-        return jsonify({"error": "Nome obrigatorio"}), 400
-
-    try:
-        cliente_id = dados.get('id')
-
-        if cliente_id:
-            # Atualizar
-            conn.execute('''UPDATE clientes_web SET
-                nome_fantasia = ?, razao_social = ?, cnpj = ?, cnae = ?,
-                rua = ?, numero = ?, bairro = ?, cidade = ?, uf = ?,
-                telefone = ?, data_garantia = ?, periodo_garantia_meses = ?
-                WHERE id = ?''',
-                (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
-                 dados.get('rua'), dados.get('numero'), dados.get('bairro'),
-                 dados.get('cidade'), dados.get('uf'),
-                 dados.get('telefone'), dados.get('data_garantia'),
-                 dados.get('periodo_garantia_meses', 12), cliente_id))
-        else:
-            # Inserir
-            endereco_completo = f"{dados.get('rua', '')}, {dados.get('numero', '')} - {dados.get('cidade', '')}/{dados.get('uf', '')}"
-            conn.execute('''INSERT INTO clientes_web
-                (nome_fantasia, razao_social, cnpj, cnae, rua, numero, bairro, cidade, uf, endereco_completo,
-                 telefone, data_garantia, periodo_garantia_meses)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
-                 dados.get('rua'), dados.get('numero'), dados.get('bairro'),
-                 dados.get('cidade'), dados.get('uf'), endereco_completo,
-                 dados.get('telefone'), dados.get('data_garantia'),
-                 dados.get('periodo_garantia_meses', 12)))
-
-        conn.commit()
-        return jsonify({"message": "Cliente salvo!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/clientes/<int:id>', methods=['DELETE'])
-def deletar_cliente(id):
-    get_db().execute("DELETE FROM clientes_web WHERE id = ?", (id,))
-    get_db().commit()
-    return jsonify({"message": "Cliente excluido"})
-
+# =============================================================================
+# ROTAS DE CLIENTES - MOVIDAS PARA blueprints/clientes.py
+# =============================================================================
 
 @app.route('/api/cnpj/autocomplete', methods=['GET'])
 def cnpj_autocomplete():
@@ -2525,159 +2427,10 @@ def buscar_descricao_cnae(cnae_codigo):
         }), 500
 
 
-@app.route('/api/documentos-gerados')
-def api_documentos_gerados():
-    conn = get_db()
-    if not tabela_existe('documentos_gerados'):
-        return jsonify([])
-
-    # Paginação
-    page = request.args.get('page', type=int)
-    per_page = request.args.get('per_page', 100, type=int)
-    per_page = min(per_page, 500)  # Limite máximo
-
-    def converter_cidade(doc):
-        """
-        Converte código de cidade para nome
-        OTIMIZAÇÃO: Usa regex pré-compilado (50x mais rápido)
-        """
-        doc_dict = dict(doc)
-        # Converter todos os campos de uma vez usando função otimizada
-        for campo in ['cliente_nome', 'cidade', 'endereco_completo']:
-            if campo in doc_dict and doc_dict[campo]:
-                doc_dict[campo] = converter_municipios_rapido(doc_dict[campo])
-        return doc_dict
-
-    if page is not None and page > 0:
-        total = conn.execute("SELECT COUNT(*) as total FROM documentos_gerados").fetchone()['total']
-        offset = (page - 1) * per_page
-        docs = conn.execute(f"SELECT * FROM documentos_gerados ORDER BY data_geracao DESC LIMIT {per_page} OFFSET {offset}").fetchall()
-        return jsonify({
-            "data": [converter_cidade(row) for row in docs],
-            "pagination": {
-                "page": page,
-                "per_page": per_page,
-                "total": total,
-                "pages": (total + per_page - 1) // per_page
-            }
-        })
-    else:
-        docs = conn.execute("SELECT * FROM documentos_gerados ORDER BY data_geracao DESC LIMIT 100").fetchall()
-        return jsonify([converter_cidade(row) for row in docs])
-
-
-@app.route('/api/documentos/<path:nome_arquivo>', methods=['DELETE'])
-def deletar_documento(nome_arquivo):
-    """Excluir documento gerado"""
-    try:
-        caminho_arquivo = DOCUMENTOS_DIR / nome_arquivo
-
-        if not caminho_arquivo.exists():
-            return jsonify({'erro': 'Arquivo não encontrado'}), 404
-
-        # Excluir o arquivo
-        caminho_arquivo.unlink()
-
-        # Remover do banco de dados
-        conn = get_db()
-        if tabela_existe('documentos_gerados'):
-            conn.execute("DELETE FROM documentos_gerados WHERE nome_arquivo = ?", (nome_arquivo,))
-            conn.commit()
-
-        return jsonify({
-            'sucesso': True,
-            'mensagem': f'Arquivo {nome_arquivo} excluído com sucesso'
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Ao excluir documento: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': str(e)}), 500
-
-
-@app.route('/api/documentos/renomear', methods=['POST'])
-def renomear_documento():
-    """Renomear documento gerado"""
-    try:
-        dados = request.get_json()
-        nome_antigo = dados.get('nome_antigo')
-        nome_novo = dados.get('nome_novo')
-
-        if not nome_antigo or not nome_novo:
-            return jsonify({'erro': 'Nome antigo e novo são obrigatórios'}), 400
-
-        caminho_antigo = DOCUMENTOS_DIR / nome_antigo
-        caminho_novo = DOCUMENTOS_DIR / nome_novo
-
-        if not caminho_antigo.exists():
-            return jsonify({'erro': 'Arquivo original não encontrado'}), 404
-
-        if caminho_novo.exists():
-            return jsonify({'erro': 'Já existe um arquivo com este nome'}), 400
-
-        # Renomear o arquivo
-        caminho_antigo.rename(caminho_novo)
-
-        # Atualizar no banco de dados
-        conn = get_db()
-        if tabela_existe('documentos_gerados'):
-            conn.execute(
-                "UPDATE documentos_gerados SET nome_arquivo = ? WHERE nome_arquivo = ?",
-                (nome_novo, nome_antigo)
-            )
-            conn.commit()
-
-        return jsonify({
-            'sucesso': True,
-            'mensagem': f'Arquivo renomeado de {nome_antigo} para {nome_novo}',
-            'nome_novo': nome_novo
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Ao renomear documento: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': str(e)}), 500
-
-
-@app.route('/api/documentos/mover', methods=['POST'])
-def mover_documento():
-    """Mover documento para outra pasta"""
-    try:
-        dados = request.get_json()
-        nome_arquivo = dados.get('nome_arquivo')
-        pasta_destino = dados.get('pasta_destino')
-
-        if not nome_arquivo or not pasta_destino:
-            return jsonify({'erro': 'Nome do arquivo e pasta destino são obrigatórios'}), 400
-
-        caminho_origem = DOCUMENTOS_DIR / nome_arquivo
-
-        if not caminho_origem.exists():
-            return jsonify({'erro': 'Arquivo não encontrado'}), 404
-
-        # Criar pasta destino se não existir
-        pasta_destino_path = Path(pasta_destino)
-        pasta_destino_path.mkdir(parents=True, exist_ok=True)
-
-        caminho_destino = pasta_destino_path / nome_arquivo
-
-        if caminho_destino.exists():
-            return jsonify({'erro': 'Já existe um arquivo com este nome na pasta destino'}), 400
-
-        # Mover o arquivo
-        shutil.move(str(caminho_origem), str(caminho_destino))
-
-        return jsonify({
-            'sucesso': True,
-            'mensagem': f'Arquivo {nome_arquivo} movido para {pasta_destino}',
-            'caminho_novo': str(caminho_destino)
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Ao mover documento: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': str(e)}), 500
-
+# =============================================================================
+# ROTAS DE DOCUMENTOS - MOVIDAS PARA blueprints/documentos.py
+# /api/documentos-gerados, /api/documentos/<nome>, /api/documentos/renomear, /api/documentos/mover
+# =============================================================================
 
 @app.route('/api/orcamentos')
 def api_orcamentos():
@@ -3304,53 +3057,7 @@ def compartilhar_arquivo(filename):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/documentos')
-def api_documentos():
-    """Lista todos os documentos gerados do banco de dados com informações completas"""
-    try:
-        conn = get_db()
-
-        # Buscar tipo de filtro se fornecido
-        tipo_filtro = request.args.get('tipo', '')
-
-        if tipo_filtro:
-            docs = conn.execute('''
-                SELECT id, tipo_doc, nome_arquivo, caminho_arquivo,
-                       cliente_nome, razao_social, cliente_cnpj, valor_total,
-                       data_geracao
-                FROM documentos_gerados
-                WHERE tipo_doc = ?
-                ORDER BY data_geracao DESC
-            ''', (tipo_filtro,)).fetchall()
-        else:
-            docs = conn.execute('''
-                SELECT id, tipo_doc, nome_arquivo, caminho_arquivo,
-                       cliente_nome, razao_social, cliente_cnpj, valor_total,
-                       data_geracao
-                FROM documentos_gerados
-                ORDER BY data_geracao DESC
-            ''').fetchall()
-
-        documentos = []
-        for doc in docs:
-            documentos.append({
-                'id': doc[0],
-                'tipo': doc[1],
-                'nome_arquivo': doc[2],
-                'caminho': doc[3],
-                'cliente': doc[4] or 'Não informado',
-                'razao_social': doc[5] or 'Não informado',
-                'cnpj': doc[6] or 'Não informado',
-                'valor': float(doc[7]) if doc[7] else 0.0,
-                'valor_formatado': f"R$ {float(doc[7]):,.2f}".replace(',', '_').replace('.', ',').replace('_', '.') if doc[7] else 'R$ 0,00',
-                'data_geracao': doc[8]
-            })
-
-        return jsonify(documentos)
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+# /api/documentos - MOVIDA PARA blueprints/documentos.py
 
 @app.route('/api/upload', methods=['POST'])
 def upload_arquivo():
@@ -3530,419 +3237,11 @@ def api_empresas():
 
     return jsonify(resultado)
 
-# ==================== ROTAS DA API PARA TAGS ====================
-
-@app.route('/api/tags', methods=['GET', 'POST'])
-def api_obter_tags():
-    """Retorna todas as tags cadastradas (GET) ou cria nova tag (POST)"""
-    if request.method == 'GET':
-        try:
-            tags = obter_todas_tags()
-            return jsonify(tags)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'POST':
-        try:
-            dados = request.json
-            nome = dados.get('nome', '').strip()
-            descricao = dados.get('descricao', '').strip()
-            cor = dados.get('cor', '#3B82F6')
-
-            if not nome:
-                return jsonify({"error": "Nome da tag é obrigatório"}), 400
-
-            db = get_db()
-            cursor = db.execute('INSERT INTO tags (nome, descricao, cor) VALUES (?, ?, ?)',
-                              (nome, descricao, cor))
-            db.commit()
-
-            return jsonify({
-                "success": True,
-                "tag_id": cursor.lastrowid,
-                "message": "Tag criada com sucesso"
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/documento', methods=['GET'])
-def api_obter_tags_documento():
-    """Retorna tags de um documento específico"""
-    try:
-        arquivo_id = request.args.get('arquivo_id', type=int)
-        arquivo_tipo = request.args.get('arquivo_tipo', '')
-
-        if not arquivo_id or not arquivo_tipo:
-            return jsonify({"error": "arquivo_id e arquivo_tipo são obrigatórios"}), 400
-
-        tags = obter_tags_documento(arquivo_id, arquivo_tipo)
-        return jsonify(tags)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/adicionar', methods=['POST'])
-def api_adicionar_tag():
-    """Adiciona uma tag a um documento"""
-    try:
-        dados = request.json
-        arquivo_id = dados.get('arquivo_id')
-        arquivo_tipo = dados.get('arquivo_tipo')
-        tag_id = dados.get('tag_id')
-        confianca = dados.get('confianca', 1.0)
-        manual = dados.get('manual', True)
-
-        if not arquivo_id or not arquivo_tipo or not tag_id:
-            return jsonify({"error": "arquivo_id, arquivo_tipo e tag_id são obrigatórios"}), 400
-
-        sucesso = adicionar_tag_documento(arquivo_id, arquivo_tipo, tag_id, confianca, manual)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag adicionada com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao adicionar tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/remover', methods=['POST'])
-def api_remover_tag():
-    """Remove uma tag de um documento"""
-    try:
-        dados = request.json
-        arquivo_id = dados.get('arquivo_id')
-        arquivo_tipo = dados.get('arquivo_tipo')
-        tag_id = dados.get('tag_id')
-
-        if not arquivo_id or not arquivo_tipo or not tag_id:
-            return jsonify({"error": "arquivo_id, arquivo_tipo e tag_id são obrigatórios"}), 400
-
-        sucesso = remover_tag_documento(arquivo_id, arquivo_tipo, tag_id)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag removida com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao remover tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/sugerir', methods=['POST'])
-def api_sugerir_tags():
-    """Sugere tags automaticamente para um documento"""
-    try:
-        dados = request.json
-        arquivo_id = dados.get('arquivo_id')
-        arquivo_tipo = dados.get('arquivo_tipo')
-        nome_arquivo = dados.get('nome_arquivo', '')
-        conteudo_texto = dados.get('conteudo_texto', '')
-
-        if not nome_arquivo:
-            return jsonify({"error": "nome_arquivo é obrigatório"}), 400
-
-        tags_sugeridas = sugerir_tags_automaticas(arquivo_id, arquivo_tipo, nome_arquivo, conteudo_texto)
-        return jsonify(tags_sugeridas)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/arquivo/tags', methods=['GET'])
-def api_obter_tags_arquivo():
-    """Retorna tags de um arquivo físico baseado no caminho"""
-    try:
-        caminho = request.args.get('caminho', '')
-
-        if not caminho:
-            return jsonify({"error": "Caminho do arquivo é obrigatório"}), 400
-
-        # Usar hash do caminho como ID único
-        import hashlib
-        arquivo_id = int(hashlib.md5(caminho.encode()).hexdigest()[:8], 16)
-        arquivo_tipo = 'arquivo_fisico'
-
-        tags = obter_tags_documento(arquivo_id, arquivo_tipo)
-        return jsonify(tags)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/arquivo/tag/adicionar', methods=['POST'])
-def api_adicionar_tag_arquivo():
-    """Adiciona uma tag a um arquivo físico"""
-    try:
-        dados = request.json
-        caminho = dados.get('caminho', '')
-        tag_id = dados.get('tag_id')
-
-        if not caminho or not tag_id:
-            return jsonify({"error": "Caminho e tag_id são obrigatórios"}), 400
-
-        # Usar hash do caminho como ID único
-        import hashlib
-        arquivo_id = int(hashlib.md5(caminho.encode()).hexdigest()[:8], 16)
-        arquivo_tipo = 'arquivo_fisico'
-
-        sucesso = adicionar_tag_documento(arquivo_id, arquivo_tipo, tag_id, confianca=1.0, manual=True)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag adicionada com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao adicionar tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/arquivo/tag/remover', methods=['POST'])
-def api_remover_tag_arquivo():
-    """Remove uma tag de um arquivo físico"""
-    try:
-        dados = request.json
-        caminho = dados.get('caminho', '')
-        tag_id = dados.get('tag_id')
-
-        if not caminho or not tag_id:
-            return jsonify({"error": "Caminho e tag_id são obrigatórios"}), 400
-
-        # Usar hash do caminho como ID único
-        import hashlib
-        arquivo_id = int(hashlib.md5(caminho.encode()).hexdigest()[:8], 16)
-        arquivo_tipo = 'arquivo_fisico'
-
-        sucesso = remover_tag_documento(arquivo_id, arquivo_tipo, tag_id)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag removida com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao remover tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/criar', methods=['POST'])
-def api_criar_tag():
-    """Cria uma nova tag personalizada"""
-    try:
-        dados = request.json
-        nome = dados.get('nome', '').strip()
-        descricao = dados.get('descricao', '').strip()
-        cor = dados.get('cor', '#3B82F6')
-
-        if not nome:
-            return jsonify({"error": "Nome da tag é obrigatório"}), 400
-
-        db = get_db()
-        cursor = db.execute('INSERT INTO tags (nome, descricao, cor) VALUES (?, ?, ?)',
-                           (nome, descricao, cor))
-        db.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Tag criada com sucesso",
-            "tag_id": cursor.lastrowid
-        })
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Já existe uma tag com esse nome"}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ==================== ROTAS DA API PARA BOLETOS ====================
-
-@app.route('/api/boletos', methods=['GET', 'POST'])
-def api_boletos():
-    """Lista todos os boletos (GET) ou cria um novo boleto (POST)"""
-    db = get_db()
-
-    if request.method == 'GET':
-        try:
-            status_filter = request.args.get('status', '')
-            query = 'SELECT * FROM boletos'
-            params = []
-
-            if status_filter:
-                query += ' WHERE status = ?'
-                params.append(status_filter)
-
-            query += ' ORDER BY data_vencimento ASC'
-
-            boletos = db.execute(query, params).fetchall()
-            return jsonify([dict(b) for b in boletos])
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'POST':
-        try:
-            dados = request.json
-            cliente_id = dados.get('cliente_id')
-            cliente_nome = dados.get('cliente_nome', '').strip()
-            descricao = dados.get('descricao', '').strip()
-            valor = dados.get('valor')
-            data_emissao = dados.get('data_emissao')
-            data_vencimento = dados.get('data_vencimento')
-            numero_documento = dados.get('numero_documento', '').strip()
-            codigo_barras = dados.get('codigo_barras', '').strip()
-            arquivo_caminho = dados.get('arquivo_caminho', '').strip()
-
-            if not cliente_nome or not valor or not data_emissao or not data_vencimento:
-                return jsonify({"error": "Campos obrigatórios: cliente_nome, valor, data_emissao, data_vencimento"}), 400
-
-            cursor = db.execute('''
-                INSERT INTO boletos (cliente_id, cliente_nome, descricao, valor, data_emissao, data_vencimento,
-                                   numero_documento, codigo_barras, arquivo_caminho)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (cliente_id, cliente_nome, descricao, valor, data_emissao, data_vencimento,
-                  numero_documento, codigo_barras, arquivo_caminho))
-            db.commit()
-
-            return jsonify({
-                "success": True,
-                "boleto_id": cursor.lastrowid,
-                "message": "Boleto criado com sucesso"
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/<int:boleto_id>', methods=['GET', 'PUT', 'DELETE'])
-def api_boleto(boleto_id):
-    """Obtém, atualiza ou deleta um boleto específico"""
-    db = get_db()
-
-    if request.method == 'GET':
-        try:
-            boleto = db.execute('SELECT * FROM boletos WHERE id = ?', (boleto_id,)).fetchone()
-            if not boleto:
-                return jsonify({"error": "Boleto não encontrado"}), 404
-            return jsonify(dict(boleto))
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'PUT':
-        try:
-            dados = request.json
-            cliente_nome = dados.get('cliente_nome')
-            descricao = dados.get('descricao')
-            valor = dados.get('valor')
-            data_vencimento = dados.get('data_vencimento')
-            numero_documento = dados.get('numero_documento')
-            codigo_barras = dados.get('codigo_barras')
-            observacoes = dados.get('observacoes')
-
-            db.execute('''
-                UPDATE boletos
-                SET cliente_nome = ?, descricao = ?, valor = ?, data_vencimento = ?,
-                    numero_documento = ?, codigo_barras = ?, observacoes = ?
-                WHERE id = ?
-            ''', (cliente_nome, descricao, valor, data_vencimento, numero_documento, codigo_barras, observacoes, boleto_id))
-            db.commit()
-
-            return jsonify({"success": True, "message": "Boleto atualizado com sucesso"})
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'DELETE':
-        try:
-            db.execute('DELETE FROM boletos WHERE id = ?', (boleto_id,))
-            db.commit()
-            return jsonify({"success": True, "message": "Boleto excluído com sucesso"})
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/<int:boleto_id>/pagar', methods=['POST'])
-def api_pagar_boleto(boleto_id):
-    """Marca um boleto como pago (usa o valor original do boleto)"""
-    try:
-        db = get_db()
-
-        # Buscar o valor original do boleto
-        boleto = db.execute('SELECT valor FROM boletos WHERE id = ?', (boleto_id,)).fetchone()
-
-        if not boleto:
-            return jsonify({"error": "Boleto não encontrado"}), 404
-
-        valor_original = boleto['valor']
-        data_pagamento = datetime.now().strftime('%Y-%m-%d')  # Data atual
-
-        # Marcar como pago com o valor original
-        db.execute('''
-            UPDATE boletos
-            SET status = 'pago', data_pagamento = ?, valor_pago = ?
-            WHERE id = ?
-        ''', (data_pagamento, valor_original, boleto_id))
-        db.commit()
-
-        print(f"[BOLETO] Boleto ID {boleto_id} marcado como PAGO - Valor: R$ {valor_original:.2f}")
-
-        return jsonify({
-            "success": True,
-            "message": "Boleto marcado como pago",
-            "valor_pago": valor_original,
-            "data_pagamento": data_pagamento
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/<int:boleto_id>/cancelar', methods=['POST'])
-def api_cancelar_boleto(boleto_id):
-    """Marca um boleto como cancelado"""
-    try:
-        db = get_db()
-        db.execute('UPDATE boletos SET status = ? WHERE id = ?', ('cancelado', boleto_id))
-        db.commit()
-        return jsonify({"success": True, "message": "Boleto cancelado"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/vencendo', methods=['GET'])
-def api_boletos_vencendo():
-    """Retorna boletos que estão vencendo ou vencidos"""
-    try:
-        db = get_db()
-        hoje = datetime.now().date()
-        dias_aviso = request.args.get('dias', default=7, type=int)
-        data_limite = hoje + timedelta(days=dias_aviso)
-
-        boletos = db.execute('''
-            SELECT * FROM boletos
-            WHERE status = 'pendente' AND date(data_vencimento) <= ?
-            ORDER BY data_vencimento ASC
-        ''', (data_limite.isoformat(),)).fetchall()
-
-        avisos = []
-        for b in boletos:
-            data_venc = datetime.fromisoformat(b['data_vencimento']).date()
-            dias_restantes = (data_venc - hoje).days
-
-            status_aviso = 'vencido' if dias_restantes < 0 else 'urgente' if dias_restantes <= 3 else 'atenção'
-
-            avisos.append({
-                'id': b['id'],
-                'cliente_nome': b['cliente_nome'],
-                'descricao': b['descricao'],
-                'valor': b['valor'],
-                'data_vencimento': b['data_vencimento'],
-                'dias_restantes': dias_restantes,
-                'status_aviso': status_aviso,
-                'numero_documento': b['numero_documento']
-            })
-
-        return jsonify({
-            'total': len(avisos),
-            'vencidos': len([a for a in avisos if a['status_aviso'] == 'vencido']),
-            'urgentes': len([a for a in avisos if a['status_aviso'] == 'urgente']),
-            'boletos': avisos
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ==================== ROTA DA API PARA GARANTIAS ====================
-
-@app.route('/api/garantias/vencendo', methods=['GET'])
-def api_garantias_vencendo():
-    """Retorna clientes com garantias vencendo"""
-    try:
-        dias_aviso = request.args.get('dias', default=30, type=int)
-        avisos = verificar_garantias_vencendo(dias_aviso)
-        return jsonify({
-            'total': len(avisos),
-            'urgentes': len([a for a in avisos if a['status'] == 'urgente']),
-            'atencao': len([a for a in avisos if a['status'] == 'atencao']),
-            'vencidas': len([a for a in avisos if a['vencida']]),
-            'avisos': avisos
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# =============================================================================
+# ROTAS DE TAGS - MOVIDAS PARA blueprints/tags.py
+# ROTAS DE BOLETOS - MOVIDAS PARA blueprints/boletos.py
+# ROTAS DE GARANTIAS - MOVIDAS PARA blueprints/clientes.py
+# =============================================================================
 
 def formatar_numero_meses(valor) -> str:
     """
@@ -4754,11 +4053,25 @@ def editar_registro(table_name, record_id):
             return jsonify({"error": "Tabela não permitida"}), 403
 
         dados = request.json
+        if not dados:
+            return jsonify({"error": "Dados não fornecidos"}), 400
+
         conn = get_db()
 
-        # Construir UPDATE dinamicamente
-        campos = [f"{k} = ?" for k in dados.keys() if k != 'id']
-        valores = [v for k, v in dados.items() if k != 'id']
+        # SEGURANÇA: Obter colunas válidas da tabela para prevenir SQL Injection
+        colunas_info = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        colunas_validas = {col['name'] for col in colunas_info}
+
+        # Filtrar apenas colunas que existem na tabela (exceto 'id')
+        dados_filtrados = {k: v for k, v in dados.items()
+                          if k in colunas_validas and k != 'id'}
+
+        if not dados_filtrados:
+            return jsonify({"error": "Nenhuma coluna válida para atualizar"}), 400
+
+        # Construir UPDATE com colunas validadas
+        campos = [f"{k} = ?" for k in dados_filtrados.keys()]
+        valores = list(dados_filtrados.values())
         valores.append(record_id)
 
         query = f"UPDATE {table_name} SET {', '.join(campos)} WHERE id = ?"
@@ -4795,8 +4108,8 @@ def limpar_tabela(table_name):
 
         conn = get_db()
         conn.execute(f"DELETE FROM {table_name}")
-        # Resetar autoincrement
-        conn.execute(f"DELETE FROM sqlite_sequence WHERE name = '{table_name}'")
+        # Resetar autoincrement (usando parâmetro para prevenir SQL Injection)
+        conn.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table_name,))
         conn.commit()
 
         return jsonify({"message": f"Tabela {table_name} limpa com sucesso"})
@@ -5735,6 +5048,12 @@ def salvar_dados_gemini_no_banco(dados_extraidos, arquivo_id, arquivo_nome, resp
 
 with app.app_context():
     criar_tabelas()
+    # Registrar tabelas legadas no ORM (transição para SQLAlchemy)
+    try:
+        registrar_tabelas_legadas()
+        print("[OK] Serviços ORM para tabelas legadas inicializados")
+    except Exception as e:
+        print(f"[AVISO] Erro ao registrar tabelas legadas: {e}")
     # Criar tabelas do sistema de aprendizagem
     layout_learner.criar_tabelas()
     layout_learner.carregar_layouts()
@@ -6155,6 +5474,321 @@ def abrir_arquivo():
     except Exception as e:
         print(f"Erro ao abrir arquivo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# ==================== EXPORTAÇÃO DE DOCUMENTOS ====================
+
+@app.route('/api/export/documentos/excel', methods=['POST'])
+def export_documentos_excel():
+    """Exporta documentos para Excel (CSV)"""
+    try:
+        dados = request.json
+        documentos = dados.get('documentos', [])
+        opcoes = dados.get('opcoes', {})
+
+        if not documentos:
+            return jsonify({"error": "Nenhum documento para exportar"}), 400
+
+        # Ordenar documentos
+        ordenar = opcoes.get('ordenar', 'data_desc')
+        if ordenar == 'data_desc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''), reverse=True)
+        elif ordenar == 'data_asc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''))
+        elif ordenar == 'cliente':
+            documentos.sort(key=lambda x: x.get('cliente_nome', ''))
+        elif ordenar == 'valor':
+            documentos.sort(key=lambda x: float(x.get('valor_total', 0) or 0), reverse=True)
+
+        # Criar CSV
+        import io
+        import csv
+
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=';')
+
+        # Cabeçalho
+        headers = ['Nome do Arquivo', 'Tipo', 'Cliente']
+        if opcoes.get('incluirCnpj', True):
+            headers.append('CNPJ')
+        if opcoes.get('incluirDatas', True):
+            headers.append('Data de Geração')
+        if opcoes.get('incluirValores', True):
+            headers.append('Valor')
+
+        writer.writerow(headers)
+
+        # Dados
+        for doc in documentos:
+            row = [
+                doc.get('nome_arquivo', ''),
+                doc.get('tipo_documento', ''),
+                doc.get('cliente_nome', '')
+            ]
+            if opcoes.get('incluirCnpj', True):
+                row.append(doc.get('cliente_cnpj', ''))
+            if opcoes.get('incluirDatas', True):
+                data = doc.get('data_geracao', '')
+                if data:
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(data.replace('Z', '+00:00'))
+                        data = dt.strftime('%d/%m/%Y %H:%M')
+                    except:
+                        pass
+                row.append(data)
+            if opcoes.get('incluirValores', True):
+                valor = doc.get('valor_total', 0) or 0
+                row.append(f"R$ {float(valor):,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'))
+
+            writer.writerow(row)
+
+        # Retornar arquivo
+        output.seek(0)
+        from flask import Response
+        return Response(
+            output.getvalue().encode('utf-8-sig'),  # BOM para Excel reconhecer UTF-8
+            mimetype='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename=documentos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            }
+        )
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/documentos/pdf', methods=['POST'])
+def export_documentos_pdf():
+    """Exporta documentos para PDF"""
+    try:
+        dados = request.json
+        documentos = dados.get('documentos', [])
+        opcoes = dados.get('opcoes', {})
+
+        if not documentos:
+            return jsonify({"error": "Nenhum documento para exportar"}), 400
+
+        # Ordenar documentos
+        ordenar = opcoes.get('ordenar', 'data_desc')
+        if ordenar == 'data_desc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''), reverse=True)
+        elif ordenar == 'data_asc':
+            documentos.sort(key=lambda x: x.get('data_geracao', ''))
+        elif ordenar == 'cliente':
+            documentos.sort(key=lambda x: x.get('cliente_nome', ''))
+        elif ordenar == 'valor':
+            documentos.sort(key=lambda x: float(x.get('valor_total', 0) or 0), reverse=True)
+
+        # Agrupar se necessário
+        agrupar = opcoes.get('agrupar', '')
+        grupos = {}
+
+        if agrupar == 'tipo':
+            for doc in documentos:
+                tipo = doc.get('tipo_documento', 'Outros')
+                if tipo not in grupos:
+                    grupos[tipo] = []
+                grupos[tipo].append(doc)
+        elif agrupar == 'cliente':
+            for doc in documentos:
+                cliente = doc.get('cliente_nome', 'Não informado')
+                if cliente not in grupos:
+                    grupos[cliente] = []
+                grupos[cliente].append(doc)
+        elif agrupar == 'mes':
+            for doc in documentos:
+                data = doc.get('data_geracao', '')
+                if data:
+                    try:
+                        mes = data[:7]  # YYYY-MM
+                    except:
+                        mes = 'Sem data'
+                else:
+                    mes = 'Sem data'
+                if mes not in grupos:
+                    grupos[mes] = []
+                grupos[mes].append(doc)
+        else:
+            grupos['Todos os Documentos'] = documentos
+
+        # Tentar usar ReportLab para PDF profissional
+        try:
+            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib import colors
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.units import cm
+            import io
+
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+
+            styles = getSampleStyleSheet()
+            titulo_style = ParagraphStyle(
+                'Titulo',
+                parent=styles['Heading1'],
+                fontSize=18,
+                textColor=colors.HexColor('#4F46E5'),
+                spaceAfter=20
+            )
+            subtitulo_style = ParagraphStyle(
+                'Subtitulo',
+                parent=styles['Heading2'],
+                fontSize=14,
+                textColor=colors.HexColor('#1F2937'),
+                spaceBefore=15,
+                spaceAfter=10
+            )
+
+            elements = []
+
+            # Título
+            elements.append(Paragraph(f"Relatório de Documentos", titulo_style))
+            elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", styles['Normal']))
+            elements.append(Paragraph(f"Total: {len(documentos)} documentos", styles['Normal']))
+            elements.append(Spacer(1, 20))
+
+            # Para cada grupo
+            for grupo_nome, grupo_docs in grupos.items():
+                if agrupar:
+                    elements.append(Paragraph(f"{grupo_nome} ({len(grupo_docs)} docs)", subtitulo_style))
+
+                # Cabeçalho da tabela
+                headers = ['Documento', 'Tipo', 'Cliente']
+                if opcoes.get('incluirCnpj', True):
+                    headers.append('CNPJ')
+                if opcoes.get('incluirDatas', True):
+                    headers.append('Data')
+
+                data_table = [headers]
+
+                for doc in grupo_docs:
+                    row = [
+                        doc.get('nome_arquivo', '')[:40] + ('...' if len(doc.get('nome_arquivo', '')) > 40 else ''),
+                        doc.get('tipo_documento', ''),
+                        doc.get('cliente_nome', '')[:25] + ('...' if len(doc.get('cliente_nome', '')) > 25 else '')
+                    ]
+                    if opcoes.get('incluirCnpj', True):
+                        row.append(doc.get('cliente_cnpj', '') or '-')
+                    if opcoes.get('incluirDatas', True):
+                        data_str = doc.get('data_geracao', '')
+                        if data_str:
+                            try:
+                                dt = datetime.fromisoformat(data_str.replace('Z', '+00:00'))
+                                data_str = dt.strftime('%d/%m/%Y')
+                            except:
+                                pass
+                        row.append(data_str or '-')
+                    data_table.append(row)
+
+                # Criar tabela
+                col_widths = [5*cm, 2.5*cm, 4*cm]
+                if opcoes.get('incluirCnpj', True):
+                    col_widths.append(3.5*cm)
+                if opcoes.get('incluirDatas', True):
+                    col_widths.append(2.5*cm)
+
+                table = Table(data_table, colWidths=col_widths)
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F3F4F6')]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+                ]))
+                elements.append(table)
+                elements.append(Spacer(1, 15))
+
+            doc.build(elements)
+            buffer.seek(0)
+
+            from flask import Response
+            return Response(
+                buffer.getvalue(),
+                mimetype='application/pdf',
+                headers={
+                    'Content-Disposition': f'attachment; filename=documentos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+                }
+            )
+
+        except ImportError:
+            # Fallback: gerar HTML que pode ser impresso como PDF
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Relatório de Documentos</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                    h1 {{ color: #4F46E5; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                    th {{ background: #4F46E5; color: white; padding: 10px; text-align: left; }}
+                    td {{ padding: 8px; border-bottom: 1px solid #ddd; }}
+                    tr:nth-child(even) {{ background: #f9f9f9; }}
+                    .info {{ color: #666; margin-bottom: 20px; }}
+                </style>
+            </head>
+            <body>
+                <h1>Relatório de Documentos</h1>
+                <p class="info">Gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')} | Total: {len(documentos)} documentos</p>
+            """
+
+            for grupo_nome, grupo_docs in grupos.items():
+                if agrupar:
+                    html += f"<h2>{grupo_nome} ({len(grupo_docs)} docs)</h2>"
+
+                html += "<table><tr><th>Documento</th><th>Tipo</th><th>Cliente</th>"
+                if opcoes.get('incluirCnpj', True):
+                    html += "<th>CNPJ</th>"
+                if opcoes.get('incluirDatas', True):
+                    html += "<th>Data</th>"
+                html += "</tr>"
+
+                for doc in grupo_docs:
+                    html += f"<tr><td>{doc.get('nome_arquivo', '')}</td>"
+                    html += f"<td>{doc.get('tipo_documento', '')}</td>"
+                    html += f"<td>{doc.get('cliente_nome', '')}</td>"
+                    if opcoes.get('incluirCnpj', True):
+                        html += f"<td>{doc.get('cliente_cnpj', '') or '-'}</td>"
+                    if opcoes.get('incluirDatas', True):
+                        data_str = doc.get('data_geracao', '')
+                        if data_str:
+                            try:
+                                dt = datetime.fromisoformat(data_str.replace('Z', '+00:00'))
+                                data_str = dt.strftime('%d/%m/%Y')
+                            except:
+                                pass
+                        html += f"<td>{data_str or '-'}</td>"
+                    html += "</tr>"
+
+                html += "</table>"
+
+            html += """
+                <script>window.print();</script>
+            </body>
+            </html>
+            """
+
+            return Response(
+                html,
+                mimetype='text/html',
+                headers={
+                    'Content-Disposition': f'inline; filename=documentos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.html'
+                }
+            )
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     print("\n" + "="*70)

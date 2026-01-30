@@ -310,6 +310,25 @@
     .card-submodelo:nth-child(4) { animation-delay: 0.15s; }
     .card-submodelo:nth-child(5) { animation-delay: 0.2s; }
     .card-submodelo:nth-child(6) { animation-delay: 0.25s; }
+
+    /* Checkbox estilizado para seleção de documentos */
+    .select-checkbox-label input:checked + .select-checkbox {
+        background-color: #4f46e5;
+        border-color: #4f46e5;
+    }
+
+    .select-checkbox-label input:checked + .select-checkbox .select-check {
+        opacity: 1;
+    }
+
+    .select-checkbox .select-check {
+        opacity: 0;
+    }
+
+    .select-checkbox-label:hover .select-checkbox {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
 </style>
 
 <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-4">
@@ -391,11 +410,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Sistema de Gerenciamento de Arquivos -->
-    <div class="max-w-7xl mx-auto mb-8">
-        {% include 'components/export_buttons.html' %}
     </div>
 
     <!-- Menu de Navegação Moderno -->
@@ -1283,6 +1297,110 @@
                             <i data-lucide="search" class="w-5 h-5 inline mr-2"></i> Buscar
                         </button>
                     </div>
+                </div>
+
+                <!-- Painel de Exportação Inteligente -->
+                <div id="export-panel" class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 mb-6 shadow-lg">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div class="text-white">
+                            <h3 class="text-xl font-bold flex items-center gap-2">
+                                <i data-lucide="download" class="w-6 h-6"></i>
+                                Exportar Documentos
+                            </h3>
+                            <p class="text-indigo-200 text-sm mt-1">
+                                <span id="export-count">0</span> documentos encontrados
+                                <span id="export-selected-info" class="hidden"> • <span id="export-selected-count">0</span> selecionados</span>
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <!-- Selecionar todos -->
+                            <button onclick="toggleSelecionarTodos()" id="btn-selecionar-todos"
+                                    class="px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition-all flex items-center gap-2">
+                                <i data-lucide="check-square" class="w-5 h-5"></i>
+                                <span>Selecionar Todos</span>
+                            </button>
+
+                            <!-- Exportar PDF -->
+                            <button onclick="exportarDocumentosPDF()"
+                                    class="px-4 py-2.5 bg-white hover:bg-gray-100 text-red-600 rounded-lg font-semibold transition-all flex items-center gap-2 shadow-md">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                                <span>Exportar PDF</span>
+                            </button>
+
+                            <!-- Exportar Excel -->
+                            <button onclick="exportarDocumentosExcel()"
+                                    class="px-4 py-2.5 bg-white hover:bg-gray-100 text-green-600 rounded-lg font-semibold transition-all flex items-center gap-2 shadow-md">
+                                <i data-lucide="sheet" class="w-5 h-5"></i>
+                                <span>Exportar Excel</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Opções de exportação (expansível) -->
+                    <div id="export-options-panel" class="hidden mt-4 pt-4 border-t border-white/20">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-sm font-semibold mb-2 block text-white">Incluir no relatório:</label>
+                                <div class="space-y-2 bg-white/10 rounded-lg p-3">
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <div class="relative">
+                                            <input type="checkbox" id="export-include-valores" checked class="peer sr-only">
+                                            <div class="w-5 h-5 bg-white/20 border-2 border-white/40 rounded peer-checked:bg-green-500 peer-checked:border-green-500 transition-all"></div>
+                                            <svg class="absolute top-0.5 left-0.5 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-sm text-white group-hover:text-white/80">Valores financeiros</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <div class="relative">
+                                            <input type="checkbox" id="export-include-datas" checked class="peer sr-only">
+                                            <div class="w-5 h-5 bg-white/20 border-2 border-white/40 rounded peer-checked:bg-green-500 peer-checked:border-green-500 transition-all"></div>
+                                            <svg class="absolute top-0.5 left-0.5 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-sm text-white group-hover:text-white/80">Datas de geração</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <div class="relative">
+                                            <input type="checkbox" id="export-include-cnpj" checked class="peer sr-only">
+                                            <div class="w-5 h-5 bg-white/20 border-2 border-white/40 rounded peer-checked:bg-green-500 peer-checked:border-green-500 transition-all"></div>
+                                            <svg class="absolute top-0.5 left-0.5 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-sm text-white group-hover:text-white/80">CNPJ dos clientes</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold mb-2 block text-white">Agrupar por:</label>
+                                <select id="export-agrupar" class="w-full px-4 py-3 rounded-lg bg-white text-gray-800 border-0 shadow-md cursor-pointer focus:ring-2 focus:ring-purple-300">
+                                    <option value="">📋 Sem agrupamento</option>
+                                    <option value="tipo">📁 Tipo de documento</option>
+                                    <option value="cliente">👤 Cliente</option>
+                                    <option value="mes">📅 Mês de geração</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold mb-2 block text-white">Ordenar por:</label>
+                                <select id="export-ordenar" class="w-full px-4 py-3 rounded-lg bg-white text-gray-800 border-0 shadow-md cursor-pointer focus:ring-2 focus:ring-purple-300">
+                                    <option value="data_desc">🕐 Mais recentes primeiro</option>
+                                    <option value="data_asc">🕐 Mais antigos primeiro</option>
+                                    <option value="cliente">👤 Nome do cliente</option>
+                                    <option value="valor">💰 Valor (maior primeiro)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="toggleExportOptions()" class="mt-3 text-white/80 hover:text-white text-sm flex items-center gap-1 transition-colors">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                        <span id="export-options-text">Mostrar opções avançadas</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4" id="export-chevron"></i>
+                    </button>
                 </div>
 
                 <!-- Grid de Documentos -->
@@ -3309,7 +3427,181 @@ document.addEventListener('keydown', (e) => {
 // ============================================
 
 let todosDocumentos = [];
+let documentosFiltrados = [];
+let documentosSelecionados = new Set();
 let modoVisualizacao = 'grade'; // Modo padrão: grade, lista ou detalhes
+
+// ============================================
+// FUNÇÕES DE EXPORTAÇÃO INTELIGENTE
+// ============================================
+
+function atualizarContadorExport(total) {
+    const countEl = document.getElementById('export-count');
+    if (countEl) countEl.textContent = total;
+}
+
+function atualizarSelecaoInfo() {
+    const selectedCount = documentosSelecionados.size;
+    const infoEl = document.getElementById('export-selected-info');
+    const countEl = document.getElementById('export-selected-count');
+
+    if (selectedCount > 0) {
+        infoEl?.classList.remove('hidden');
+        if (countEl) countEl.textContent = selectedCount;
+    } else {
+        infoEl?.classList.add('hidden');
+    }
+}
+
+function toggleSelecionarTodos() {
+    const checkboxes = document.querySelectorAll('.doc-checkbox');
+    const todosChecked = documentosSelecionados.size === documentosFiltrados.length;
+
+    if (todosChecked) {
+        // Desmarcar todos
+        documentosSelecionados.clear();
+        checkboxes.forEach(cb => cb.checked = false);
+        document.getElementById('btn-selecionar-todos').innerHTML = `
+            <i data-lucide="check-square" class="w-5 h-5"></i>
+            <span>Selecionar Todos</span>
+        `;
+    } else {
+        // Marcar todos
+        documentosFiltrados.forEach((doc, i) => documentosSelecionados.add(i));
+        checkboxes.forEach(cb => cb.checked = true);
+        document.getElementById('btn-selecionar-todos').innerHTML = `
+            <i data-lucide="x-square" class="w-5 h-5"></i>
+            <span>Desmarcar Todos</span>
+        `;
+    }
+    atualizarSelecaoInfo();
+    lucide.createIcons();
+}
+
+function toggleDocumentoSelecionado(index, checkbox) {
+    if (checkbox.checked) {
+        documentosSelecionados.add(index);
+    } else {
+        documentosSelecionados.delete(index);
+    }
+    atualizarSelecaoInfo();
+}
+
+function toggleExportOptions() {
+    const panel = document.getElementById('export-options-panel');
+    const chevron = document.getElementById('export-chevron');
+    const text = document.getElementById('export-options-text');
+
+    panel.classList.toggle('hidden');
+
+    if (panel.classList.contains('hidden')) {
+        chevron.style.transform = 'rotate(0deg)';
+        text.textContent = 'Mostrar opções avançadas';
+    } else {
+        chevron.style.transform = 'rotate(180deg)';
+        text.textContent = 'Ocultar opções avançadas';
+    }
+}
+
+function getDocumentosParaExportar() {
+    // Se há seleção, usa os selecionados; senão, usa todos os filtrados
+    if (documentosSelecionados.size > 0) {
+        return Array.from(documentosSelecionados).map(i => documentosFiltrados[i]);
+    }
+    return documentosFiltrados;
+}
+
+async function exportarDocumentosPDF() {
+    const docs = getDocumentosParaExportar();
+
+    if (docs.length === 0) {
+        showToast('Nenhum documento para exportar', 'warning');
+        return;
+    }
+
+    showToast(`Gerando PDF com ${docs.length} documentos...`, 'info');
+
+    try {
+        // Obter opções
+        const incluirValores = document.getElementById('export-include-valores')?.checked ?? true;
+        const incluirDatas = document.getElementById('export-include-datas')?.checked ?? true;
+        const incluirCnpj = document.getElementById('export-include-cnpj')?.checked ?? true;
+        const agrupar = document.getElementById('export-agrupar')?.value || '';
+        const ordenar = document.getElementById('export-ordenar')?.value || 'data_desc';
+
+        const response = await fetch('/api/export/documentos/pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                documentos: docs,
+                opcoes: { incluirValores, incluirDatas, incluirCnpj, agrupar, ordenar }
+            })
+        });
+
+        if (!response.ok) throw new Error('Erro ao gerar PDF');
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `relatorio_documentos_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+        showToast(`✅ PDF gerado com ${docs.length} documentos!`, 'success');
+    } catch (error) {
+        console.error('Erro ao exportar PDF:', error);
+        showToast('❌ Erro ao gerar PDF', 'error');
+    }
+}
+
+async function exportarDocumentosExcel() {
+    const docs = getDocumentosParaExportar();
+
+    if (docs.length === 0) {
+        showToast('Nenhum documento para exportar', 'warning');
+        return;
+    }
+
+    showToast(`Gerando Excel com ${docs.length} documentos...`, 'info');
+
+    try {
+        // Obter opções
+        const incluirValores = document.getElementById('export-include-valores')?.checked ?? true;
+        const incluirDatas = document.getElementById('export-include-datas')?.checked ?? true;
+        const incluirCnpj = document.getElementById('export-include-cnpj')?.checked ?? true;
+        const agrupar = document.getElementById('export-agrupar')?.value || '';
+        const ordenar = document.getElementById('export-ordenar')?.value || 'data_desc';
+
+        const response = await fetch('/api/export/documentos/excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                documentos: docs,
+                opcoes: { incluirValores, incluirDatas, incluirCnpj, agrupar, ordenar }
+            })
+        });
+
+        if (!response.ok) throw new Error('Erro ao gerar Excel');
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `relatorio_documentos_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+        showToast(`✅ Excel gerado com ${docs.length} documentos!`, 'success');
+    } catch (error) {
+        console.error('Erro ao exportar Excel:', error);
+        showToast('❌ Erro ao gerar Excel', 'error');
+    }
+}
 
 // Função para mudar o modo de visualização
 function mudarVisualizacao(modo) {
@@ -3642,6 +3934,12 @@ async function buscarDocumentos() {
 function renderizarDocumentos(documentos) {
     const grid = document.getElementById('grid-documentos');
 
+    // Salvar documentos filtrados para exportação
+    documentosFiltrados = documentos || [];
+    documentosSelecionados.clear();
+    atualizarContadorExport(documentosFiltrados.length);
+    atualizarSelecaoInfo();
+
     if (!documentos || documentos.length === 0) {
         grid.innerHTML = `
             <div class="col-span-full text-center py-12 text-gray-500">
@@ -3664,9 +3962,20 @@ function renderizarDocumentos(documentos) {
 
         // Modo Grade (padrão)
         const cardGrade = `
-            <div class="doc-card doc-card-grade border-2 border-gray-200 rounded-xl p-5 hover:border-${cor}-500 hover:shadow-xl transition-all bg-white">
+            <div class="doc-card doc-card-grade border-2 border-gray-200 rounded-xl p-5 hover:border-${cor}-500 hover:shadow-xl transition-all bg-white relative group">
+                <!-- Checkbox para seleção (estilizado) -->
+                <label class="absolute top-3 right-3 cursor-pointer select-checkbox-label">
+                    <input type="checkbox" class="doc-checkbox sr-only"
+                           data-index="${index}" onchange="toggleDocumentoSelecionado(${index}, this)">
+                    <div class="select-checkbox w-6 h-6 bg-gray-100 border-2 border-gray-300 rounded-lg transition-all shadow-sm hover:border-indigo-400 flex items-center justify-center">
+                        <svg class="select-check w-4 h-4 text-white transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                </label>
+
                 <!-- Header do Card -->
-                <div class="flex items-start justify-between mb-3">
+                <div class="flex items-start justify-between mb-3 pr-8">
                     <div class="flex items-center gap-2 flex-wrap">
                         <i data-lucide="${icone}" class="w-5 h-5 text-${cor}-600"></i>
                         <span class="px-2 py-1 bg-${cor}-100 text-${cor}-700 text-xs font-semibold rounded">${doc.tipo_documento || 'Documento'}</span>
