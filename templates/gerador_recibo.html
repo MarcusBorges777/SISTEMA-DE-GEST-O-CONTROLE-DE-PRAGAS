@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gerador de Recibos - Dedetizadora Borges</title>
+
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonte Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- React 18 -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel para JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        @page { size: A4; margin: 0; }
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            .print\:hidden { display: none !important; }
+            #a4-document { box-shadow: none !important; width: 210mm; height: 297mm; padding: 15mm; margin: 0; border-radius: 0; }
+        }
+        .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        textarea { overflow: hidden; }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <!-- Botão Voltar -->
+    <div class="fixed top-4 left-4 z-[200] print:hidden">
+        <a href="/dashboard" class="flex items-center gap-2 bg-white text-slate-700 px-4 py-2.5 rounded-xl shadow-lg border border-slate-200 hover:bg-slate-50 transition-all font-bold text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Voltar ao Dashboard
+        </a>
+    </div>
+
+    <div id="react-root"></div>
+
+    <!-- Carregar componente React -->
+    <script type="text/babel" src="{{ url_for('static', filename='js/react-recibo.jsx') }}"></script>
+</body>
+</html>

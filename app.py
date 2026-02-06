@@ -1527,6 +1527,18 @@ def gerar():
     return render_template('gerar.html')
 
 
+@app.route('/gerador-recibo')
+def gerador_recibo():
+    """Gerador de Recibos - Interface React profissional A4"""
+    return render_template('gerador_recibo.html')
+
+
+@app.route('/gerador-orcamento')
+def gerador_orcamento():
+    """Gerador de Orçamentos - Interface React profissional A4"""
+    return render_template('gerador_orcamento.html')
+
+
 @app.route('/documentos')
 def documentos():
     # Redirecionar para dashboard_novo.html que já existe e funciona
@@ -1540,6 +1552,13 @@ def api_clientes():
         query = "SELECT * FROM clientes_web WHERE 1=1"
         count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
         params = []
+
+        # Busca geral (usado pelos geradores React)
+        busca = request.args.get('busca', '')
+        if busca:
+            query += " AND (nome_fantasia LIKE ? OR razao_social LIKE ? OR cnpj LIKE ?)"
+            count_query += " AND (nome_fantasia LIKE ? OR razao_social LIKE ? OR cnpj LIKE ?)"
+            params.extend([f'%{busca}%', f'%{busca}%', f'%{busca}%'])
 
         nome = request.args.get('nome', '')
         if nome:
