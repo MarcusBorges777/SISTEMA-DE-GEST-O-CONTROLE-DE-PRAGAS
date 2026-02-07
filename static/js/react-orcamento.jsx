@@ -65,7 +65,10 @@ const QuoteApp = () => {
     fantasia: '',
     cnpj: '',
     endereco: '',
-    atividade: ''
+    atividade: '',
+    telefone: '',
+    email: '',
+    clienteId: null
   });
 
   // --- BUSCA DE CLIENTES ---
@@ -73,6 +76,61 @@ const QuoteApp = () => {
   const [clientResults, setClientResults] = useState([]);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const searchTimeout = useRef(null);
+
+  // --- STATUS DO BANCO DE DADOS ---
+  const [dbStatus, setDbStatus] = useState('checking');
+  const [totalClientes, setTotalClientes] = useState(0);
+  const [lastOrcamentos, setLastOrcamentos] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Verificar conexão com banco ao iniciar
+  useEffect(() => {
+    checkDbConnection();
+    loadLastQuoteNumber();
+    loadRecentOrcamentos();
+  }, []);
+
+  const checkDbConnection = async () => {
+    try {
+      const res = await fetch('/api/clientes?busca=_test_connection_&per_page=1');
+      if (res.ok) {
+        setDbStatus('connected');
+        const res2 = await fetch('/api/clientes?page=1&per_page=1');
+        if (res2.ok) {
+          const data = await res2.json();
+          if (data.pagination) setTotalClientes(data.pagination.total);
+        }
+      } else {
+        setDbStatus('offline');
+      }
+    } catch {
+      setDbStatus('offline');
+    }
+  };
+
+  const loadLastQuoteNumber = async () => {
+    try {
+      const res = await fetch('/api/documentos-gerados?tipo=ORCAMENTO&limit=1');
+      if (res.ok) {
+        const data = await res.json();
+        const docs = Array.isArray(data) ? data : (data.documentos || []);
+        if (docs.length > 0) {
+          const lastNum = parseInt(docs.length) || 0;
+          setQuoteNumber(String(lastNum + 1).padStart(5, '0'));
+        }
+      }
+    } catch { /* ignorar */ }
+  };
+
+  const loadRecentOrcamentos = async () => {
+    try {
+      const res = await fetch('/api/documentos-gerados?tipo=ORCAMENTO&limit=10');
+      if (res.ok) {
+        const data = await res.json();
+        setLastOrcamentos(Array.isArray(data) ? data.slice(0, 10) : (data.documentos || []).slice(0, 10));
+      }
+    } catch { /* ignorar */ }
+  };
 
   // --- DADOS DA EMPRESA ---
   const empresa = {
@@ -131,12 +189,44 @@ const QuoteApp = () => {
     try {
       const res = await fetch(`/api/clientes?busca=${encodeURIComponent(query)}`);
       const data = await res.json();
-      const clients = Array.isArray(data) ? data : (data.clientes || []);
-      setClientResults(clients.slice(0, 8));
+      const clients = Array.isArray(data) ? data : (data.data || data.clientes || []);
+      setClientResults(clients.slice(0, 10));
       setShowClientDropdown(clients.length > 0);
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
+      setDbStatus('offline');
     }
+  };
+
+  // Busca por CNPJ na Receita Federal
+  const searchByCNPJ = async (cnpj) => {
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+    if (cleanCnpj.length !== 14) return;
+    try {
+      setSaveMessage('Consultando CNPJ na Receita Federal...');
+      const res = await fetch(`/api/cnpj/autocomplete?q=${cleanCnpj}`);
+      if (res.ok) {
+        const data = await res.json();
+        const results = data.resultados || data.results || data;
+        if (Array.isArray(results) && results.length > 0) {
+          const emp = results[0];
+          setClientData(prev => ({
+            ...prev,
+            nome: emp.razao_social || emp.nome || prev.nome,
+            fantasia: emp.nome_fantasia || emp.fantasia || prev.fantasia,
+            cnpj: cnpj,
+            endereco: emp.endereco_completo || emp.endereco || prev.endereco,
+            atividade: emp.cnae_descricao || emp.cnae || prev.atividade
+          }));
+          setSaveMessage('Dados do CNPJ carregados!');
+        } else {
+          setSaveMessage('CNPJ não encontrado na base local.');
+        }
+      }
+    } catch {
+      setSaveMessage('Erro ao consultar CNPJ.');
+    }
+    setTimeout(() => setSaveMessage(''), 3000);
   };
 
   const handleClientSearch = (value) => {
@@ -153,7 +243,10 @@ const QuoteApp = () => {
       fantasia: client.nome_fantasia || '',
       cnpj: client.cnpj || '',
       endereco: client.endereco_completo || endereco || '',
-      atividade: client.cnae || ''
+      atividade: client.cnae || '',
+      telefone: client.telefone || '',
+      email: client.email || '',
+      clienteId: client.id || null
     });
     setClientSearch('');
     setShowClientDropdown(false);
@@ -250,7 +343,44 @@ const QuoteApp = () => {
     <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center font-sans text-slate-900">
 
       {/* BARRA DE FERRAMENTAS */}
-      <div className="mb-8 flex flex-wrap justify-between items-center gap-4 print:hidden w-full max-w-[210mm] bg-white p-5 rounded-2xl shadow-lg border border-slate-200">
+      <div className="mb-4 flex flex-wrap justify-between items-center gap-4 print:hidden w-full max-w-[210mm] bg-white p-5 rounded-2xl shadow-lg border border-slate-200">
+        {/* Status do Banco + Busca */}
+        <div className="w-full flex items-center gap-3 mb-2">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
+            dbStatus === 'connected' ? 'bg-green-100 text-green-700' :
+            dbStatus === 'offline' ? 'bg-red-100 text-red-600' :
+            'bg-yellow-100 text-yellow-700'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              dbStatus === 'connected' ? 'bg-green-500' :
+              dbStatus === 'offline' ? 'bg-red-500' : 'bg-yellow-500'
+            }`}></div>
+            {dbStatus === 'connected' ? `BD Conectado (${totalClientes} clientes)` :
+             dbStatus === 'offline' ? 'BD Offline' : 'Verificando...'}
+          </div>
+          {lastOrcamentos.length > 0 && (
+            <button onClick={() => setShowHistory(!showHistory)} className="text-xs font-bold text-blue-600 hover:text-blue-800 underline">
+              {showHistory ? 'Fechar Histórico' : `Últimos Orçamentos (${lastOrcamentos.length})`}
+            </button>
+          )}
+        </div>
+
+        {/* Histórico de Orçamentos */}
+        {showHistory && lastOrcamentos.length > 0 && (
+          <div className="w-full bg-slate-50 rounded-xl p-3 border border-slate-200 mb-2 max-h-40 overflow-auto">
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Orçamentos Recentes</h4>
+            {lastOrcamentos.map((doc, i) => (
+              <div key={i} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0 text-xs">
+                <span className="font-bold text-slate-700">{doc.cliente_nome || doc.nome_arquivo}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500">{doc.data_geracao ? new Date(doc.data_geracao).toLocaleDateString('pt-BR') : ''}</span>
+                  {doc.valor_total && <span className="font-bold text-green-600">{formatCurrency(doc.valor_total)}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Busca de Clientes */}
         <div className="relative flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
@@ -259,20 +389,31 @@ const QuoteApp = () => {
               type="text"
               value={clientSearch}
               onChange={(e) => handleClientSearch(e.target.value)}
-              placeholder="Buscar cliente cadastrado..."
+              placeholder={dbStatus === 'connected' ? `Buscar entre ${totalClientes} clientes (nome, CNPJ, razão social)...` : 'Buscar cliente...'}
               className="bg-transparent border-none outline-none text-sm w-full focus:ring-0"
             />
           </div>
           {showClientDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] max-h-60 overflow-auto">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] max-h-72 overflow-auto">
               {clientResults.map((c, i) => (
                 <button
                   key={i}
                   onClick={() => selectClient(c)}
                   className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0"
                 >
-                  <p className="font-bold text-sm text-slate-800">{c.nome_fantasia || c.razao_social}</p>
-                  <p className="text-xs text-slate-500">{c.cnpj} {c.cidade ? `- ${c.cidade}/${c.uf}` : ''}</p>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-sm text-slate-800">{c.nome_fantasia || c.razao_social}</p>
+                      {c.razao_social && c.nome_fantasia && c.razao_social !== c.nome_fantasia && (
+                        <p className="text-[10px] text-slate-400 italic">{c.razao_social}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{c.cnpj || 'S/CNPJ'}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {c.endereco_completo || [c.rua, c.bairro, c.cidade, c.uf].filter(Boolean).join(', ') || 'Sem endereço'}
+                    {c.telefone ? ` | ${c.telefone}` : ''}
+                  </p>
                 </button>
               ))}
             </div>
@@ -291,7 +432,7 @@ const QuoteApp = () => {
           <button onClick={addItem} className="flex items-center gap-2 bg-emerald-500 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-600 transition-all font-bold text-sm">
             <Icons.Plus size={18} /> Add Serviço
           </button>
-          <button onClick={saveToBackend} disabled={saving} className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 transition-all font-bold text-sm shadow-sm disabled:opacity-50">
+          <button onClick={saveToBackend} disabled={saving || dbStatus === 'offline'} className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 transition-all font-bold text-sm shadow-sm disabled:opacity-50">
             <Icons.Save size={18} /> {saving ? 'Salvando...' : 'Salvar DOCX'}
           </button>
           <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl hover:bg-black transition-all font-bold text-sm shadow-xl">
@@ -413,7 +554,12 @@ const QuoteApp = () => {
                     </div>
                     <div>
                         <label className="font-bold uppercase text-[8px] tracking-tight text-blue-800 block">CNPJ / CPF:</label>
-                        <input type="text" value={clientData.cnpj} onChange={(e) => handleClientChange('cnpj', e.target.value)} className="w-full bg-transparent border-b border-blue-100 p-0 text-[10px] focus:ring-0" placeholder="..." />
+                        <div className="flex items-center gap-1">
+                          <input type="text" value={clientData.cnpj} onChange={(e) => handleClientChange('cnpj', e.target.value)} onBlur={(e) => { if (e.target.value.replace(/\D/g,'').length === 14) searchByCNPJ(e.target.value); }} className="w-full bg-transparent border-b border-blue-100 p-0 text-[10px] focus:ring-0" placeholder="Digite e saia do campo para buscar" />
+                          {clientData.cnpj && clientData.cnpj.replace(/\D/g,'').length === 14 && (
+                            <button onClick={() => searchByCNPJ(clientData.cnpj)} className="text-blue-500 hover:text-blue-700 print:hidden" title="Buscar CNPJ"><Icons.Search size={10}/></button>
+                          )}
+                        </div>
                     </div>
                 </div>
               </div>
