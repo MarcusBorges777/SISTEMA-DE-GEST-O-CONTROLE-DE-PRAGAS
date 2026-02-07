@@ -50,7 +50,10 @@
             <div class="flex items-center justify-between py-3">
                 <div class="flex items-center gap-4 lg:gap-6">
                     <!-- Logo -->
-                    <a href="/" class="h-12 lg:h-16 flex items-center justify-center font-bold text-xl lg:text-2xl text-indigo-600 hover:text-indigo-700 transition">SG</a>
+                    <a href="/" class="h-12 lg:h-16 flex items-center justify-center font-bold text-xl lg:text-2xl text-indigo-600 hover:text-indigo-700 transition">
+                        <img id="navbar-logo" src="/static/media/logo.png" alt="Logo" class="hidden h-10 lg:h-14 object-contain" onerror="this.classList.add('hidden'); document.getElementById('navbar-logo-text').classList.remove('hidden');">
+                        <span id="navbar-logo-text">SG</span>
+                    </a>
 
                     <!-- Botão Menu Mobile -->
                     <button id="mobile-menu-btn" class="sm:hidden p-2 rounded-lg hover:bg-gray-100" onclick="toggleMobileMenu()">

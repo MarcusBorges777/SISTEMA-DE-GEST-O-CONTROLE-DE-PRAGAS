@@ -4850,6 +4850,102 @@ def config_tema():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+# ==================== CONFIGURAÇÕES DE LOGO E MASCOTE ====================
+
+MEDIA_DIR = Path('static/media')
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'svg', 'webp'}
+
+def allowed_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
+@app.route('/api/config/logo-mascote', methods=['GET'])
+def get_logo_mascote():
+    """Retorna caminhos atuais da logo e mascote"""
+    logo_path = ''
+    mascote_path = ''
+
+    for ext in ALLOWED_IMAGE_EXTENSIONS:
+        if (MEDIA_DIR / f'logo.{ext}').exists():
+            logo_path = f'/static/media/logo.{ext}'
+            break
+    for ext in ALLOWED_IMAGE_EXTENSIONS:
+        if (MEDIA_DIR / f'mascote.{ext}').exists():
+            mascote_path = f'/static/media/mascote.{ext}'
+            break
+
+    return jsonify({
+        'logo': logo_path,
+        'mascote': mascote_path
+    })
+
+@app.route('/api/config/upload-imagem', methods=['POST'])
+def upload_imagem_config():
+    """Upload de logo ou mascote da empresa"""
+    try:
+        tipo = request.form.get('tipo')  # 'logo' ou 'mascote'
+        if tipo not in ('logo', 'mascote'):
+            return jsonify({'erro': 'Tipo deve ser "logo" ou "mascote"'}), 400
+
+        if 'arquivo' not in request.files:
+            return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
+
+        arquivo = request.files['arquivo']
+        if arquivo.filename == '':
+            return jsonify({'erro': 'Nome de arquivo vazio'}), 400
+
+        if not allowed_image(arquivo.filename):
+            return jsonify({'erro': f'Formato não suportado. Use: {", ".join(ALLOWED_IMAGE_EXTENSIONS)}'}), 400
+
+        ext = arquivo.filename.rsplit('.', 1)[1].lower()
+
+        # Remover arquivos antigos do mesmo tipo
+        for old_ext in ALLOWED_IMAGE_EXTENSIONS:
+            old_file = MEDIA_DIR / f'{tipo}.{old_ext}'
+            if old_file.exists():
+                old_file.unlink()
+
+        # Salvar novo arquivo
+        nome_arquivo = f'{tipo}.{ext}'
+        caminho = MEDIA_DIR / nome_arquivo
+        arquivo.save(str(caminho))
+
+        print(f"[OK] {tipo.capitalize()} salvo: {caminho}")
+
+        return jsonify({
+            'sucesso': True,
+            'caminho': f'/static/media/{nome_arquivo}',
+            'tipo': tipo
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Upload {tipo}: {e}")
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/config/remover-imagem', methods=['POST'])
+def remover_imagem_config():
+    """Remove logo ou mascote"""
+    try:
+        dados = request.json
+        tipo = dados.get('tipo')
+        if tipo not in ('logo', 'mascote'):
+            return jsonify({'erro': 'Tipo deve ser "logo" ou "mascote"'}), 400
+
+        removido = False
+        for ext in ALLOWED_IMAGE_EXTENSIONS:
+            arquivo = MEDIA_DIR / f'{tipo}.{ext}'
+            if arquivo.exists():
+                arquivo.unlink()
+                removido = True
+
+        return jsonify({
+            'sucesso': True,
+            'removido': removido
+        })
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
 # ==================== TREINAMENTO DO SISTEMA ====================
 
 @app.route('/api/treinar-sistema', methods=['POST'])
