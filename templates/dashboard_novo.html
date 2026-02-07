@@ -949,6 +949,27 @@
 
                         <!-- Orçamentos (somente 1 linha simples) -->
                         <div id="bloco-orcamento" class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-l-4 border-blue-500 hidden">
+                            <!-- Preview dos dados do cliente no Orçamento -->
+                            <div id="orcamento-cliente-info" class="hidden mb-4 bg-white rounded-lg p-4 border border-blue-200">
+                                <h4 class="text-sm font-bold text-blue-700 mb-2 flex items-center gap-1">
+                                    <i data-lucide="user-check" class="w-4 h-4"></i> Dados do Cliente no Orçamento
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                        <span class="text-gray-500 font-medium">Nome Fantasia:</span>
+                                        <span class="text-gray-800 font-semibold ml-1" id="orcamento-cliente-nome"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500 font-medium">CNPJ:</span>
+                                        <span class="text-gray-800 font-semibold ml-1" id="orcamento-cliente-cnpj"></span>
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <span class="text-gray-500 font-medium">Endereço:</span>
+                                        <span class="text-gray-800 font-semibold ml-1" id="orcamento-cliente-endereco"></span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mb-3">
                                 <h3 class="font-bold text-gray-800">
                                     <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Informações do Orçamento
@@ -994,6 +1015,27 @@
 
                         <!-- Tabela de Itens (APENAS RECIBOS) -->
                         <div id="bloco-tabela-itens" class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-l-4 border-green-500 hidden">
+                            <!-- Preview dos dados do cliente no Recibo -->
+                            <div id="recibo-cliente-info" class="hidden mb-4 bg-white rounded-lg p-4 border border-green-200">
+                                <h4 class="text-sm font-bold text-green-700 mb-2 flex items-center gap-1">
+                                    <i data-lucide="user-check" class="w-4 h-4"></i> Dados do Cliente no Recibo
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                        <span class="text-gray-500 font-medium">Nome Fantasia:</span>
+                                        <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-nome"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500 font-medium">CNPJ:</span>
+                                        <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-cnpj"></span>
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <span class="text-gray-500 font-medium">Endereço:</span>
+                                        <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-endereco"></span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="flex justify-between items-center mb-3">
                                 <div>
                                     <h3 class="font-bold text-gray-800">
@@ -2286,10 +2328,16 @@ function filtrarClientesCards(termoPesquisa) {
     renderizarCardsClientesSelecao(filtrados);
 }
 
+// Cliente selecionado completo (dados completos do banco)
+let clienteSelecionadoCompleto = null;
+
 // Selecionar cliente via card
 function selecionarClienteCard(id, nome, cnpj, cidade) {
     // Preencher input hidden
     document.getElementById('cliente-id-selecionado').value = id;
+
+    // Buscar dados completos do cliente no array local
+    clienteSelecionadoCompleto = todosClientesCards.find(c => c.id === id) || null;
 
     // Mostrar display de cliente selecionado
     document.getElementById('nome-cliente-selecionado').textContent = nome;
@@ -2300,7 +2348,51 @@ function selecionarClienteCard(id, nome, cnpj, cidade) {
     document.getElementById('grid-clientes-selecao').classList.add('hidden');
     document.getElementById('pesquisa-cliente').parentElement.classList.add('hidden');
 
+    // Atualizar previews de cliente nos blocos de Recibo e Orcamento
+    atualizarPreviewClienteDocumentos();
+
     lucide.createIcons();
+}
+
+// Atualizar preview dos dados do cliente nos blocos de Recibo e Orcamento
+function atualizarPreviewClienteDocumentos() {
+    if (!clienteSelecionadoCompleto) return;
+
+    const cliente = clienteSelecionadoCompleto;
+    const nomeFantasia = (cliente.nome_fantasia || '').toUpperCase();
+    const cnpj = cliente.cnpj || 'Sem CNPJ';
+    const endereco = (cliente.endereco_completo || cliente.rua || '').replace('4445', 'Divinopolis');
+
+    // Atualizar preview no bloco Orcamento
+    const orcInfo = document.getElementById('orcamento-cliente-info');
+    if (orcInfo) {
+        document.getElementById('orcamento-cliente-nome').textContent = nomeFantasia;
+        document.getElementById('orcamento-cliente-cnpj').textContent = cnpj;
+        document.getElementById('orcamento-cliente-endereco').textContent = endereco;
+        orcInfo.classList.remove('hidden');
+    }
+
+    // Atualizar preview no bloco Recibo
+    const recInfo = document.getElementById('recibo-cliente-info');
+    if (recInfo) {
+        document.getElementById('recibo-cliente-nome').textContent = nomeFantasia;
+        document.getElementById('recibo-cliente-cnpj').textContent = cnpj;
+        document.getElementById('recibo-cliente-endereco').textContent = endereco;
+        recInfo.classList.remove('hidden');
+    }
+
+    lucide.createIcons();
+}
+
+// Limpar previews de cliente nos blocos de documento
+function limparPreviewClienteDocumentos() {
+    clienteSelecionadoCompleto = null;
+
+    const orcInfo = document.getElementById('orcamento-cliente-info');
+    if (orcInfo) orcInfo.classList.add('hidden');
+
+    const recInfo = document.getElementById('recibo-cliente-info');
+    if (recInfo) recInfo.classList.add('hidden');
 }
 
 // Limpar seleção de cliente
@@ -2310,6 +2402,9 @@ function limparSelecaoCliente() {
 
     // Esconder display
     document.getElementById('cliente-selecionado-display').classList.add('hidden');
+
+    // Limpar previews de cliente nos blocos de documento
+    limparPreviewClienteDocumentos();
 
     // Mostrar grid novamente
     document.getElementById('grid-clientes-selecao').classList.remove('hidden');
@@ -2476,6 +2571,11 @@ function carregarVariaveisModeloNovo(arquivo) {
     } else if (modelo.nome.toLowerCase().includes('recibo')) {
         if (blocoTabelaItens) blocoTabelaItens.classList.remove('hidden');
         if (campoGarantia) campoGarantia.style.display = 'block';
+    }
+
+    // Atualizar previews do cliente se ja houver um selecionado
+    if (clienteSelecionadoCompleto) {
+        atualizarPreviewClienteDocumentos();
     }
 
     lucide.createIcons();
