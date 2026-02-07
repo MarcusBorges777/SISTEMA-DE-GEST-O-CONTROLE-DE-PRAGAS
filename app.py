@@ -1539,6 +1539,61 @@ def gerador_orcamento():
     return render_template('gerador_orcamento.html')
 
 
+# --- API DE LOGOS E IMAGENS DA EMPRESA ---
+IMAGES_DIR = BASE_DIR / 'static' / 'images'
+IMAGES_DIR.mkdir(exist_ok=True)
+
+
+@app.route('/api/empresa/logo', methods=['GET', 'POST'])
+def api_empresa_logo():
+    """Upload e recuperação da logo da empresa"""
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return jsonify({"error": "Nenhum arquivo enviado"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "Nenhum arquivo selecionado"}), 400
+        ext = Path(file.filename).suffix.lower()
+        if ext not in ['.png', '.jpg', '.jpeg', '.svg', '.webp']:
+            return jsonify({"error": "Formato não suportado. Use PNG, JPG, SVG ou WebP"}), 400
+        filepath = IMAGES_DIR / f'logo{ext}'
+        # Remover logos antigas
+        for old in IMAGES_DIR.glob('logo.*'):
+            old.unlink(missing_ok=True)
+        file.save(str(filepath))
+        return jsonify({"sucesso": True, "url": f"/static/images/logo{ext}"})
+    else:
+        # GET - retornar URL da logo se existir
+        for ext in ['.png', '.jpg', '.jpeg', '.svg', '.webp']:
+            if (IMAGES_DIR / f'logo{ext}').exists():
+                return jsonify({"url": f"/static/images/logo{ext}"})
+        return jsonify({"url": None})
+
+
+@app.route('/api/empresa/mascote', methods=['GET', 'POST'])
+def api_empresa_mascote():
+    """Upload e recuperação do mascote da empresa"""
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return jsonify({"error": "Nenhum arquivo enviado"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "Nenhum arquivo selecionado"}), 400
+        ext = Path(file.filename).suffix.lower()
+        if ext not in ['.png', '.jpg', '.jpeg', '.svg', '.webp']:
+            return jsonify({"error": "Formato não suportado"}), 400
+        filepath = IMAGES_DIR / f'mascote{ext}'
+        for old in IMAGES_DIR.glob('mascote.*'):
+            old.unlink(missing_ok=True)
+        file.save(str(filepath))
+        return jsonify({"sucesso": True, "url": f"/static/images/mascote{ext}"})
+    else:
+        for ext in ['.png', '.jpg', '.jpeg', '.svg', '.webp']:
+            if (IMAGES_DIR / f'mascote{ext}').exists():
+                return jsonify({"url": f"/static/images/mascote{ext}"})
+        return jsonify({"url": None})
+
+
 @app.route('/documentos')
 def documentos():
     # Redirecionar para dashboard_novo.html que já existe e funciona

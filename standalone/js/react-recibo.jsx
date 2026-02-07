@@ -83,12 +83,45 @@ const ReceiptApp = () => {
   const [lastRecibos, setLastRecibos] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Verificar conexão com banco ao iniciar
+  // Verificar conexão com banco e carregar imagens ao iniciar
   useEffect(() => {
     checkDbConnection();
     loadLastReceiptNumber();
     loadRecentRecibos();
+    loadSavedImages();
   }, []);
+
+  // Carregar logo e mascote salvos no servidor
+  const loadSavedImages = async () => {
+    try {
+      const [logoRes, mascotRes] = await Promise.all([
+        fetch('/api/empresa/logo'),
+        fetch('/api/empresa/mascote')
+      ]);
+      if (logoRes.ok) {
+        const data = await logoRes.json();
+        if (data.url) setLogo(data.url);
+      }
+      if (mascotRes.ok) {
+        const data = await mascotRes.json();
+        if (data.url) setMascot(data.url);
+      }
+    } catch { /* ignorar se offline */ }
+  };
+
+  // Salvar imagem no servidor ao fazer upload
+  const uploadImageToServer = async (file, type) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`/api/empresa/${type}`, { method: 'POST', body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        return data.url;
+      }
+    } catch { /* ignorar */ }
+    return null;
+  };
 
   const checkDbConnection = async () => {
     try {
@@ -268,12 +301,15 @@ const ReceiptApp = () => {
 
   const removeItem = (id) => setItems(items.filter(item => item.id !== id));
 
-  const handleImageUpload = (e, setter) => {
+  const handleImageUpload = (e, setter, type) => {
     const file = e.target.files[0];
     if (file) {
+      // Mostrar preview imediato
       const reader = new FileReader();
       reader.onloadend = () => setter(reader.result);
       reader.readAsDataURL(file);
+      // Salvar no servidor para persistir
+      if (type) uploadImageToServer(file, type);
     }
   };
 
@@ -433,8 +469,8 @@ const ReceiptApp = () => {
           </button>
         </div>
 
-        <input type="file" ref={fileInputLogo} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setLogo)} />
-        <input type="file" ref={fileInputMascot} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setMascot)} />
+        <input type="file" ref={fileInputLogo} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setLogo, 'logo')} />
+        <input type="file" ref={fileInputMascot} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setMascot, 'mascote')} />
 
         {saveMessage && (
           <div className={`w-full text-center text-sm font-bold py-2 rounded-lg ${saveMessage.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>

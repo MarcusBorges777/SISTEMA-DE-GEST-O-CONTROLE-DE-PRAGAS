@@ -767,40 +767,32 @@
                                 </div>
 
                                 <!-- Card RECIBOS -->
-                                <div class="card-categoria border-2 border-gray-200 rounded-xl p-5 cursor-pointer hover:border-green-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white"
-                                     onclick="toggleCategoria('recibos')" id="card-recibos">
+                                <a href="/gerador-recibo" class="card-categoria border-2 border-gray-200 rounded-xl p-5 hover:border-green-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white block no-underline" id="card-recibos">
                                     <div class="text-center">
                                         <div class="bg-green-100 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                                             <i data-lucide="receipt" class="w-8 h-8 text-green-600"></i>
                                         </div>
                                         <h3 class="font-bold text-gray-800 text-lg mb-1">Recibos</h3>
                                         <p class="text-xs text-gray-500">Comprovantes de pagamento</p>
-                                        <a href="/gerador-recibo" onclick="event.stopPropagation()" class="mt-2 inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-green-700 transition-all shadow-sm">
-                                            <i data-lucide="sparkles" class="w-3 h-3"></i> Novo Gerador React
-                                        </a>
-                                        <div class="mt-1 text-xs text-green-600 font-semibold">
-                                            <i data-lucide="chevron-down" class="w-4 h-4 inline"></i> Clique para ver opções
+                                        <div class="mt-2 inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">
+                                            <i data-lucide="sparkles" class="w-3 h-3"></i> Gerar Recibo
                                         </div>
                                     </div>
-                                </div>
+                                </a>
 
                                 <!-- Card ORÇAMENTOS -->
-                                <div class="card-categoria border-2 border-gray-200 rounded-xl p-5 cursor-pointer hover:border-amber-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white"
-                                     onclick="toggleCategoria('orcamentos')" id="card-orcamentos">
+                                <a href="/gerador-orcamento" class="card-categoria border-2 border-gray-200 rounded-xl p-5 hover:border-amber-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white block no-underline" id="card-orcamentos">
                                     <div class="text-center">
                                         <div class="bg-amber-100 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                                             <i data-lucide="calculator" class="w-8 h-8 text-amber-600"></i>
                                         </div>
                                         <h3 class="font-bold text-gray-800 text-lg mb-1">Orçamentos</h3>
                                         <p class="text-xs text-gray-500">Propostas comerciais</p>
-                                        <a href="/gerador-orcamento" onclick="event.stopPropagation()" class="mt-2 inline-flex items-center gap-1 text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-amber-700 transition-all shadow-sm">
-                                            <i data-lucide="sparkles" class="w-3 h-3"></i> Novo Gerador React
-                                        </a>
-                                        <div class="mt-1 text-xs text-amber-600 font-semibold">
-                                            <i data-lucide="chevron-down" class="w-4 h-4 inline"></i> Clique para ver opções
+                                        <div class="mt-2 inline-flex items-center gap-1 text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm">
+                                            <i data-lucide="sparkles" class="w-3 h-3"></i> Gerar Orçamento
                                         </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
 
                             <!-- Área Expansível de Submodelos -->
