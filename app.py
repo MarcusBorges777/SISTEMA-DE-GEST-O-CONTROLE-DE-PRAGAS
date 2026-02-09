@@ -126,20 +126,7 @@ else:
 # Cache de CNAEs permitidos
 CNAES_PERMITIDOS = {}
 
-# ============================================
-#  OTIMIZAÇÃO: Cache de Municípios
-# ============================================
-# Pré-compilar regex para substituição de códigos de município (50x mais rápido)
-MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
-
-def converter_municipios_rapido(texto):
-    """
-    Converte códigos de município para nomes em uma única passagem.
-    50x mais rápido que múltiplos .replace()
-    """
-    if not texto:
-        return texto
-    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
+# NOTA: MUNICIPIOS_PATTERN e converter_municipios_rapido definidos após MUNICIPIOS dict
 
 # Regex patterns pré-compilados para otimizar extração de dados de PDFs
 COMPILED_PATTERNS = {
@@ -257,6 +244,18 @@ MUNICIPIOS = {
     '5206': 'Uberlândia',
     '4503': 'Contagem',
 }
+
+# Pré-compilar regex para substituição de códigos de município (50x mais rápido)
+MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
+
+def converter_municipios_rapido(texto):
+    """
+    Converte códigos de município para nomes em uma única passagem.
+    50x mais rápido que múltiplos .replace()
+    """
+    if not texto:
+        return texto
+    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
 
 # Regex patterns compilados (otimização)
 REGEX_PATTERNS = {
