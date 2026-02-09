@@ -72,13 +72,20 @@ app = Flask(__name__)
 app.register_blueprint(prospeccao_bp)
 app.register_blueprint(file_manager_bp)
 
-# Gerar SECRET_KEY segura (usa variável de ambiente ou gera uma nova)
+# Gerar SECRET_KEY segura e persistente
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
 if not SECRET_KEY:
-    # Gerar uma chave segura se não existir
-    # Em produção, defina FLASK_SECRET_KEY no ambiente
-    SECRET_KEY = secrets.token_hex(32)
-    print("[AVISO] SECRET_KEY gerada automaticamente. Para produção, defina FLASK_SECRET_KEY no ambiente.")
+    # Tentar carregar de arquivo para manter sessoes entre reinicializacoes
+    _secret_file = Path(__file__).parent / '.secret_key'
+    if _secret_file.exists():
+        SECRET_KEY = _secret_file.read_text().strip()
+    else:
+        SECRET_KEY = secrets.token_hex(32)
+        try:
+            _secret_file.write_text(SECRET_KEY)
+            print("[OK] SECRET_KEY gerada e salva em .secret_key")
+        except Exception:
+            print("[AVISO] SECRET_KEY gerada mas nao foi possivel salvar em arquivo.")
 
 app.config.update(
     SECRET_KEY=SECRET_KEY,
@@ -477,14 +484,20 @@ def criar_tabelas():
     db.execute('CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email)')
 
     # Criar usuario admin padrao se nao existir nenhum
-    admin_existe = db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
-    if admin_existe == 0:
-        db.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
-                      VALUES (?, ?, ?, ?)''',
-                   ('Administrador', 'admin@sistema.com',
-                    generate_password_hash('admin123'), 'admin'))
-        db.commit()
-        print("[OK] Usuario admin padrao criado (admin@sistema.com / admin123)")
+    try:
+        admin_existe = db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+        if admin_existe == 0:
+            senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
+            db.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
+                          VALUES (?, ?, ?, ?)''',
+                       ('Administrador', 'admin@sistema.com', senha_hash, 'admin'))
+            db.commit()
+            print("[OK] Usuario admin padrao criado (admin@sistema.com / admin123)")
+        else:
+            print(f"[INFO] {admin_existe} usuario(s) encontrado(s) no sistema")
+    except Exception as e:
+        print(f"[ERRO] Falha ao criar usuario admin: {e}")
+        db.rollback()
 
     # Inserir tags padrão se não existirem
     tags_padrao = [
@@ -1561,6 +1574,27 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/reset-admin')
+def reset_admin():
+    """Rota de emergencia para resetar o usuario admin padrao"""
+    try:
+        conn = get_db()
+        # Verificar se admin existe
+        admin = conn.execute('SELECT id FROM usuarios WHERE email = ?', ('admin@sistema.com',)).fetchone()
+        senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
+        if admin:
+            conn.execute('UPDATE usuarios SET senha_hash = ?, ativo = 1 WHERE email = ?',
+                         (senha_hash, 'admin@sistema.com'))
+        else:
+            conn.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
+                            VALUES (?, ?, ?, ?)''',
+                         ('Administrador', 'admin@sistema.com', senha_hash, 'admin'))
+        conn.commit()
+        flash('Admin resetado com sucesso! Email: admin@sistema.com | Senha: admin123', 'sucesso')
+    except Exception as e:
+        flash(f'Erro ao resetar admin: {e}', 'erro')
     return redirect(url_for('login'))
 
 # ==================== API DE USUARIOS ====================

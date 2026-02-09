@@ -19,6 +19,9 @@ ENV/
 *.swp
 *.swo
 
+# Secret key
+.secret_key
+
 # Database
 *.db-journal
 
