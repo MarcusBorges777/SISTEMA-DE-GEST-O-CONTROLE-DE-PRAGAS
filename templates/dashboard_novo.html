@@ -410,11 +410,8 @@
             <button onclick="mostrarView('documentos')" id="btn-documentos" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
                 <i data-lucide="folder" class="w-5 h-5 inline mr-2"></i> Arquivos
             </button>
-            <button onclick="mostrarView('analise')" id="btn-analise" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
-                <i data-lucide="bar-chart-3" class="w-5 h-5 inline mr-2"></i> Analise
-            </button>
-            <button onclick="mostrarView('configuracoes')" id="btn-configuracoes" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
-                <i data-lucide="settings" class="w-5 h-5 inline mr-2"></i> Configuracoes
+            <button onclick="mostrarView('administracao')" id="btn-administracao" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
+                <i data-lucide="shield" class="w-5 h-5 inline mr-2"></i> Administracao
             </button>
         </div>
     </div>
@@ -1452,624 +1449,89 @@
             </div>
         </div>
 
-        <!-- VIEW: ANÁLISE -->
-        <div id="view-analise" class="view-content hidden">
-            <!-- Header Moderno com Animação -->
-            <div class="relative overflow-hidden bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 rounded-2xl shadow-2xl p-8 mb-6 text-white">
-                <!-- Padrão de fundo animado -->
-                <div class="absolute inset-0 opacity-10">
-                    <div class="absolute transform rotate-45 -left-20 top-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-                    <div class="absolute transform -rotate-45 -right-20 bottom-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-                </div>
+        <!-- VIEW: ADMINISTRACAO -->
+        <div id="view-administracao" class="view-content hidden">
 
-                <div class="relative z-10">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-4">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-                                <i data-lucide="activity" class="w-10 h-10"></i>
-                            </div>
-                            <div>
-                                <h2 class="text-4xl font-bold mb-1">Dashboard de Análises</h2>
-                                <p class="text-violet-100 text-lg">Dados em tempo real e insights inteligentes</p>
-                            </div>
-                        </div>
-                        <button onclick="exportarRelatorio()" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg">
-                            <i data-lucide="download" class="w-5 h-5"></i>
-                            Exportar Relatório
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Gráficos Avançados</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Visualização interativa</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="zap" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Dados em Tempo Real</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Atualização automática</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="filter" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Filtros Inteligentes</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Análise personalizada</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all cursor-default border border-white/20">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="target" class="w-6 h-6"></i>
-                                <div>
-                                    <p class="text-sm font-semibold">Insights Precisos</p>
-                                    <p class="text-xs text-violet-100 mt-0.5">Decisões baseadas em dados</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Painel de Filtros Avançados -->
-            <div class="bg-white rounded-2xl shadow-xl p-6 mb-6 border-2 border-gray-100">
-                <div class="flex items-center justify-between mb-6">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-violet-100 rounded-lg p-2">
-                            <i data-lucide="sliders" class="w-6 h-6 text-violet-600"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Filtros Avançados</h3>
-                            <p class="text-sm text-gray-500">Personalize sua análise de dados</p>
-                        </div>
-                    </div>
-                    <button onclick="limparTodosFiltrosAnalise()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all flex items-center gap-2">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        Limpar Todos
-                    </button>
-                </div>
-
-                <!-- Grade de Filtros -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <!-- Filtro por Cliente com Pesquisa -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="user" class="w-4 h-4 text-violet-600"></i>
-                            Cliente
-                        </label>
-                        <div class="relative">
-                            <input type="text" id="pesquisa-cliente-analise" placeholder="🔍 Pesquisar cliente..." autocomplete="off" class="w-full px-4 py-3 pr-20 border-2 border-gray-300 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-200 focus:outline-none transition-all bg-white shadow-sm hover:border-gray-400">
-                            <button id="limpar-pesquisa-cliente" class="hidden absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors" title="Limpar pesquisa">
-                                <i data-lucide="x" class="w-5 h-5"></i>
-                            </button>
-                            <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2"></i>
-                            <!-- Dropdown de Sugestões -->
-                            <div id="sugestoes-cliente-analise" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-violet-300 rounded-xl shadow-2xl max-h-64 overflow-y-auto"></div>
-                        </div>
-                        <input type="hidden" id="filtro-analise-cliente" value="">
-                    </div>
-
-                    <!-- Filtro por Tipo de Documento -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
-                            Tipo de Documento
-                        </label>
-                        <select id="filtro-analise-tipo" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all bg-white cursor-pointer shadow-sm hover:border-gray-400">
-                            <option value="">📄 Todos os Tipos</option>
-                            <option value="laudo">📋 Laudos</option>
-                            <option value="contrato">📝 Contratos</option>
-                            <option value="orcamento">💰 Orçamentos</option>
-                            <option value="recibo">🧾 Recibos</option>
-                        </select>
-                    </div>
-
-                    <!-- Filtro por Cidade -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="map-pin" class="w-4 h-4 text-orange-600"></i>
-                            Cidade
-                        </label>
-                        <select id="filtro-analise-cidade" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all bg-white cursor-pointer shadow-sm hover:border-gray-400">
-                            <option value="">🗺️ Todas as Cidades</option>
-                        </select>
-                    </div>
-
-                    <!-- Filtro por Período -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <i data-lucide="calendar" class="w-4 h-4 text-green-600"></i>
-                            Período
-                        </label>
-                        <select id="filtro-analise-periodo" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none transition-all bg-white cursor-pointer shadow-sm hover:border-gray-400">
-                            <option value="todos">📅 Todos os Períodos</option>
-                            <option value="hoje">📌 Hoje</option>
-                            <option value="semana">📆 Última Semana</option>
-                            <option value="mes">📊 Este Mês</option>
-                            <option value="trimestre">📈 Último Trimestre</option>
-                            <option value="ano">🗓️ Este Ano</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Banner de Filtros Ativos -->
-                <div id="info-filtros-ativos" class="hidden mt-6 p-5 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border-2 border-violet-200">
-                    <div class="flex items-start gap-3">
-                        <div class="bg-violet-500 rounded-lg p-2">
-                            <i data-lucide="filter" class="w-5 h-5 text-white"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="font-bold text-violet-900 text-lg mb-2">Filtros Ativos</p>
-                            <div id="lista-filtros-ativos" class="flex flex-wrap gap-2">
-                                <!-- Preenchido dinamicamente -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Cards KPI Estilo Power BI - Design Ultra Moderno -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
-                <!-- Card 1: Total Documentos -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-total-docs">0</p>
-                            <p class="text-xs font-semibold text-blue-100">Total de Documentos</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+12%</span>
-                                <span class="text-xs text-blue-200">vs mês anterior</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 2: Total Clientes -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="users" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="user-plus" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-total-clientes">0</p>
-                            <p class="text-xs font-semibold text-emerald-100">Clientes Ativos</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+8%</span>
-                                <span class="text-xs text-emerald-200">crescimento</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 3: Este Mês -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="calendar-check" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="zap" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-mes-atual">0</p>
-                            <p class="text-xs font-semibold text-purple-100">Documentos Este Mês</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+23%</span>
-                                <span class="text-xs text-purple-200">produtividade</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 4: Cidades -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-orange-600 to-orange-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="map-pin" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="globe" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-cidades">0</p>
-                            <p class="text-xs font-semibold text-orange-100">Cidades Atendidas</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+3</span>
-                                <span class="text-xs text-orange-200">novas cidades</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 5: Média por Cliente -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="trending-up" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-media-docs">0</p>
-                            <p class="text-xs font-semibold text-cyan-100">Média Docs/Cliente</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">↑ 1.2</span>
-                                <span class="text-xs text-cyan-200">vs anterior</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card 6: Última Semana -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-pink-600 to-pink-700 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-bl-full"></div>
-                    <div class="relative p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="activity" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-1">
-                                <i data-lucide="clock" class="w-3.5 h-3.5 text-white"></i>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <p class="text-3xl font-black text-white" id="stat-semana">0</p>
-                            <p class="text-xs font-semibold text-pink-100">Docs Última Semana</p>
-                            <div class="flex items-center gap-1 mt-2">
-                                <span class="text-xs font-bold text-green-300">+18%</span>
-                                <span class="text-xs text-pink-200">atividade</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card Tipo Mais Popular - Destaque -->
-            <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-6 mb-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                            <i data-lucide="award" class="w-10 h-10 text-white"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-white/80">Tipo de Documento Mais Gerado</p>
-                            <p class="text-4xl font-black text-white" id="stat-tipo-popular">-</p>
-                            <p class="text-sm text-white/60 mt-1">Categoria mais utilizada no sistema</p>
-                        </div>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-3">
-                        <p class="text-xs font-bold text-white/70">DESTAQUE DO MÊS</p>
-                        <div class="flex items-center gap-2 mt-1">
-                            <i data-lucide="star" class="w-5 h-5 text-yellow-300"></i>
-                            <p class="text-2xl font-black text-white">TOP 1</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos Principais - Layout Power BI -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-                <!-- Gráfico: Documentos por Mês -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-violet-500 to-purple-600 p-5">
-                        <div class="flex items-center justify-between text-white">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                    <i data-lucide="line-chart" class="w-6 h-6"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-bold">Documentos por Mês</h3>
-                                    <p class="text-xs text-violet-100">Evolução temporal de geração</p>
-                                </div>
-                            </div>
-                            <div class="bg-white/10 rounded-full px-3 py-1">
-                                <p class="text-xs font-bold">2026</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-documentos-mes" class="w-full" style="height: 280px;"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gráfico: Clientes por Cidade -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-fuchsia-500 to-pink-600 p-5">
-                        <div class="flex items-center justify-between text-white">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                    <i data-lucide="map" class="w-6 h-6"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-bold">Distribuição por Cidade</h3>
-                                    <p class="text-xs text-fuchsia-100">Localização dos clientes</p>
-                                </div>
-                            </div>
-                            <div class="bg-white/10 rounded-full px-3 py-1">
-                                <p class="text-xs font-bold">MAPA</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-clientes-cidade" class="w-full" style="height: 280px;"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos Secundários - 3 Colunas em Desktop -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
-                <!-- Gráfico: Documentos por Tipo -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-                                <i data-lucide="layers" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold">Tipos de Documentos</h3>
-                                <p class="text-xs text-blue-100">Categorias principais</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-documentos-tipo" style="height: 240px;"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gráfico: Documentos por Categoria CNAE -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
-                    <div class="bg-gradient-to-r from-green-500 to-green-600 p-4">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-                                <i data-lucide="tag" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold">Categorias CNAE</h3>
-                                <p class="text-xs text-green-100">Segmentos de atuação</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-documentos-categoria" style="height: 240px;"></canvas>
-                    </div>
-                </div>
-
-                <!-- Top 10 Clientes -->
-                <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden md:col-span-2 lg:col-span-1">
-                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-                                <i data-lucide="trophy" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold">Top 10 Clientes</h3>
-                                <p class="text-xs text-indigo-100">Ranking por documentos</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-br from-gray-50 to-white">
-                        <canvas id="chart-top-clientes" style="height: 240px;"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabela de Resumo por Cliente - Estilo Power BI -->
-            <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-                <!-- Header da Tabela -->
-                <div class="bg-gradient-to-r from-amber-500 to-orange-600 p-5">
-                    <div class="flex items-center justify-between text-white">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2.5">
-                                <i data-lucide="database" class="w-6 h-6"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold">Resumo Detalhado por Cliente</h3>
-                                <p class="text-xs text-amber-100">Análise completa de documentos gerados</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="pesquisa-tabela-clientes" placeholder="🔍 Pesquisar na tabela..." class="px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-white/50">
-                            <button onclick="exportarTabelaExcel()" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-2.5 transition-all" title="Exportar para Excel">
-                                <i data-lucide="download" class="w-5 h-5"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Corpo da Tabela com Scroll -->
-                <div class="overflow-x-auto">
-                    <div class="max-h-96 overflow-y-auto">
-                        <table class="w-full">
-                            <thead class="bg-gradient-to-r from-gray-100 to-gray-200 sticky top-0 z-10">
-                                <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center gap-2 cursor-pointer hover:text-amber-600" onclick="ordenarTabela('cliente')">
-                                            <i data-lucide="user" class="w-4 h-4"></i>
-                                            Cliente
-                                            <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2 cursor-pointer hover:text-blue-600" onclick="ordenarTabela('total')">
-                                            <i data-lucide="hash" class="w-4 h-4"></i>
-                                            Total
-                                            <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
-                                            Laudos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="file-signature" class="w-4 h-4"></i>
-                                            Contratos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="calculator" class="w-4 h-4"></i>
-                                            Orçamentos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <i data-lucide="receipt" class="w-4 h-4"></i>
-                                            Recibos
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <div class="flex items-center justify-center gap-2 cursor-pointer hover:text-purple-600" onclick="ordenarTabela('data')">
-                                            <i data-lucide="calendar" class="w-4 h-4"></i>
-                                            Último Doc
-                                            <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
-                                        </div>
-                                    </th>
-                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                                        <i data-lucide="settings" class="w-4 h-4"></i>
-                                        Ações
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbody-resumo-clientes" class="bg-white divide-y divide-gray-100">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Footer da Tabela -->
-                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                    <div class="flex items-center justify-between text-sm">
-                        <p class="text-gray-600">
-                            <span class="font-bold" id="total-registros-tabela">0</span> cliente(s) encontrado(s)
-                        </p>
-                        <div class="flex items-center gap-2">
-                            <span class="text-gray-500">Última atualização:</span>
-                            <span class="font-semibold text-gray-700" id="ultima-atualizacao-tabela">Agora</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- VIEW: CONFIGURACOES -->
-        <div id="view-configuracoes" class="view-content hidden">
+            <!-- Header Administracao -->
             <div class="bg-gradient-to-r from-gray-700 via-gray-800 to-gray-900 rounded-xl shadow-lg p-8 mb-6 text-white">
                 <div class="flex items-center gap-4">
                     <div class="bg-white/20 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-                        <i data-lucide="settings" class="w-10 h-10"></i>
+                        <i data-lucide="shield" class="w-10 h-10"></i>
                     </div>
                     <div>
-                        <h2 class="text-3xl font-bold mb-1">Configuracoes da Empresa</h2>
-                        <p class="text-gray-300">Defina a logo e o mascote que serao usados no sistema e nos documentos</p>
+                        <h2 class="text-3xl font-bold mb-1">Administracao</h2>
+                        <p class="text-gray-300">Configuracoes da empresa, logo e mascote</p>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Card: Logo -->
-                <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 text-white">
-                        <h3 class="text-lg font-bold flex items-center gap-2">
-                            <i data-lucide="image" class="w-5 h-5"></i> Logo da Empresa
-                        </h3>
-                        <p class="text-sm text-indigo-100">Imagem exibida na barra de navegacao e nos documentos</p>
-                    </div>
-                    <div class="p-6">
-                        <!-- Preview da Logo -->
-                        <div id="logo-preview-container" class="mb-4 flex items-center justify-center">
-                            <div id="logo-preview-empty" class="w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-                                <i data-lucide="image-plus" class="w-12 h-12 mb-2"></i>
-                                <p class="text-sm font-medium">Nenhuma logo definida</p>
+            <!-- Secao: Logo e Mascote -->
+            <div class="mb-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="image" class="w-6 h-6 text-indigo-600"></i> Logo e Mascote
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Card: Logo -->
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 text-white">
+                            <h3 class="text-lg font-bold flex items-center gap-2">
+                                <i data-lucide="image" class="w-5 h-5"></i> Logo da Empresa
+                            </h3>
+                            <p class="text-sm text-indigo-100">Imagem exibida na barra de navegacao e nos documentos</p>
+                        </div>
+                        <div class="p-6">
+                            <div id="logo-preview-container" class="mb-4 flex items-center justify-center">
+                                <div id="logo-preview-empty" class="w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                    <i data-lucide="image-plus" class="w-12 h-12 mb-2"></i>
+                                    <p class="text-sm font-medium">Nenhuma logo definida</p>
+                                </div>
+                                <img id="logo-preview-img" src="" alt="Logo" class="hidden max-w-48 max-h-48 rounded-xl shadow-md object-contain border border-gray-200">
                             </div>
-                            <img id="logo-preview-img" src="" alt="Logo" class="hidden max-w-48 max-h-48 rounded-xl shadow-md object-contain border border-gray-200">
-                        </div>
-
-                        <!-- Upload -->
-                        <div class="space-y-3">
-                            <label class="block">
-                                <span class="text-sm font-semibold text-gray-700">Selecionar imagem</span>
-                                <input type="file" id="input-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                       class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                                       onchange="uploadImagem('logo', this)">
-                            </label>
-                            <p class="text-xs text-gray-500">Formatos aceitos: PNG, JPG, SVG, WEBP</p>
-                            <button type="button" id="btn-remover-logo" onclick="removerImagem('logo')"
-                                    class="hidden w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition border border-red-200">
-                                <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Remover Logo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card: Mascote -->
-                <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                    <div class="bg-gradient-to-r from-amber-500 to-orange-600 p-4 text-white">
-                        <h3 class="text-lg font-bold flex items-center gap-2">
-                            <i data-lucide="bug" class="w-5 h-5"></i> Mascote da Empresa
-                        </h3>
-                        <p class="text-sm text-amber-100">Imagem do mascote utilizada no sistema e nos documentos</p>
-                    </div>
-                    <div class="p-6">
-                        <!-- Preview do Mascote -->
-                        <div id="mascote-preview-container" class="mb-4 flex items-center justify-center">
-                            <div id="mascote-preview-empty" class="w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-                                <i data-lucide="image-plus" class="w-12 h-12 mb-2"></i>
-                                <p class="text-sm font-medium">Nenhum mascote definido</p>
+                            <div class="space-y-3">
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Selecionar imagem</span>
+                                    <input type="file" id="input-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                           class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                           onchange="uploadImagem('logo', this)">
+                                </label>
+                                <p class="text-xs text-gray-500">Formatos aceitos: PNG, JPG, SVG, WEBP</p>
+                                <button type="button" id="btn-remover-logo" onclick="removerImagem('logo')"
+                                        class="hidden w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition border border-red-200">
+                                    <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Remover Logo
+                                </button>
                             </div>
-                            <img id="mascote-preview-img" src="" alt="Mascote" class="hidden max-w-48 max-h-48 rounded-xl shadow-md object-contain border border-gray-200">
                         </div>
+                    </div>
 
-                        <!-- Upload -->
-                        <div class="space-y-3">
-                            <label class="block">
-                                <span class="text-sm font-semibold text-gray-700">Selecionar imagem</span>
-                                <input type="file" id="input-mascote" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                       class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
-                                       onchange="uploadImagem('mascote', this)">
-                            </label>
-                            <p class="text-xs text-gray-500">Formatos aceitos: PNG, JPG, SVG, WEBP</p>
-                            <button type="button" id="btn-remover-mascote" onclick="removerImagem('mascote')"
-                                    class="hidden w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition border border-red-200">
-                                <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Remover Mascote
-                            </button>
+                    <!-- Card: Mascote -->
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                        <div class="bg-gradient-to-r from-amber-500 to-orange-600 p-4 text-white">
+                            <h3 class="text-lg font-bold flex items-center gap-2">
+                                <i data-lucide="bug" class="w-5 h-5"></i> Mascote da Empresa
+                            </h3>
+                            <p class="text-sm text-amber-100">Imagem do mascote utilizada no sistema e nos documentos</p>
+                        </div>
+                        <div class="p-6">
+                            <div id="mascote-preview-container" class="mb-4 flex items-center justify-center">
+                                <div id="mascote-preview-empty" class="w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                    <i data-lucide="image-plus" class="w-12 h-12 mb-2"></i>
+                                    <p class="text-sm font-medium">Nenhum mascote definido</p>
+                                </div>
+                                <img id="mascote-preview-img" src="" alt="Mascote" class="hidden max-w-48 max-h-48 rounded-xl shadow-md object-contain border border-gray-200">
+                            </div>
+                            <div class="space-y-3">
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Selecionar imagem</span>
+                                    <input type="file" id="input-mascote" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                           class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+                                           onchange="uploadImagem('mascote', this)">
+                                </label>
+                                <p class="text-xs text-gray-500">Formatos aceitos: PNG, JPG, SVG, WEBP</p>
+                                <button type="button" id="btn-remover-mascote" onclick="removerImagem('mascote')"
+                                        class="hidden w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition border border-red-200">
+                                    <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Remover Mascote
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2441,8 +1903,8 @@ function renderizarClientes(lista) {
                     <button onclick="irParaDocumentosCliente('${cliente.nome_fantasia}')" class="px-2.5 py-1.5 bg-indigo-600 text-white rounded text-xs font-bold hover:bg-indigo-700 transition" title="Ver Documentos">
                         <i data-lucide="files" class="w-3.5 h-3.5 inline"></i>
                     </button>
-                    <button onclick="irParaAnaliseCliente('${cliente.nome_fantasia}')" class="px-2.5 py-1.5 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-700 transition" title="Ver Análises">
-                        <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 inline"></i>
+                    <button onclick="mostrarView('administracao')" class="px-2.5 py-1.5 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-700 transition" title="Administracao">
+                        <i data-lucide="settings" class="w-3.5 h-3.5 inline"></i>
                     </button>
                     <button onclick="editarCliente(${cliente.id})" class="px-2.5 py-1.5 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition" title="Editar">
                         <i data-lucide="edit-2" class="w-3.5 h-3.5 inline"></i>
@@ -2819,11 +2281,22 @@ async function buscarClientes() {
 
 // Mostrar view
 function mostrarView(view) {
+    // Redirecionar views removidas
+    if (view === 'analise' || view === 'configuracoes') {
+        view = 'administracao';
+    }
+
     // Esconder todas as views
     document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
 
     // Mostrar view selecionada
-    document.getElementById(`view-${view}`).classList.remove('hidden');
+    const viewEl = document.getElementById(`view-${view}`);
+    if (viewEl) {
+        viewEl.classList.remove('hidden');
+    } else {
+        document.getElementById('view-clientes')?.classList.remove('hidden');
+        view = 'clientes';
+    }
 
     // Atualizar botões
     document.querySelectorAll('[id^="btn-"]').forEach(btn => {
@@ -2843,8 +2316,8 @@ function mostrarView(view) {
     localStorage.setItem('ultimaView', view);
 
     // Carregar dados específicos da view
-    if (view === 'analise') {
-        carregarAnalise();
+    if (view === 'administracao') {
+        carregarLogoMascote();
     } else if (view === 'documentos') {
         buscarDocumentos();
     }
@@ -4436,29 +3909,8 @@ function irParaDocumentosCliente(nomeCliente) {
 }
 
 function irParaAnaliseCliente(nomeCliente) {
-    // Muda para a aba de análise
-    mostrarView('analise');
-
-    // Aguarda um momento para a view carregar
-    setTimeout(() => {
-        // Seleciona o cliente no filtro
-        const filtroCliente = document.getElementById('filtro-analise-cliente');
-        if (filtroCliente) {
-            // Procura a opção pelo nome do cliente
-            const options = Array.from(filtroCliente.options);
-            const option = options.find(opt => opt.textContent.includes(nomeCliente));
-            if (option) {
-                filtroCliente.value = option.value;
-                // Dispara o evento de mudança para aplicar o filtro
-                filtroCliente.dispatchEvent(new Event('change'));
-            }
-        }
-
-        // Scroll suave para o topo da seção de análise
-        document.getElementById('view-analise')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        showToast(`Mostrando análises de ${nomeCliente}`, 'info');
-    }, 100);
+    // Aba de analise removida - redireciona para administracao
+    mostrarView('administracao');
 }
 
 // ============================================
@@ -5257,8 +4709,8 @@ const observer = new MutationObserver((mutations) => {
         if (mutation.target.id === 'view-documentos' && !mutation.target.classList.contains('hidden')) {
             buscarDocumentos();
         }
-        if (mutation.target.id === 'view-analise' && !mutation.target.classList.contains('hidden')) {
-            carregarAnalise();
+        if (mutation.target.id === 'view-administracao' && !mutation.target.classList.contains('hidden')) {
+            carregarLogoMascote();
         }
     });
 });
