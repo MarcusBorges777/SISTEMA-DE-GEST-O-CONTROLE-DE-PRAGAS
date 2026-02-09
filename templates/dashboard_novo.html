@@ -970,6 +970,17 @@
                                 </div>
                             </div>
 
+                            <!-- Botão para abrir gerador visual -->
+                            <div class="mb-4 p-4 bg-white rounded-lg border-2 border-blue-300 border-dashed text-center">
+                                <p class="text-sm text-gray-600 mb-3">
+                                    <i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i>
+                                    Use o <strong>Gerador Visual de Orçamentos</strong> para criar orçamentos profissionais com logo, mascote e layout A4.
+                                </p>
+                                <button type="button" onclick="abrirGeradorOrcamento()" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl">
+                                    <i data-lucide="external-link" class="w-4 h-4 inline mr-2"></i> Abrir Gerador Visual de Orçamento
+                                </button>
+                            </div>
+
                             <div class="mb-3">
                                 <h3 class="font-bold text-gray-800">
                                     <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Informações do Orçamento
@@ -1034,6 +1045,17 @@
                                         <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-endereco"></span>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Botão para abrir gerador visual -->
+                            <div class="mb-4 p-4 bg-white rounded-lg border-2 border-green-300 border-dashed text-center">
+                                <p class="text-sm text-gray-600 mb-3">
+                                    <i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i>
+                                    Use o <strong>Gerador Visual de Recibos</strong> para criar recibos profissionais com logo, mascote e layout A4.
+                                </p>
+                                <button type="button" onclick="abrirGeradorRecibo()" class="px-6 py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-all shadow-lg hover:shadow-xl">
+                                    <i data-lucide="external-link" class="w-4 h-4 inline mr-2"></i> Abrir Gerador Visual de Recibo
+                                </button>
                             </div>
 
                             <div class="flex justify-between items-center mb-3">
@@ -2325,6 +2347,21 @@ function atualizarPreviewClienteDocumentos() {
     lucide.createIcons();
 }
 
+// Abrir geradores visuais em nova aba com dados do cliente
+function abrirGeradorRecibo() {
+    if (clienteSelecionadoCompleto) {
+        sessionStorage.setItem('clienteDocumento', JSON.stringify(clienteSelecionadoCompleto));
+    }
+    window.open('/gerador/recibo', '_blank');
+}
+
+function abrirGeradorOrcamento() {
+    if (clienteSelecionadoCompleto) {
+        sessionStorage.setItem('clienteDocumento', JSON.stringify(clienteSelecionadoCompleto));
+    }
+    window.open('/gerador/orcamento', '_blank');
+}
+
 // Limpar previews de cliente nos blocos de documento
 function limparPreviewClienteDocumentos() {
     clienteSelecionadoCompleto = null;
@@ -2981,9 +3018,21 @@ document.getElementById('form-gerar-documento')?.addEventListener('submit', asyn
         return;
     }
 
-    // Verificar se é um modelo de orçamento usando o modeloSelecionado global
+    // Verificar tipo de documento
     const nomeModelo = modeloSelecionado?.nome?.toLowerCase() || '';
     const isOrcamento = nomeModelo.includes('orcamento') || nomeModelo.includes('orçamento');
+    const isRecibo = nomeModelo.includes('recibo');
+
+    // Redirecionar para geradores visuais se for recibo ou orçamento
+    if (isRecibo || isOrcamento) {
+        // Salvar dados do cliente no sessionStorage para o gerador
+        if (clienteSelecionadoCompleto) {
+            sessionStorage.setItem('clienteDocumento', JSON.stringify(clienteSelecionadoCompleto));
+        }
+        const url = isRecibo ? '/gerador/recibo' : '/gerador/orcamento';
+        window.open(url, '_blank');
+        return;
+    }
 
     // Coletar variáveis extras
     const formData = new FormData(e.target);

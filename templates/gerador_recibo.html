@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Recibo - Sistema de Gestão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @page { size: A4; margin: 0; }
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            .print-hidden { display: none !important; }
+            #a4-document { box-shadow: none !important; width: 210mm; height: 297mm; padding: 15mm; margin: 0; border-radius: 0; }
+        }
+        .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        textarea { overflow: hidden; }
+        input:focus, textarea:focus { outline: none; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center font-sans text-slate-900">
+
+    <!-- BARRA DE FERRAMENTAS -->
+    <div class="mb-8 flex flex-wrap justify-between items-center gap-4 print-hidden w-full max-w-[210mm] bg-white p-5 rounded-2xl shadow-lg border border-slate-200">
+        <div class="flex gap-3 flex-wrap">
+            <a href="/" class="flex items-center gap-2 bg-gray-500 text-white px-4 py-2.5 rounded-xl hover:bg-gray-600 transition-all font-bold text-sm shadow-sm">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar
+            </a>
+            <label class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 transition-all font-bold text-sm shadow-sm cursor-pointer">
+                <i data-lucide="image" class="w-4 h-4"></i> Logo
+                <input type="file" class="hidden" accept="image/*" onchange="carregarImagem(event, 'logo')">
+            </label>
+            <label class="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-all font-bold text-sm shadow-sm cursor-pointer">
+                <i data-lucide="image" class="w-4 h-4"></i> Mascote
+                <input type="file" class="hidden" accept="image/*" onchange="carregarImagem(event, 'mascote')">
+            </label>
+        </div>
+        <div class="flex gap-3 ml-auto">
+            <button onclick="adicionarItem()" class="flex items-center gap-2 bg-emerald-500 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-600 transition-all font-bold text-sm shadow-sm">
+                <i data-lucide="plus" class="w-4 h-4"></i> Add Item
+            </button>
+            <button onclick="window.print()" class="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl hover:bg-black transition-all font-bold text-sm shadow-xl ring-2 ring-slate-900 ring-offset-2">
+                <i data-lucide="printer" class="w-4 h-4"></i> Imprimir / Salvar PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- DOCUMENTO A4 -->
+    <div id="a4-document" class="bg-white w-[210mm] min-h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col p-[15mm] text-slate-800">
+
+        <!-- CABEÇALHO -->
+        <header class="flex justify-between items-start mb-8 relative z-50 h-28">
+            <div class="flex items-center h-full">
+                <label class="w-64 h-28 flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all group" id="logo-container">
+                    <img id="logo-img" src="" alt="Logo" class="max-w-full max-h-full object-contain hidden">
+                    <div id="logo-placeholder" class="text-center p-2 print-hidden border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-lg w-full h-full flex flex-col items-center justify-center">
+                        <i data-lucide="image" class="w-6 h-6 text-blue-400 mb-1"></i>
+                        <p class="text-[10px] font-bold text-blue-500 uppercase">Sua Logo</p>
+                    </div>
+                    <input type="file" class="hidden" accept="image/*" onchange="carregarImagem(event, 'logo')">
+                </label>
+            </div>
+
+            <div class="flex-1 text-right pl-4 flex flex-col justify-center h-full gap-1.5">
+                <div class="flex items-center justify-end gap-2 text-slate-600">
+                    <span class="text-xs font-bold tracking-tight" id="empresa-whatsapp">(37) 99964-4205</span>
+                    <div class="w-5 h-5 flex items-center justify-center bg-[#254191] rounded-full text-white shadow-sm">
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 text-slate-600">
+                    <span class="text-xs font-bold tracking-tight" id="empresa-fixo">(37) 3214-7599</span>
+                    <div class="w-5 h-5 flex items-center justify-center bg-[#254191] rounded-full text-white shadow-sm">
+                        <i data-lucide="phone" class="w-3 h-3"></i>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 text-slate-600">
+                    <span class="text-xs font-bold tracking-tight" id="empresa-site">dedetizadoraborges.com.br</span>
+                    <div class="w-5 h-5 flex items-center justify-center bg-[#254191] rounded-full text-white shadow-sm">
+                        <i data-lucide="globe" class="w-3 h-3"></i>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 text-slate-600">
+                    <span class="text-xs font-bold tracking-tight" id="empresa-email">dedetizadoraborges@yahoo.com.br</span>
+                    <div class="w-5 h-5 flex items-center justify-center bg-[#254191] rounded-full text-white shadow-sm">
+                        <i data-lucide="mail" class="w-3 h-3"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="w-full h-0.5 bg-[#1e3a8a] mb-6 relative z-10"></div>
+
+        <!-- TÍTULO DO RECIBO -->
+        <div class="flex justify-between items-end mb-6 relative z-10">
+            <div>
+                <h2 class="text-3xl font-black text-[#1e3a8a] uppercase leading-none tracking-tight">RECIBO</h2>
+                <p class="text-[10px] font-bold text-gray-400 uppercase mt-1 tracking-widest pl-1">COMPROVANTE DE PRESTAÇÃO DE SERVIÇOS</p>
+            </div>
+            <div class="text-right border-l-4 border-[#254191] pl-3">
+                <div class="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                    Nº <input type="text" id="receiptNumber" value="00001" class="bg-transparent border-none text-right w-12 p-0 text-gray-500 font-bold">
+                </div>
+                <div class="flex items-center gap-1 justify-end">
+                    <span class="text-[10px] font-bold text-[#254191]">DATA:</span>
+                    <input type="text" id="receiptDate" class="text-sm font-black text-gray-800 leading-tight text-right bg-transparent border-none p-0 w-24">
+                </div>
+            </div>
+        </div>
+
+        <!-- DADOS DO PAGADOR -->
+        <section class="bg-blue-50/20 p-4 rounded-xl border border-blue-100 w-full shadow-sm mb-6 relative z-10">
+            <h3 class="flex items-center gap-2 text-[#1e3a8a] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1">
+                <i data-lucide="user" class="w-3.5 h-3.5"></i> Cliente / Contratante
+            </h3>
+            <div class="text-[10px] space-y-1 text-gray-700">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                    <div class="space-y-2">
+                        <div class="flex flex-col border-b border-blue-200 pb-1">
+                            <label class="font-bold uppercase text-[8px] tracking-tight text-[#1e3a8a]">Razão Social / Nome:</label>
+                            <input type="text" id="cliente-nome" class="font-black text-[#1e3a8a] uppercase text-sm leading-tight w-full bg-transparent border-none p-0 placeholder-blue-300" placeholder="NOME DO CLIENTE">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="border-b border-blue-200 pb-1">
+                                <label class="font-bold uppercase text-[8px] tracking-tight text-[#1e3a8a] block">Nome Fantasia:</label>
+                                <input type="text" id="cliente-fantasia" class="w-full bg-transparent border-none p-0 text-[10px] text-gray-600 italic" placeholder="...">
+                            </div>
+                            <div class="border-b border-blue-200 pb-1">
+                                <label class="font-bold uppercase text-[8px] tracking-tight text-[#1e3a8a] block">CNPJ / CPF:</label>
+                                <input type="text" id="cliente-cnpj" class="w-full bg-transparent border-none p-0 text-[10px] text-gray-600" placeholder="...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 md:border-l md:border-blue-200 md:pl-4">
+                        <div class="border-b border-blue-200 pb-1">
+                            <label class="font-bold uppercase text-[8px] tracking-tighter text-[#1e3a8a] flex items-center gap-1">
+                                <i data-lucide="map-pin" class="w-2.5 h-2.5"></i> Endereço:
+                            </label>
+                            <input type="text" id="cliente-endereco" class="italic font-medium leading-tight w-full bg-transparent border-none p-0 text-[10px] text-gray-600" placeholder="Endereço completo...">
+                        </div>
+                        <div class="border-b border-blue-200 pb-1">
+                            <label class="font-bold uppercase text-[8px] tracking-tighter text-[#1e3a8a] flex items-center gap-1">
+                                <i data-lucide="briefcase" class="w-2.5 h-2.5"></i> Atividade Econômica:
+                            </label>
+                            <input type="text" id="cliente-atividade" class="italic font-medium leading-tight w-full bg-transparent border-none p-0 text-[10px] text-gray-600" placeholder="...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LISTA DE SERVIÇOS -->
+        <section class="mb-6 relative z-10 flex-grow">
+            <table class="w-full text-left border-collapse border border-blue-200 text-[10px] shadow-sm rounded-lg overflow-hidden">
+                <thead class="bg-[#1e3a8a] text-white uppercase font-black text-[9px]">
+                    <tr>
+                        <th class="p-2 border-r border-blue-700 w-[30%]">Serviço Realizado</th>
+                        <th class="p-2 border-r border-blue-700 w-[40%]">Detalhes / Procedimento</th>
+                        <th class="p-2 border-r border-blue-700 text-center w-[10%]">Qtd</th>
+                        <th class="p-2 text-right w-[20%]">Valor</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-itens" class="divide-y divide-blue-100 text-gray-700 bg-white">
+                </tbody>
+            </table>
+        </section>
+
+        <!-- TOTAIS E RODAPÉ -->
+        <div class="mt-auto relative z-10">
+            <section class="bg-[#1e3a8a] text-white py-3 px-5 rounded-lg flex justify-between items-center shadow-md mb-8">
+                <div class="flex items-center gap-2 opacity-90">
+                    <div class="bg-white/10 p-1.5 rounded border border-white/20"><i data-lucide="hash" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest">Valor Total</span>
+                </div>
+                <div class="text-3xl font-black italic tracking-tight" id="valor-total">R$ 0,00</div>
+            </section>
+
+            <div class="grid grid-cols-2 gap-8 mb-8 text-[10px]">
+                <div>
+                    <h4 class="font-bold text-[#1e3a8a] uppercase border-b border-blue-200 pb-1 mb-2 text-[9px]">Forma de Pagamento</h4>
+                    <textarea id="forma-pagamento" class="w-full border-none p-0 text-gray-600 bg-transparent resize-none h-10 leading-snug font-medium">Dinheiro, Pix, Cartão de credito (contém juros)</textarea>
+                </div>
+                <div>
+                    <h4 class="font-bold text-[#1e3a8a] uppercase border-b border-blue-200 pb-1 mb-2 text-[9px]">Validade e Condições</h4>
+                    <textarea id="condicoes" class="w-full border-none p-0 text-gray-600 bg-transparent resize-none h-14 leading-tight italic">Declaramos para os devidos fins que recebemos a importância acima discriminada, dando plena, rasa e geral quitação.</textarea>
+                </div>
+            </div>
+
+            <!-- INFO DA EMPRESA -->
+            <div class="text-center mb-10">
+                <h3 class="text-[#1e3a8a] font-black uppercase text-sm" id="empresa-razao">MARIA APARECIDA DE OLIVEIRA BORGES</h3>
+                <p class="text-[#1e3a8a] font-bold text-[10px]"><span id="empresa-nome-doc">Dedetizadora Borges</span> | CNPJ: <span id="empresa-cnpj">10.409.228/0001-93</span></p>
+                <p class="text-gray-500 italic text-[9px] mt-1" id="empresa-endereco-doc">RUA YARA, 701 – B. CENTRO IND CEL JOVELINO RABELO DIVINÓPOLIS/ MG – CEP 35502-289</p>
+                <p class="text-[#1e3a8a] font-bold text-[9px]" id="empresa-email-doc">dedetizadoraborges@yahoo.com.br</p>
+
+                <div class="mt-4 bg-blue-50/50 border border-blue-100 rounded-xl p-3 inline-block">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-left">
+                        <p class="text-[9px] text-gray-600">Alvará Sanitário: <span class="font-bold text-[#1e3a8a]" id="empresa-alvara">Nº 164/2025 (Venc: 03/07/2028)</span></p>
+                        <p class="text-[9px] text-gray-600">Licença Ambiental: <span class="font-bold text-[#1e3a8a]" id="empresa-licenca">Dispensa Protocolo: 59009480/2019</span></p>
+                        <p class="text-[9px] text-gray-600">Responsável Técnico: <span class="font-bold text-[#1e3a8a]" id="empresa-rt">Maria Aparecida de Oliveira Borges</span></p>
+                        <p class="text-[9px] text-gray-600">CRQ / ART: <span class="font-bold text-[#1e3a8a]" id="empresa-crq">02404889 | ART 9.353</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RODAPÉ FIXO -->
+        <div class="absolute bottom-6 left-0 w-full text-center">
+            <p class="text-[9px] text-gray-300 font-bold italic uppercase tracking-widest">
+                DEDETIZADORA BORGES &bull; CNPJ: 10.409.228/0001-93
+            </p>
+        </div>
+
+        <!-- MASCOTE (Marca d'água) -->
+        <div id="mascote-container" class="absolute z-0 pointer-events-none grayscale hidden" style="left:-15mm;top:225mm;opacity:0.15;">
+            <img id="mascote-img" src="" alt="Mascote" style="height:360px" class="w-auto object-contain">
+        </div>
+    </div>
+
+<script>
+// ============================================================
+// DADOS
+// ============================================================
+let itens = [
+    { id: 1, service: 'Dedetização', description: 'Serviço realizado conforme contratado', quantity: 1, value: 777 }
+];
+let nextId = 2;
+
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Data atual
+    document.getElementById('receiptDate').value = new Date().toLocaleDateString('pt-BR');
+
+    // Carregar logo e mascote do servidor
+    carregarLogoMascoteServidor();
+
+    // Carregar dados do cliente da URL
+    carregarDadosClienteURL();
+
+    // Renderizar itens
+    renderizarItens();
+
+    lucide.createIcons();
+});
+
+// ============================================================
+// LOGO E MASCOTE DO SERVIDOR
+// ============================================================
+function carregarLogoMascoteServidor() {
+    fetch('/api/config/logo-mascote')
+        .then(r => r.json())
+        .then(data => {
+            if (data.logo) {
+                const logoImg = document.getElementById('logo-img');
+                logoImg.src = data.logo;
+                logoImg.classList.remove('hidden');
+                document.getElementById('logo-placeholder').classList.add('hidden');
+            }
+            if (data.mascote) {
+                const mascoteImg = document.getElementById('mascote-img');
+                mascoteImg.src = data.mascote;
+                document.getElementById('mascote-container').classList.remove('hidden');
+            }
+        })
+        .catch(() => {});
+}
+
+function carregarImagem(event, tipo) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        if (tipo === 'logo') {
+            const logoImg = document.getElementById('logo-img');
+            logoImg.src = reader.result;
+            logoImg.classList.remove('hidden');
+            document.getElementById('logo-placeholder').classList.add('hidden');
+        } else {
+            const mascoteImg = document.getElementById('mascote-img');
+            mascoteImg.src = reader.result;
+            document.getElementById('mascote-container').classList.remove('hidden');
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+// ============================================================
+// DADOS DO CLIENTE VIA URL
+// ============================================================
+function carregarDadosClienteURL() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('nome')) document.getElementById('cliente-nome').value = params.get('nome');
+    if (params.get('fantasia')) document.getElementById('cliente-fantasia').value = params.get('fantasia');
+    if (params.get('cnpj')) document.getElementById('cliente-cnpj').value = params.get('cnpj');
+    if (params.get('endereco')) document.getElementById('cliente-endereco').value = params.get('endereco');
+    if (params.get('atividade')) document.getElementById('cliente-atividade').value = params.get('atividade');
+
+    // Também tentar sessionStorage
+    const clienteJSON = sessionStorage.getItem('clienteDocumento');
+    if (clienteJSON) {
+        try {
+            const c = JSON.parse(clienteJSON);
+            if (c.razao_social || c.nome_fantasia) document.getElementById('cliente-nome').value = c.razao_social || c.nome_fantasia || '';
+            if (c.nome_fantasia) document.getElementById('cliente-fantasia').value = c.nome_fantasia || '';
+            if (c.cnpj) document.getElementById('cliente-cnpj').value = c.cnpj || '';
+            if (c.endereco_completo) document.getElementById('cliente-endereco').value = c.endereco_completo || '';
+            if (c.cnae) document.getElementById('cliente-atividade').value = c.cnae || '';
+        } catch(e) {}
+    }
+}
+
+// ============================================================
+// ITENS / TABELA
+// ============================================================
+function renderizarItens() {
+    const tbody = document.getElementById('tabela-itens');
+    tbody.innerHTML = '';
+
+    itens.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'group hover:bg-blue-50 transition-colors';
+        tr.innerHTML = `
+            <td class="p-2 border-r border-blue-100 align-middle">
+                <input type="text" value="${escapeHtml(item.service)}"
+                    onchange="atualizarItem(${item.id}, 'service', this.value)"
+                    class="w-full bg-transparent border-none p-0 font-bold text-[#1e3a8a] uppercase placeholder-blue-300"
+                    placeholder="NOME DO SERVIÇO">
+            </td>
+            <td class="p-2 border-r border-blue-100 align-middle">
+                <textarea onchange="atualizarItem(${item.id}, 'description', this.value)"
+                    rows="1" class="w-full bg-transparent border-none p-0 text-gray-600 resize-none placeholder-gray-400 italic leading-tight"
+                    placeholder="Descrição técnica...">${escapeHtml(item.description)}</textarea>
+            </td>
+            <td class="p-2 border-r border-blue-100 align-middle text-center">
+                <input type="number" min="1" value="${item.quantity}"
+                    onchange="atualizarItem(${item.id}, 'quantity', this.value); calcularTotal()"
+                    class="w-full text-center bg-transparent border-none p-0 font-bold text-gray-600">
+            </td>
+            <td class="p-2 align-middle text-right font-bold text-gray-800 relative bg-blue-50/30">
+                <div class="flex justify-end items-center gap-1">
+                    <span class="text-[8px] text-gray-400">R$</span>
+                    <input type="number" step="0.01" value="${item.value}"
+                        onchange="atualizarItem(${item.id}, 'value', this.value); calcularTotal()"
+                        class="w-20 text-right bg-transparent border-none p-0">
+                </div>
+                <button onclick="removerItem(${item.id})" class="absolute left-1 top-1/2 -translate-y-1/2 text-red-300 opacity-0 group-hover:opacity-100 print-hidden transition-all hover:text-red-500">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    calcularTotal();
+    lucide.createIcons();
+}
+
+function adicionarItem() {
+    itens.push({ id: nextId++, service: '', description: '', quantity: 1, value: 0 });
+    renderizarItens();
+}
+
+function removerItem(id) {
+    itens = itens.filter(i => i.id !== id);
+    renderizarItens();
+}
+
+function atualizarItem(id, field, value) {
+    const item = itens.find(i => i.id === id);
+    if (item) {
+        if (field === 'quantity' || field === 'value') {
+            item[field] = parseFloat(value) || 0;
+        } else {
+            item[field] = value;
+        }
+    }
+}
+
+function calcularTotal() {
+    const total = itens.reduce((acc, item) => {
+        const qty = parseFloat(item.quantity) || 0;
+        const val = parseFloat(item.value) || 0;
+        return acc + (val * qty);
+    }, 0);
+    document.getElementById('valor-total').textContent = formatarMoeda(total);
+}
+
+function formatarMoeda(val) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

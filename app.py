@@ -1715,6 +1715,16 @@ def index():
 def dashboard():
     return render_template('dashboard_novo.html')
 
+@app.route('/gerador/recibo')
+@login_required
+def gerador_recibo():
+    return render_template('gerador_recibo.html')
+
+@app.route('/gerador/orcamento')
+@login_required
+def gerador_orcamento():
+    return render_template('gerador_orcamento.html')
+
 @app.route('/dashboard-antigo')
 def dashboard_antigo():
     return render_template('dashboard.html')
