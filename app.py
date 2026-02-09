@@ -483,6 +483,12 @@ def criar_tabelas():
     )''')
     db.execute('CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email)')
 
+    # Garantir que colunas existem (para bancos criados antes dessas colunas)
+    adicionar_coluna_segura(db, 'usuarios', 'perfil', "TEXT DEFAULT 'operador'")
+    adicionar_coluna_segura(db, 'usuarios', 'ativo', 'BOOLEAN DEFAULT 1')
+    adicionar_coluna_segura(db, 'usuarios', 'data_criacao', 'DATETIME')
+    adicionar_coluna_segura(db, 'usuarios', 'ultimo_login', 'DATETIME')
+
     # Criar usuario admin padrao se nao existir nenhum
     try:
         admin_existe = db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
@@ -1585,8 +1591,8 @@ def reset_admin():
         admin = conn.execute('SELECT id FROM usuarios WHERE email = ?', ('admin@sistema.com',)).fetchone()
         senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
         if admin:
-            conn.execute('UPDATE usuarios SET senha_hash = ?, ativo = 1 WHERE email = ?',
-                         (senha_hash, 'admin@sistema.com'))
+            conn.execute('UPDATE usuarios SET senha_hash = ?, ativo = 1, perfil = ? WHERE email = ?',
+                         (senha_hash, 'admin', 'admin@sistema.com'))
         else:
             conn.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
                             VALUES (?, ?, ?, ?)''',
