@@ -77,6 +77,14 @@
                         >
                         <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-400"></i>
                     </div>
+                    {% if session.get('usuario_nome') %}
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-600 hidden md:inline">{{ session.usuario_nome }}</span>
+                        <a href="/logout" class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Sair">
+                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
