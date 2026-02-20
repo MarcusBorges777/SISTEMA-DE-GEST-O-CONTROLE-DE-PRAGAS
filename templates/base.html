@@ -25,10 +25,13 @@
         body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
 
         .toast-container { position: fixed; right: 1rem; bottom: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
-        .toast { padding: 1rem; border-radius: 0.5rem; color: white; font-weight: 500; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .toast { padding: 1rem 1.5rem; border-radius: 0.5rem; color: white; font-weight: 500; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; max-width: 400px; word-wrap: break-word; display: flex; align-items: center; gap: 0.5rem; }
+        .toast-exit { animation: slideOut 0.3s ease-in forwards; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
         .bg-success { background-color: #10b981; }
         .bg-error { background-color: #ef4444; }
+        .bg-warning { background-color: #f59e0b; }
         .bg-info { background-color: #4f46e5; }
 
         .search-global { transition: all 0.3s; }
@@ -56,7 +59,7 @@
                     </a>
 
                     <!-- Botão Menu Mobile -->
-                    <button id="mobile-menu-btn" class="sm:hidden p-2 rounded-lg hover:bg-gray-100" onclick="toggleMobileMenu()">
+                    <button id="mobile-menu-btn" class="sm:hidden p-2 rounded-lg hover:bg-gray-100" onclick="toggleMobileMenu()" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
                         <i data-lucide="menu" class="w-6 h-6 text-gray-600"></i>
                     </button>
 
@@ -115,22 +118,35 @@
             const menu = document.getElementById('mobile-menu');
             const btn = document.getElementById('mobile-menu-btn');
             if (menu) {
-                menu.classList.toggle('hidden');
-                // Atualizar ícone
+                const isHidden = menu.classList.toggle('hidden');
+                btn.setAttribute('aria-expanded', !isHidden);
+                btn.setAttribute('aria-label', isHidden ? 'Abrir menu' : 'Fechar menu');
                 const icon = btn.querySelector('i');
                 if (icon) {
-                    icon.setAttribute('data-lucide', menu.classList.contains('hidden') ? 'menu' : 'x');
+                    icon.setAttribute('data-lucide', isHidden ? 'menu' : 'x');
                     initIcons();
                 }
             }
         }
 
-        function showToast(msg, type='info') {
+        /**
+         * Exibe notificação toast não-bloqueante.
+         * @param {string} msg - Mensagem a exibir
+         * @param {string} type - 'success' | 'error' | 'warning' | 'info'
+         * @param {number} duration - Duração em ms (padrão 4000)
+         */
+        function showToast(msg, type='info', duration=4000) {
+            const icons = { success: '&#10003;', error: '&#10007;', warning: '&#9888;', info: '&#8505;' };
             const t = document.createElement('div');
             t.className = `toast bg-${type}`;
-            t.textContent = msg;
-            document.getElementById('toast-container').appendChild(t);
-            setTimeout(() => t.remove(), 3000);
+            t.setAttribute('role', 'alert');
+            t.innerHTML = `<span>${icons[type] || icons.info}</span><span>${msg}</span>`;
+            const container = document.getElementById('toast-container');
+            container.appendChild(t);
+            setTimeout(() => {
+                t.classList.add('toast-exit');
+                t.addEventListener('animationend', () => t.remove());
+            }, duration);
         }
 
         // Pesquisa Global

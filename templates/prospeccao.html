@@ -1089,7 +1089,7 @@ async function adicionarClienteRapido(empresa) {
 
         if (response.ok) {
             const syncData = await response.json();
-            alert(`✅ Cliente adicionado com sucesso!\n\nID: ${syncData.cliente_id}\nNome: ${syncData.dados.nome_fantasia}\nCNAE Validado: ${syncData.dados.validado_cnae ? 'Sim' : 'Não'}`);
+            showToast(`Cliente adicionado! ID: ${syncData.cliente_id} - ${syncData.dados.nome_fantasia}`, 'success');
             fecharModalEmpresas();
         } else {
             const error = await response.json();
@@ -1109,17 +1109,17 @@ async function adicionarClienteRapido(empresa) {
 
                     if (responseForced.ok) {
                         const forcedData = await responseForced.json();
-                        alert(`✅ Cliente adicionado (sem validação de CNAE)\n\nID: ${forcedData.cliente_id}`);
+                        showToast(`Cliente adicionado (sem validação CNAE). ID: ${forcedData.cliente_id}`, 'success');
                         fecharModalEmpresas();
                     }
                 }
             } else {
-                alert('❌ Erro: ' + (error.erro || 'Erro desconhecido'));
+                showToast('Erro: ' + (error.erro || 'Erro desconhecido'), 'error');
             }
         }
     } catch (error) {
         console.error('Erro ao adicionar cliente:', error);
-        alert('❌ Erro ao adicionar cliente: ' + error.message);
+        showToast('Erro ao adicionar cliente: ' + error.message, 'error');
     }
 }
 
@@ -1150,11 +1150,11 @@ async function adicionarEGerarDocumento(empresa) {
 
             // Tratamento de erros específicos
             if (error.erro === 'CNAE não permitido') {
-                alert(`❌ CNAE NÃO PERMITIDO\n\nEmpresa: ${error.empresa}\nCNAE: ${error.cnae}\n\nEste CNAE não está na lista de CNAEs estratégicos.`);
+                showToast(`CNAE não permitido: ${error.empresa} (${error.cnae})`, 'error');
             } else if (error.erro === 'Empresa não encontrada') {
-                alert(`❌ EMPRESA NÃO ENCONTRADA\n\nCNPJ ${cnpjLimpo} não existe no banco de dados da Receita Federal.`);
+                showToast(`Empresa não encontrada: CNPJ ${cnpjLimpo}`, 'error');
             } else {
-                alert('❌ Erro ao sincronizar empresa: ' + (error.erro || 'Erro desconhecido'));
+                showToast('Erro ao sincronizar empresa: ' + (error.erro || 'Erro desconhecido'), 'error');
             }
             return;
         }
@@ -1165,7 +1165,7 @@ async function adicionarEGerarDocumento(empresa) {
 
         console.log('[DATA BRIDGE] Empresa sincronizada:', syncData);
 
-        alert(`✅ EMPRESA SINCRONIZADA!\n\nCliente: ${dados.nome_fantasia}\nID: ${clienteId}\nCNAE Validado: ${dados.validado_cnae ? 'Sim' : 'Não'}\nCategoria: ${dados.categoria_lead}\n\nAgora gerando documento...`);
+        showToast(`Empresa sincronizada! ${dados.nome_fantasia} (ID: ${clienteId}). Gerando documento...`, 'success');
 
         // PASSO 2: Redirecionar para página de geração de documentos com dados preenchidos
         const params = new URLSearchParams({
@@ -1181,7 +1181,7 @@ async function adicionarEGerarDocumento(empresa) {
 
     } catch (error) {
         console.error('Erro no fluxo completo:', error);
-        alert('❌ Erro: ' + error.message);
+        showToast('Erro: ' + error.message, 'error');
     }
 }
 
@@ -1560,7 +1560,7 @@ function limparBuscaAvancada() {
 // Exportar resultados para CSV
 function exportarResultadosCSV() {
     if (!empresasResultadoBusca || empresasResultadoBusca.length === 0) {
-        alert('❌ Nenhum resultado para exportar. Execute uma busca primeiro.');
+        showToast('Nenhum resultado para exportar. Execute uma busca primeiro.', 'warning');
         return;
     }
 
@@ -1645,7 +1645,7 @@ function exportarResultadosCSV() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    alert(`✅ Exportado com sucesso!\n\n${empresasResultadoBusca.length} empresas exportadas para:\n${filename}`);
+    showToast(`${empresasResultadoBusca.length} empresas exportadas para ${filename}`, 'success');
 }
 
 // Fechar autocomplete ao clicar fora

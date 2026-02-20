@@ -95,13 +95,13 @@ async function uploadImagem(tipo, input) {
 
         if (response.ok && data.sucesso) {
             mostrarPreviewImagem(tipo, data.caminho);
-            alert(`${tipo === 'logo' ? 'Logo' : 'Mascote'} salvo com sucesso!`);
+            showToast(`${tipo === 'logo' ? 'Logo' : 'Mascote'} salvo com sucesso!`, 'success');
         } else {
-            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
         console.error(`Erro ao enviar ${tipo}:`, error);
-        alert('Erro ao enviar imagem: ' + error.message);
+        showToast('Erro ao enviar imagem: ' + error.message, 'error');
     }
 
     input.value = '';
@@ -122,13 +122,13 @@ async function removerImagem(tipo) {
 
         if (response.ok && data.sucesso) {
             esconderPreviewImagem(tipo);
-            alert(`${tipo === 'logo' ? 'Logo' : 'Mascote'} removido com sucesso!`);
+            showToast(`${tipo === 'logo' ? 'Logo' : 'Mascote'} removido com sucesso!`, 'success');
         } else {
-            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
         console.error(`Erro ao remover ${tipo}:`, error);
-        alert('Erro ao remover: ' + error.message);
+        showToast('Erro ao remover: ' + error.message, 'error');
     }
 
     lucide.createIcons();
@@ -260,14 +260,14 @@ async function salvarUsuario(event) {
         });
         const data = await response.json();
         if (response.ok && data.sucesso) {
-            alert(data.mensagem);
+            showToast(data.mensagem, 'success');
             fecharModalUsuario();
             await carregarUsuarios();
         } else {
-            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
-        alert('Erro: ' + error.message);
+        showToast('Erro: ' + error.message, 'error');
     }
 }
 
@@ -285,10 +285,10 @@ async function toggleUsuario(id, ativoAtual) {
         if (response.ok) {
             await carregarUsuarios();
         } else {
-            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
-        alert('Erro: ' + error.message);
+        showToast('Erro: ' + error.message, 'error');
     }
 }
 
@@ -299,13 +299,13 @@ async function excluirUsuario(id, nome) {
         const response = await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
         const data = await response.json();
         if (response.ok && data.sucesso) {
-            alert(data.mensagem);
+            showToast(data.mensagem, 'success');
             await carregarUsuarios();
         } else {
-            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
-        alert('Erro: ' + error.message);
+        showToast('Erro: ' + error.message, 'error');
     }
 }
 
@@ -463,7 +463,7 @@ function formatarData(dataStr) {
 
 function ligarCliente(telefone) {
     if (!telefone) {
-        alert('Telefone não cadastrado');
+        showToast('Telefone não cadastrado', 'info');
         return;
     }
     window.open(`tel:${telefone}`);
@@ -491,11 +491,11 @@ async function renovarGarantia(clienteId, clienteNome) {
             showToast('✅ Garantia renovada com sucesso!', 'success');
             await carregarAvisosGarantia(); // Recarregar avisos
         } else {
-            alert('❌ Erro: ' + (data.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
         console.error('Erro ao renovar garantia:', error);
-        alert('❌ Erro ao renovar garantia');
+        showToast('Erro ao renovar garantia', 'error');
     }
 }
 
@@ -989,18 +989,18 @@ document.getElementById('form-cliente')?.addEventListener('submit', async (e) =>
         });
 
         if (response.ok) {
-            alert('✅ Cliente cadastrado com sucesso!');
+            showToast('Cliente cadastrado com sucesso!', 'success');
             e.target.reset();
             await carregarClientes();
             await carregarEstatisticas();
             mostrarView('clientes');
         } else {
             const error = await response.json();
-            alert('❌ Erro: ' + (error.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (error.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
         console.error('Erro ao cadastrar cliente:', error);
-        alert('❌ Erro ao cadastrar cliente');
+        showToast('Erro ao cadastrar cliente', 'error');
     }
 });
 
@@ -1018,17 +1018,17 @@ document.getElementById('form-editar-cliente')?.addEventListener('submit', async
         });
 
         if (response.ok) {
-            alert('✅ Cliente atualizado com sucesso!');
+            showToast('Cliente atualizado com sucesso!', 'success');
             await carregarClientes();
             await carregarEstatisticas();
             mostrarView('clientes');
         } else {
             const error = await response.json();
-            alert('❌ Erro: ' + (error.erro || 'Erro desconhecido'));
+            showToast('Erro: ' + (error.erro || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
         console.error('Erro:', error);
-        alert('❌ Erro ao cadastrar cliente');
+        showToast('Erro ao cadastrar cliente', 'error');
     }
 });
 
@@ -1062,7 +1062,7 @@ async function carregarModelos() {
         console.error('Erro ao carregar modelos:', error);
         // Apenas mostra erro se for um problema real, não de múltiplas chamadas
         if (error.message !== 'Erro na requisição') {
-            alert('❌ Erro ao carregar modelos de documentos');
+            showToast('Erro ao carregar modelos de documentos', 'error');
         }
     } finally {
         carregandoModelos = false;
@@ -1367,7 +1367,7 @@ document.getElementById('form-gerar-documento')?.addEventListener('submit', asyn
     const modelo = document.getElementById('modelo-selecionado').value;
 
     if (!clienteId || !modelo) {
-        alert('❌ Selecione cliente e modelo');
+        showToast('Selecione cliente e modelo', 'error');
         return;
     }
 
@@ -1487,14 +1487,14 @@ document.getElementById('form-gerar-documento')?.addEventListener('submit', asyn
             e.target.reset();
             document.getElementById('container-variaveis').classList.add('hidden');
 
-            alert('✅ Documento gerado com sucesso!');
+            showToast('Documento gerado com sucesso!', 'success');
             lucide.createIcons();
         } else {
-            alert('❌ Erro: ' + (data.erro || data.detalhes || 'Erro desconhecido'));
+            showToast('Erro: ' + (data.erro || data.detalhes || 'Erro desconhecido'), 'error');
         }
     } catch (error) {
         console.error('Erro:', error);
-        alert('❌ Erro ao gerar documento: ' + error.message);
+        showToast('Erro ao gerar documento: ' + error.message, 'error');
     } finally {
         const btn = document.getElementById('btn-gerar-doc-inteligente');
         btn.disabled = false;
@@ -1513,15 +1513,15 @@ async function excluirCliente(id) {
         });
 
         if (response.ok) {
-            alert('✅ Cliente excluído!');
+            showToast('Cliente excluído!', 'success');
             await carregarClientes();
             await carregarEstatisticas();
         } else {
-            alert('❌ Erro ao excluir cliente');
+            showToast('Erro ao excluir cliente', 'error');
         }
     } catch (error) {
         console.error('Erro:', error);
-        alert('❌ Erro ao excluir cliente');
+        showToast('Erro ao excluir cliente', 'error');
     }
 }
 
@@ -1548,7 +1548,7 @@ async function editarCliente(clienteId) {
         const cliente = clientes.find(c => c.id === clienteId);
 
         if (!cliente) {
-            alert('❌ Cliente não encontrado');
+            showToast('Cliente não encontrado', 'error');
             return;
         }
 
@@ -1579,7 +1579,7 @@ async function editarCliente(clienteId) {
 
     } catch (error) {
         console.error('Erro ao carregar cliente para edição:', error);
-        alert('❌ Erro ao carregar dados do cliente');
+        showToast('Erro ao carregar dados do cliente', 'error');
     }
 }
 
@@ -1593,7 +1593,7 @@ async function mostrarDetalhesCliente(clienteId) {
         const cliente = clientes.find(c => c.id === clienteId);
 
         if (!cliente) {
-            alert('❌ Cliente não encontrado');
+            showToast('Cliente não encontrado', 'error');
             return;
         }
 
@@ -1636,7 +1636,7 @@ async function mostrarDetalhesCliente(clienteId) {
 
     } catch (error) {
         console.error('Erro ao mostrar detalhes:', error);
-        alert('❌ Erro ao carregar detalhes do cliente');
+        showToast('Erro ao carregar detalhes do cliente', 'error');
     }
 }
 
@@ -3408,14 +3408,14 @@ async function excluirDocumento(nomeArquivo) {
         const result = await response.json();
 
         if (response.ok) {
-            alert(`✅ Arquivo "${nomeArquivo}" excluído com sucesso!`);
+            showToast(`Arquivo "${nomeArquivo}" excluído com sucesso!`, 'success');
             buscarDocumentos(); // Recarregar lista
         } else {
-            alert(`❌ Erro ao excluir arquivo: ${result.erro || 'Erro desconhecido'}`);
+            showToast(`Erro ao excluir arquivo: ${result.erro || 'Erro desconhecido'}`, 'error');
         }
     } catch (error) {
         console.error('Erro ao excluir documento:', error);
-        alert('❌ Erro ao excluir documento. Verifique o console para mais detalhes.');
+        showToast('Erro ao excluir documento. Verifique o console para mais detalhes.', 'error');
     }
 }
 
@@ -3432,7 +3432,7 @@ async function renomearDocumento(nomeArquivo) {
     }
 
     if (novoNome === nomeSemExtensao) {
-        alert('ℹ️ O nome não foi alterado.');
+        showToast('O nome não foi alterado.', 'info');
         return;
     }
 
@@ -3453,14 +3453,14 @@ async function renomearDocumento(nomeArquivo) {
         const result = await response.json();
 
         if (response.ok) {
-            alert(`✅ Arquivo renomeado com sucesso!\n\nDe: ${nomeAtual}\nPara: ${novoNomeCompleto}`);
+            showToast(`Arquivo renomeado com sucesso! De: ${nomeAtual} Para: ${novoNomeCompleto}`, 'success');
             buscarDocumentos(); // Recarregar lista
         } else {
-            alert(`❌ Erro ao renomear arquivo: ${result.erro || 'Erro desconhecido'}`);
+            showToast(`Erro ao renomear arquivo: ${result.erro || 'Erro desconhecido'}`, 'error');
         }
     } catch (error) {
         console.error('Erro ao renomear documento:', error);
-        alert('❌ Erro ao renomear documento. Verifique o console para mais detalhes.');
+        showToast('Erro ao renomear documento. Verifique o console para mais detalhes.', 'error');
     }
 }
 
@@ -3487,7 +3487,7 @@ Digite o número da opção:`;
 
     switch(opcao.trim()) {
         case '1':
-            alert('ℹ️ O arquivo já está nesta pasta.');
+            showToast('O arquivo já está nesta pasta.', 'info');
             return;
         case '2':
             pastaDestino = 'output/arquivados';
@@ -3504,7 +3504,7 @@ Digite o número da opção:`;
             pastaDestino = `output/${nomePasta.trim()}`;
             break;
         default:
-            alert('❌ Opção inválida!');
+            showToast('Opção inválida!', 'error');
             return;
     }
 
@@ -3523,13 +3523,13 @@ Digite o número da opção:`;
         const result = await response.json();
 
         if (response.ok) {
-            alert(`✅ Arquivo movido com sucesso!\n\nDe: ${pastaAtual}\nPara: ${pastaDestino}\n\nArquivo: ${nomeArquivo}`);
+            showToast(`Arquivo movido com sucesso! De: ${pastaAtual} Para: ${pastaDestino}. Arquivo: ${nomeArquivo}`, 'success');
             buscarDocumentos(); // Recarregar lista
         } else {
-            alert(`❌ Erro ao mover arquivo: ${result.erro || 'Erro desconhecido'}`);
+            showToast(`Erro ao mover arquivo: ${result.erro || 'Erro desconhecido'}`, 'error');
         }
     } catch (error) {
         console.error('Erro ao mover documento:', error);
-        alert('❌ Erro ao mover documento. Verifique o console para mais detalhes.');
+        showToast('Erro ao mover documento. Verifique o console para mais detalhes.', 'error');
     }
 }

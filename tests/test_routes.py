@@ -41,8 +41,56 @@ class TestAuthRoutes:
         assert response.status_code == 302
 
 
+class TestSegurancaGlobal:
+    """Tests for global security (before_request)."""
+
+    def test_api_returns_401_without_login(self, client):
+        """API routes return 401 JSON when not authenticated."""
+        response = client.get('/api/clientes')
+        assert response.status_code == 401
+        data = response.get_json()
+        assert 'erro' in data
+        assert 'Autenticação' in data['erro']
+
+    def test_page_redirects_without_login(self, client):
+        """Page routes redirect to login when not authenticated."""
+        response = client.get('/clientes')
+        assert response.status_code == 302
+        assert '/login' in response.headers.get('Location', '')
+
+    def test_api_boletos_requires_login(self, client):
+        response = client.get('/api/boletos')
+        assert response.status_code == 401
+
+    def test_api_tags_requires_login(self, client):
+        response = client.get('/api/tags')
+        assert response.status_code == 401
+
+    def test_api_documentos_requires_login(self, client):
+        response = client.get('/api/documentos-gerados')
+        assert response.status_code == 401
+
+    def test_admin_routes_require_admin_profile(self, logged_in_user_client):
+        """Non-admin users get 403 on admin routes."""
+        response = logged_in_user_client.get('/api/database/tables')
+        assert response.status_code == 403
+        data = response.get_json()
+        assert 'Acesso negado' in data['erro']
+
+    def test_admin_routes_accessible_by_admin(self, logged_in_client):
+        """Admin users can access admin routes."""
+        response = logged_in_client.get('/api/database/tables')
+        assert response.status_code == 200
+
+    def test_reset_admin_blocked_for_anonymous(self, client, app):
+        """reset-admin blocked when users exist and not logged in."""
+        with app.app_context():
+            response = client.get('/reset-admin')
+            assert response.status_code == 302  # Redirects to login
+
+
 class TestApiRoutes:
-    """Tests for API routes."""
+    """Tests for API routes (with authentication)."""
 
     def test_api_clientes_get(self, logged_in_client):
         response = logged_in_client.get('/api/clientes')
@@ -97,15 +145,16 @@ class TestApiRoutes:
         assert response.status_code == 200
 
     def test_api_config_tema_get(self, logged_in_client):
+        """Config tema requires admin."""
         response = logged_in_client.get('/api/config/tema')
         assert response.status_code == 200
 
     def test_api_database_tables(self, logged_in_client):
+        """Database tables requires admin."""
         response = logged_in_client.get('/api/database/tables')
         assert response.status_code == 200
         data = response.get_json()
         assert isinstance(data, list)
-        # API may return different key names - check first entry
         if data:
             first = data[0]
             key = 'name' if 'name' in first else 'tabela' if 'tabela' in first else list(first.keys())[0]
@@ -116,10 +165,15 @@ class TestApiRoutes:
 class TestUserManagementApi:
     """Tests for user management API."""
 
-    def test_usuarios_requires_admin(self, client):
-        # Without login
+    def test_usuarios_requires_login(self, client):
+        """Without login, API returns 401."""
         response = client.get('/api/usuarios')
-        assert response.status_code == 302  # Redirect to login
+        assert response.status_code == 401
+
+    def test_usuarios_requires_admin(self, logged_in_user_client):
+        """Non-admin user gets 403."""
+        response = logged_in_user_client.get('/api/usuarios')
+        assert response.status_code == 403
 
     def test_listar_usuarios(self, logged_in_client):
         response = logged_in_client.get('/api/usuarios')

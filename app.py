@@ -26,7 +26,7 @@ from flask import Flask, render_template, request, jsonify, send_file, g, sessio
 from werkzeug.security import generate_password_hash, check_password_hash
 import pdfplumber
 from werkzeug.utils import secure_filename
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 import requests  # Para consulta de CNPJ na Receita Federal
 import mammoth  # Para conversão de DOCX para HTML
@@ -73,10 +73,11 @@ from data_bridge import criar_bridge
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
 
-# Configurar Gemini
+# Configurar Gemini (novo SDK google-genai)
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
+gemini_client = None
 if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
+    gemini_client = genai.Client(api_key=gemini_api_key)
 
 # Configuração Flask otimizada
 app = Flask(__name__)
@@ -119,6 +120,49 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,  # Proteger contra XSS
     SESSION_COOKIE_SAMESITE='Lax',  # Proteger contra CSRF
 )
+
+# ==================== SEGURANÇA: PROTEÇÃO GLOBAL DE ROTAS ====================
+# Rotas públicas que NÃO exigem autenticação
+ROTAS_PUBLICAS = {
+    'login', 'logout', 'reset_admin', 'static',
+}
+
+# Rotas que exigem perfil de administrador
+ROTAS_ADMIN = {
+    'listar_tabelas', 'listar_registros_tabela', 'editar_registro',
+    'deletar_registro', 'limpar_tabela', 'limpar_laudos',
+    'config_tema', 'get_logo_mascote', 'upload_imagem_config',
+    'remover_imagem_config', 'treinar_sistema', 'listar_layouts',
+    'selecionar_diretorio', 'salvar_diretorios', 'testar_diretorios', 'obter_diretorios',
+    'listar_usuarios', 'criar_usuario', 'editar_usuario', 'excluir_usuario',
+    'admin_usuarios',
+}
+
+@app.before_request
+def seguranca_global():
+    """Proteção global: todas as rotas exigem login, exceto as públicas."""
+    endpoint = request.endpoint
+
+    # Rotas públicas - sem autenticação
+    if endpoint in ROTAS_PUBLICAS:
+        return None
+
+    # Arquivos estáticos de blueprints
+    if endpoint and endpoint.endswith('.static'):
+        return None
+
+    # Verificar se o usuário está autenticado
+    if 'usuario_id' not in session:
+        if request.is_json or request.path.startswith('/api/'):
+            return jsonify({'erro': 'Autenticação necessária', 'redirect': '/login'}), 401
+        return redirect(url_for('login', next=request.url))
+
+    # Verificar se rota é admin-only
+    if endpoint in ROTAS_ADMIN:
+        if session.get('usuario_perfil') != 'admin':
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify({'erro': 'Acesso negado. Apenas administradores.'}), 403
+            return redirect(url_for('index'))
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / 'gestao_documentos.db'
@@ -1346,9 +1390,6 @@ Valor Total dos Recibos: R$ {stats.get('valor_recibos', 0):.2f}
                 "resposta": "Configure a GEMINI_API_KEY no arquivo .env. Obtenha em: https://makersuite.google.com/app/apikey"
             }
 
-        # Criar modelo (atualizado para Gemini 2.5)
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         # Preparar prompt completo
         prompt_completo = f"""Você é um assistente de análise de dados de negócios.
 Responda perguntas sobre documentos (laudos, recibos, orçamentos) e análises de desempenho.
@@ -1358,8 +1399,11 @@ Seja direto, use dados específicos e forneça insights quando relevante.
 
 PERGUNTA: {pergunta_usuario}"""
 
-        # Gerar resposta
-        response = model.generate_content(prompt_completo)
+        # Gerar resposta (novo SDK google-genai)
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_completo
+        )
 
         return {
             "sucesso": True,
@@ -1493,8 +1537,6 @@ TOP 5 CLIENTES (por quantidade):
                 }
             }
 
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         prompt = f"""{relatorio}
 
 Com base nesses dados de documentos (laudos, recibos, orçamentos), forneça uma análise detalhada:
@@ -1526,7 +1568,10 @@ Com base nesses dados de documentos (laudos, recibos, orçamentos), forneça uma
 
 Seja específico e use os números reais do relatório."""
 
-        response = model.generate_content(prompt)
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
 
         return {
             "sucesso": True,
@@ -1598,10 +1643,17 @@ def logout():
 
 @app.route('/reset-admin')
 def reset_admin():
-    """Rota de emergencia para resetar o usuario admin padrao"""
+    """Rota de emergencia para resetar o usuario admin padrao.
+    Só funciona se: (a) não existem usuários no sistema, ou (b) já está logado como admin.
+    """
     try:
         conn = get_db()
-        # Verificar se admin existe
+        # Segurança: só permite reset se não há usuários OU se é admin logado
+        total_usuarios = conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+        if total_usuarios > 0 and session.get('usuario_perfil') != 'admin':
+            flash('Acesso negado. Apenas administradores podem resetar o admin.', 'erro')
+            return redirect(url_for('login'))
+
         admin = conn.execute('SELECT id FROM usuarios WHERE email = ?', ('admin@sistema.com',)).fetchone()
         senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
         if admin:
@@ -5493,9 +5545,7 @@ def analisar_arquivo_com_gemini(caminho_arquivo, nome_arquivo):
         if not os.environ.get("GEMINI_API_KEY"):
             return None
 
-        import google.generativeai as genai
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        fallback_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
         # Prompt para extração estruturada
         prompt = f"""
@@ -5541,7 +5591,10 @@ IMPORTANTE:
 Retorne APENAS o JSON, sem explicações adicionais.
 """
 
-        response = model.generate_content(prompt)
+        response = fallback_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         resultado_texto = response.text.strip()
 
         # Limpar markdown se houver

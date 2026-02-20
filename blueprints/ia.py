@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from services.database import get_db
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
 
@@ -133,9 +133,6 @@ Valor Total dos Recibos: R$ {stats.get('valor_recibos', 0):.2f}
                 "resposta": "Configure a GEMINI_API_KEY no arquivo .env. Obtenha em: https://makersuite.google.com/app/apikey"
             }
 
-        # Criar modelo (atualizado para Gemini 2.5)
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         # Preparar prompt completo
         prompt_completo = f"""Você é um assistente de análise de dados de negócios.
 Responda perguntas sobre documentos (laudos, recibos, orçamentos) e análises de desempenho.
@@ -145,8 +142,12 @@ Seja direto, use dados específicos e forneça insights quando relevante.
 
 PERGUNTA: {pergunta_usuario}"""
 
-        # Gerar resposta
-        response = model.generate_content(prompt_completo)
+        # Gerar resposta (novo SDK google-genai)
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_completo
+        )
 
         return {
             "sucesso": True,
@@ -280,8 +281,6 @@ TOP 5 CLIENTES (por quantidade):
                 }
             }
 
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         prompt = f"""{relatorio}
 
 Com base nesses dados de documentos (laudos, recibos, orçamentos), forneça uma análise detalhada:
@@ -313,7 +312,11 @@ Com base nesses dados de documentos (laudos, recibos, orçamentos), forneça uma
 
 Seja específico e use os números reais do relatório."""
 
-        response = model.generate_content(prompt)
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
 
         return {
             "sucesso": True,
@@ -532,9 +535,7 @@ def analisar_arquivo_com_gemini(caminho_arquivo, nome_arquivo):
         if not os.environ.get("GEMINI_API_KEY"):
             return None
 
-        import google.generativeai as genai
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        fallback_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
         # Prompt para extracao estruturada
         prompt = f"""
@@ -580,7 +581,10 @@ IMPORTANTE:
 Retorne APENAS o JSON, sem explicações adicionais.
 """
 
-        response = model.generate_content(prompt)
+        response = fallback_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         resultado_texto = response.text.strip()
 
         # Limpar markdown se houver
