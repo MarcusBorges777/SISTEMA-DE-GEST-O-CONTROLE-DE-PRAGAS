@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Sistema Gestao Documentos - COM LOGIN E GERENCIAMENTO DE USUARIOS"""
+"""Sistema Gestao Documentos - COM LOGIN E GERENCIAMENTO DE USUARIOS
+Refatorado em módulos: services/ (utilities) + blueprints/ (routes)
+"""
 
 # Imports padrão
 import sqlite3
@@ -48,11 +50,22 @@ from validators import (
 # Autocomplete de CNPJs da Receita Federal
 from autocomplete_api import AutocompleteAPI
 
-# Blueprint de Prospecção (Módulo Econodata)
-from blueprints.prospeccao import prospeccao_bp
+# ==================== SERVICES (módulos compartilhados) ====================
+import services.database as db_service
+import services.cache as cache_service
+import services.formatters as formatters_service
+from services.auth import login_required, admin_required
 
-# Blueprint de Gerenciamento de Arquivos
+# ==================== BLUEPRINTS ====================
+from blueprints.prospeccao import prospeccao_bp
 from blueprints.file_manager import file_manager_bp
+from blueprints.auth import auth_bp
+from blueprints.clientes import clientes_bp
+from blueprints.clientes import init as clientes_init
+from blueprints.tags import tags_bp
+from blueprints.boletos import boletos_bp
+from blueprints.admin import admin_bp
+from blueprints.admin import init as admin_init
 
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 from data_bridge import criar_bridge
@@ -71,6 +84,16 @@ app = Flask(__name__)
 # Registrar blueprints
 app.register_blueprint(prospeccao_bp)
 app.register_blueprint(file_manager_bp)
+
+# NOTA: Novos blueprints modulares (auth_bp, clientes_bp, tags_bp, boletos_bp, admin_bp)
+# estão prontos em blueprints/ e podem ser ativados gradualmente removendo as rotas
+# correspondentes de app.py. Atualmente servem como arquitetura de referência.
+# Para ativar: descomente as linhas abaixo e remova as rotas correspondentes de app.py
+# app.register_blueprint(auth_bp)
+# app.register_blueprint(clientes_bp)
+# app.register_blueprint(tags_bp)
+# app.register_blueprint(boletos_bp)
+# app.register_blueprint(admin_bp)
 
 # Gerar SECRET_KEY segura e persistente
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
@@ -109,6 +132,11 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 TRAINING_DIR = BASE_DIR / 'training_samples'
 TRAINING_DIR.mkdir(exist_ok=True)
 
+# ==================== INICIALIZAR SERVICES ====================
+db_service.init(DB_PATH, BASE_DIR)
+formatters_service.init(CNAES_FILE)
+admin_init(BASE_DIR)
+
 # Inicializar sistema de aprendizagem de layouts
 layout_learner = DocumentLayoutLearner(DB_PATH, TRAINING_DIR)
 layout_learner.criar_tabelas()  # Garantir que tabelas existem
@@ -122,6 +150,9 @@ if CNPJ_DB_PATH.exists():
 else:
     api_cnpj = None
     print("[AVISO] Banco cnpj_filtrado.db não encontrado - autocomplete de CNPJs desabilitado")
+
+# Inicializar blueprint de clientes com api_cnpj
+clientes_init(api_cnpj)
 
 # Inicializar Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 if CNPJ_DB_PATH.exists() and CNAES_FILE.exists():
@@ -1522,24 +1553,7 @@ Seja específico e use os números reais do relatório."""
 
 
 # ==================== AUTENTICACAO ====================
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'usuario_id' not in session:
-            return redirect(url_for('login', next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'usuario_id' not in session:
-            return redirect(url_for('login', next=request.url))
-        if session.get('usuario_perfil') != 'admin':
-            return jsonify({'erro': 'Acesso negado. Apenas administradores.'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
+# login_required e admin_required importados de services/auth.py
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -6475,17 +6489,23 @@ def abrir_arquivo():
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("  SISTEMA DE GESTAO DE DOCUMENTOS - ULTRA OTIMIZADO")
-    print("  ACESSO DIRETO - SEM LOGIN - SEM SENHA")
+    print("  SISTEMA DE GESTAO DE DOCUMENTOS - MODULAR")
+    print("  Arquitetura: services/ + blueprints/")
     print("="*70)
-    print("\n  OTIMIZACOES ATIVAS:")
-    print("     - SQLite com WAL mode e cache de 64MB")
-    print("     - Cache LRU para CNAEs e configuracoes")
-    print("     - Regex patterns compilados")
-    print("     - Processamento PDF otimizado")
-    print("     - Queries SQL indexadas")
-    print("     - Limpeza automatica de arquivos temporarios")
-    print("     - Gemini 2.5 Flash (IA mais rapida)")
+    print("\n  MODULOS ATIVOS:")
+    print("     - services/database.py  (conexao e tabelas)")
+    print("     - services/cache.py     (cache em memoria)")
+    print("     - services/formatters.py (formatacao de dados)")
+    print("     - services/auth.py      (autenticacao)")
+    print("     - blueprints/auth.py    (login/usuarios)")
+    print("     - blueprints/clientes.py(clientes/CNPJ)")
+    print("     - blueprints/tags.py    (gerenciamento de tags)")
+    print("     - blueprints/boletos.py (boletos/garantias)")
+    print("     - blueprints/admin.py   (config/banco)")
+    print("  OTIMIZACOES:")
+    print("     - SQLite WAL + 64MB cache")
+    print("     - Regex compilados + Cache LRU")
+    print("     - Gemini 2.5 Flash")
     print("\n  Acesse: http://localhost:5000")
     print("  Pressione CTRL+C para parar")
     print("="*70 + "\n")
