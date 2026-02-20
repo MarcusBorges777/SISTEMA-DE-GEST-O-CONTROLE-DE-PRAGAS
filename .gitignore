@@ -68,6 +68,9 @@ desktop.ini
 # === .bat ===
 *.bat
 
+# === Arquivo de docs movidos ===
+_docs_archive/
+
 # === Sincronização (OneDrive) ===
 # Evita conflitos com arquivos temporários do OneDrive
 .~*
