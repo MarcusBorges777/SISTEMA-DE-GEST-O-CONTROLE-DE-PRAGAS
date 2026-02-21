@@ -6505,6 +6505,59 @@ def prospeccao():
     """Página de prospecção de clientes (estilo Econodata)"""
     return render_template('prospeccao.html')
 
+@app.route('/api/busca-global')
+def busca_global():
+    """Pesquisa global em clientes, documentos e boletos."""
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify({'resultados': [], 'total': 0})
+
+    conn = get_db()
+    resultados = []
+    termo = f'%{q}%'
+
+    # Buscar clientes
+    clientes = conn.execute(
+        "SELECT id, nome_fantasia, cnpj, cidade FROM clientes_web WHERE nome_fantasia LIKE ? OR cnpj LIKE ? LIMIT 5",
+        (termo, termo)
+    ).fetchall()
+    for c in clientes:
+        resultados.append({
+            'tipo': 'cliente',
+            'titulo': c['nome_fantasia'],
+            'subtitulo': c['cnpj'] or c['cidade'] or '',
+            'url': '/dashboard#clientes'
+        })
+
+    # Buscar documentos
+    docs = conn.execute(
+        "SELECT id, nome_arquivo, tipo_documento, cliente_nome FROM documentos_gerados WHERE nome_arquivo LIKE ? OR cliente_nome LIKE ? LIMIT 5",
+        (termo, termo)
+    ).fetchall()
+    for d in docs:
+        resultados.append({
+            'tipo': 'documento',
+            'titulo': d['nome_arquivo'],
+            'subtitulo': d['cliente_nome'] or d['tipo_documento'] or '',
+            'url': '/dashboard#documentos'
+        })
+
+    # Buscar boletos
+    boletos = conn.execute(
+        "SELECT id, descricao, valor, status FROM boletos WHERE descricao LIKE ? LIMIT 3",
+        (termo,)
+    ).fetchall()
+    for b in boletos:
+        resultados.append({
+            'tipo': 'boleto',
+            'titulo': b['descricao'],
+            'subtitulo': f"R$ {b['valor']:.2f}" if b['valor'] else b['status'] or '',
+            'url': '/dashboard#boletos'
+        })
+
+    return jsonify({'resultados': resultados, 'total': len(resultados)})
+
+
 @app.route('/api/abrir-arquivo', methods=['POST'])
 def abrir_arquivo():
     """Abre um arquivo no visualizador padrão do sistema"""

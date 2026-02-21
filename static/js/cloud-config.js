@@ -93,7 +93,8 @@ class CloudIntegration {
 
     async uploadToGoogleDrive(file) {
         if (!this.googleDriveReady) {
-            alert('Google Drive não está configurado. Veja GUIA_GOOGLE_DRIVE.md');
+            if (typeof showToast === 'function') showToast('Google Drive não está configurado', 'warning');
+            else console.warn('Google Drive não está configurado');
             return;
         }
 
@@ -170,7 +171,8 @@ class CloudIntegration {
 
     async uploadToOneDrive(file) {
         if (!CLOUD_CONFIG.onedrive.enabled) {
-            alert('OneDrive não está configurado. Veja GUIA_ONEDRIVE.md');
+            if (typeof showToast === 'function') showToast('OneDrive não está configurado', 'warning');
+            else console.warn('OneDrive não está configurado');
             return;
         }
 
@@ -217,7 +219,8 @@ class CloudIntegration {
 
     async shareOneDriveFile(fileId) {
         if (!this.onedriveReady) {
-            alert('OneDrive não está autenticado');
+            if (typeof showToast === 'function') showToast('OneDrive não está autenticado', 'warning');
+            else console.warn('OneDrive não está autenticado');
             return;
         }
 

@@ -1,10 +1,11 @@
-# Environment variables
+# === Ambiente / Secrets ===
 .env
 *.env
 .env.*
 !.env.example
+.secret_key
 
-# Python
+# === Python ===
 __pycache__/
 *.py[cod]
 *$py.class
@@ -14,34 +15,29 @@ venv/
 env/
 ENV/
 
-# IDEs
+# === Node.js ===
+node_modules/
+
+# === Banco de Dados ===
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+cnpj_filtrado.db
+
+# === IDEs e Editores ===
 .vscode/
 .idea/
 *.swp
 *.swo
+*.bak
 
-# Secret key
-.secret_key
-
-# Database
-*.db-journal
-
-# Uploads
-uploads_pdf/*.pdf
-
-# Logs
-*.log
-cnpj_filtrado.db 
-
-# === Banco de Dados (Arquivos muito pesados) ===
-# Ignora o banco de dados que travou o seu push anteriormente
-cnpj_filtrado.db
-*.db
-*.sqlite
-*.sqlite3
+# === Sistema Operacional ===
+Thumbs.db
+desktop.ini
+.~*
 
 # === Java / Maven ===
-# Ignora a pasta de ferramentas do Maven que você subiu (mais de 1800 arquivos)
 tools/apache-maven-3.9.12/
 target/
 *.class
@@ -49,29 +45,8 @@ target/
 *.war
 *.ear
 
-# === Python ===
-__pycache__/
-*.py[cod]
-*$py.class
-.env
-venv/
-ENV/
-env/
-
-# === Sistema Operacional e Editores ===
-.vscode/
-.idea/
-*.swp
-*.bak
-Thumbs.db
-desktop.ini
-
-# === .bat ===
-*.bat
-
-# === Arquivo de docs movidos ===
+# === Projeto ===
 _docs_archive/
-
-# === Sincronização (OneDrive) ===
-# Evita conflitos com arquivos temporários do OneDrive
-.~*
+uploads_pdf/*.pdf
+*.log
+*.bat

@@ -75,10 +75,13 @@
                         <input
                             type="text"
                             id="search-global"
-                            placeholder="Pesquisar tudo..."
+                            placeholder="Pesquisar clientes, documentos..."
                             class="search-global w-64 px-4 py-2 pl-10 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                            aria-label="Pesquisa global"
+                            autocomplete="off"
                         >
                         <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-400"></i>
+                        <div id="search-results" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50"></div>
                     </div>
                     {% if session.get('usuario_nome') %}
                     <div class="flex items-center gap-2">
@@ -150,17 +153,56 @@
         }
 
         // Pesquisa Global
-        document.getElementById('search-global')?.addEventListener('input', debounce((e) => {
-            const query = e.target.value.toLowerCase();
-            if (query.length > 2) {
-                // Implementar pesquisa global aqui
-                console.log('Pesquisando:', query);
-            }
-        }, 300));
-
         function debounce(fn, delay) {
             let timeout;
             return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => fn(...args), delay); }
+        }
+
+        const searchInput = document.getElementById('search-global');
+        const searchResults = document.getElementById('search-results');
+
+        if (searchInput && searchResults) {
+            const tipoIcons = { cliente: 'user', documento: 'file-text', boleto: 'receipt' };
+            const tipoLabels = { cliente: 'Cliente', documento: 'Documento', boleto: 'Boleto' };
+
+            searchInput.addEventListener('input', debounce(async (e) => {
+                const query = e.target.value.trim();
+                if (query.length < 2) { searchResults.classList.add('hidden'); return; }
+
+                try {
+                    const res = await fetch(`/api/busca-global?q=${encodeURIComponent(query)}`);
+                    if (!res.ok) { searchResults.classList.add('hidden'); return; }
+                    const data = await res.json();
+
+                    if (data.resultados.length === 0) {
+                        searchResults.innerHTML = '<div class="p-3 text-sm text-gray-500">Nenhum resultado encontrado</div>';
+                    } else {
+                        searchResults.innerHTML = data.resultados.map(r => `
+                            <a href="${r.url}" class="flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 transition text-sm border-b last:border-b-0">
+                                <i data-lucide="${tipoIcons[r.tipo] || 'search'}" class="w-4 h-4 text-indigo-500 flex-shrink-0"></i>
+                                <div class="min-w-0">
+                                    <div class="font-medium text-gray-800 truncate">${r.titulo}</div>
+                                    <div class="text-xs text-gray-500">${tipoLabels[r.tipo]} ${r.subtitulo ? '- ' + r.subtitulo : ''}</div>
+                                </div>
+                            </a>
+                        `).join('');
+                        initIcons();
+                    }
+                    searchResults.classList.remove('hidden');
+                } catch (e) { searchResults.classList.add('hidden'); }
+            }, 300));
+
+            // Fechar ao clicar fora
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#search-global') && !e.target.closest('#search-results')) {
+                    searchResults.classList.add('hidden');
+                }
+            });
+
+            // Fechar com Escape
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { searchResults.classList.add('hidden'); searchInput.blur(); }
+            });
         }
 
         document.addEventListener('DOMContentLoaded', initIcons);

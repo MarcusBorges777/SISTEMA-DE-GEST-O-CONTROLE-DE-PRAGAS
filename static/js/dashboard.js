@@ -1453,12 +1453,6 @@ document.getElementById('form-gerar-documento')?.addEventListener('submit', asyn
         btn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 inline mr-2 animate-spin"></i> Gerando documento...';
         lucide.createIcons();
 
-        // Debug: Mostrar dados enviados
-        console.log('[DEBUG] Dados enviados:', {
-            cliente_id: parseInt(clienteId),
-            modelo: modelo,
-            variaveis_extras: variaveisExtras
-        });
 
         const response = await fetch('/api/documento/gerar-inteligente', {
             method: 'POST',
@@ -2585,20 +2579,12 @@ let clienteFiltradoAnalise = null;
 
 async function carregarAnalise(clienteNome = null) {
     try {
-        console.log('[DEBUG] Iniciando carregamento de análise...');
-
         // Buscar TODAS as fontes de documentos
         const [resClientes, resDocsGerados, resArquivos] = await Promise.all([
             fetch('/api/clientes'),
             fetch('/api/documentos-gerados'),
             fetch('/api/arquivos')
         ]);
-
-        console.log('[DEBUG] Respostas recebidas:', {
-            clientes: resClientes.ok,
-            documentosGerados: resDocsGerados.ok,
-            arquivos: resArquivos.ok
-        });
 
         todosClientesAnalise = await resClientes.json();
         const docsGerados = await resDocsGerados.json();
@@ -2621,13 +2607,6 @@ async function carregarAnalise(clienteNome = null) {
         // UNIR todos os documentos
         todosDocumentosAnalise = [...docsGerados, ...arquivosConvertidos];
 
-        console.log('[DEBUG] Dados carregados:', {
-            totalClientes: todosClientesAnalise.length,
-            documentosGerados: docsGerados.length,
-            arquivos: arquivosConvertidos.length,
-            totalDocumentos: todosDocumentosAnalise.length
-        });
-
         // Popular o select de clientes
         popularSelectClientesAnalise();
 
@@ -2637,7 +2616,6 @@ async function carregarAnalise(clienteNome = null) {
             aplicarFiltroAnalise(clienteNome);
         } else {
             // Renderizar estatísticas gerais
-            console.log('[DEBUG] Chamando renderizarEstatisticas...');
             renderizarEstatisticas(todosClientesAnalise, todosDocumentosAnalise);
         }
 
@@ -2698,22 +2676,14 @@ let chartDocumentosMes = null;
 let chartClientesCidade = null;
 
 function renderizarEstatisticas(clientes, documentos, nomeClienteFiltro = null) {
-    console.log('[DEBUG] renderizarEstatisticas chamada com:', {
-        clientes: clientes.length,
-        documentos: documentos.length,
-        filtro: nomeClienteFiltro
-    });
-
     // Total de documentos
     const totalDocs = documentos.length;
     const elemTotalDocs = document.getElementById('stat-total-docs');
-    console.log('[DEBUG] Atualizando stat-total-docs:', totalDocs, 'Elemento existe?', !!elemTotalDocs);
     if (elemTotalDocs) elemTotalDocs.textContent = totalDocs;
 
     // Total de clientes
     const totalClientes = nomeClienteFiltro ? 1 : clientes.length;
     const elemTotalClientes = document.getElementById('stat-total-clientes');
-    console.log('[DEBUG] Atualizando stat-total-clientes:', totalClientes, 'Elemento existe?', !!elemTotalClientes);
     if (elemTotalClientes) elemTotalClientes.textContent = totalClientes;
 
     // Documentos este mês
@@ -2724,23 +2694,13 @@ function renderizarEstatisticas(clientes, documentos, nomeClienteFiltro = null) 
         return dataDoc.getMonth() === mesAtual && dataDoc.getFullYear() === anoAtual;
     });
     const elemMesAtual = document.getElementById('stat-mes-atual');
-    console.log('[DEBUG] Atualizando stat-mes-atual:', docsEsteMes.length, 'Elemento existe?', !!elemMesAtual);
     if (elemMesAtual) elemMesAtual.textContent = docsEsteMes.length;
 
     // Cidades únicas
     const cidadesUnicas = new Set(clientes.map(c => c.cidade).filter(c => c));
     const elemCidades = document.getElementById('stat-cidades');
     const valorCidades = cidadesUnicas.size || (nomeClienteFiltro && clientes.length > 0 ? 1 : 0);
-    console.log('[DEBUG] Atualizando stat-cidades:', valorCidades, 'Elemento existe?', !!elemCidades);
     if (elemCidades) elemCidades.textContent = valorCidades;
-
-    console.log('[DEBUG] Estatísticas carregadas:', {
-        clientes: clientes.length,
-        documentos: documentos.length,
-        esteMes: docsEsteMes.length,
-        cidades: cidadesUnicas.size,
-        filtrado: !!nomeClienteFiltro
-    });
 
     // Calcular estatísticas adicionais
     // Média de documentos por cliente
