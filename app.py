@@ -66,6 +66,8 @@ from blueprints.tags import tags_bp
 from blueprints.boletos import boletos_bp
 from blueprints.admin import admin_bp
 from blueprints.admin import init as admin_init
+from blueprints.ia import ia_bp
+from blueprints.ia import init as ia_init, init_upload_helpers as ia_init_upload_helpers
 
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 from data_bridge import criar_bridge
@@ -85,16 +87,12 @@ app = Flask(__name__)
 # Registrar blueprints
 app.register_blueprint(prospeccao_bp)
 app.register_blueprint(file_manager_bp)
-
-# NOTA: Novos blueprints modulares (auth_bp, clientes_bp, tags_bp, boletos_bp, admin_bp)
-# estão prontos em blueprints/ e podem ser ativados gradualmente removendo as rotas
-# correspondentes de app.py. Atualmente servem como arquitetura de referência.
-# Para ativar: descomente as linhas abaixo e remova as rotas correspondentes de app.py
-# app.register_blueprint(auth_bp)
-# app.register_blueprint(clientes_bp)
-# app.register_blueprint(tags_bp)
-# app.register_blueprint(boletos_bp)
-# app.register_blueprint(admin_bp)
+app.register_blueprint(auth_bp)
+app.register_blueprint(clientes_bp)
+app.register_blueprint(tags_bp)
+app.register_blueprint(boletos_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(ia_bp)
 
 # Gerar SECRET_KEY segura e persistente
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
@@ -121,6 +119,44 @@ app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',  # Proteger contra CSRF
 )
 
+# ==================== SEGURANÇA: RATE LIMITING ====================
+class RateLimiter:
+    """Rate limiter em memória por IP. Limita tentativas em rotas sensíveis."""
+    def __init__(self):
+        self._attempts = {}  # {ip: [(timestamp, endpoint), ...]}
+
+    def _cleanup(self, ip, window):
+        """Remove entradas expiradas."""
+        now = time()
+        if ip in self._attempts:
+            self._attempts[ip] = [
+                (ts, ep) for ts, ep in self._attempts[ip]
+                if now - ts < window
+            ]
+            if not self._attempts[ip]:
+                del self._attempts[ip]
+
+    def is_limited(self, ip, endpoint, max_requests=10, window=60):
+        """Verifica se IP excedeu limite. Default: 10 req/min."""
+        self._cleanup(ip, window)
+        attempts = self._attempts.get(ip, [])
+        count = sum(1 for _, ep in attempts if ep == endpoint)
+        return count >= max_requests
+
+    def record(self, ip, endpoint):
+        """Registra uma tentativa."""
+        if ip not in self._attempts:
+            self._attempts[ip] = []
+        self._attempts[ip].append((time(), endpoint))
+
+rate_limiter = RateLimiter()
+
+# Rotas com rate limiting e seus limites (max_requests, window_seconds)
+RATE_LIMITS = {
+    'login': (5, 60),           # 5 tentativas/minuto
+    'reset_admin': (3, 300),    # 3 tentativas/5 min
+}
+
 # ==================== SEGURANÇA: PROTEÇÃO GLOBAL DE ROTAS ====================
 # Rotas públicas que NÃO exigem autenticação
 ROTAS_PUBLICAS = {
@@ -140,25 +176,43 @@ ROTAS_ADMIN = {
 
 @app.before_request
 def seguranca_global():
-    """Proteção global: todas as rotas exigem login, exceto as públicas."""
+    """Proteção global: todas as rotas exigem login, exceto as públicas.
+    Suporta endpoints de blueprints (ex: 'auth.login' → verifica 'login')."""
     endpoint = request.endpoint
 
+    if not endpoint:
+        return None
+
+    # Extrair nome da função (suporta 'blueprint.func' e 'func')
+    func_name = endpoint.split('.')[-1] if '.' in endpoint else endpoint
+
+    # Rate limiting em rotas sensíveis
+    if func_name in RATE_LIMITS and request.method == 'POST':
+        ip = request.remote_addr or '127.0.0.1'
+        max_req, window = RATE_LIMITS[func_name]
+        if rate_limiter.is_limited(ip, func_name, max_req, window):
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify({'erro': 'Muitas tentativas. Tente novamente mais tarde.'}), 429
+            flash('Muitas tentativas. Aguarde antes de tentar novamente.', 'erro')
+            return render_template('login.html'), 429
+        rate_limiter.record(ip, func_name)
+
     # Rotas públicas - sem autenticação
-    if endpoint in ROTAS_PUBLICAS:
+    if func_name in ROTAS_PUBLICAS:
         return None
 
     # Arquivos estáticos de blueprints
-    if endpoint and endpoint.endswith('.static'):
+    if func_name == 'static':
         return None
 
     # Verificar se o usuário está autenticado
     if 'usuario_id' not in session:
         if request.is_json or request.path.startswith('/api/'):
             return jsonify({'erro': 'Autenticação necessária', 'redirect': '/login'}), 401
-        return redirect(url_for('login', next=request.url))
+        return redirect(url_for('auth.login', next=request.url))
 
     # Verificar se rota é admin-only
-    if endpoint in ROTAS_ADMIN:
+    if func_name in ROTAS_ADMIN:
         if session.get('usuario_perfil') != 'admin':
             if request.is_json or request.path.startswith('/api/'):
                 return jsonify({'erro': 'Acesso negado. Apenas administradores.'}), 403
@@ -284,6 +338,9 @@ COMPILED_PATTERNS = {
     }
 }
 
+# Inicializar blueprint de IA com dependências (após COMPILED_PATTERNS)
+ia_init(UPLOAD_DIR, layout_learner, COMPILED_PATTERNS)
+
 # Sistema de cache em memória otimizado
 class SimpleCache:
     """Cache simples em memória com TTL"""
@@ -408,7 +465,6 @@ def adicionar_coluna_segura(db, tabela: str, coluna: str, tipo: str, default: st
         if 'duplicate column name' not in str(e).lower():
             print(f"[AVISO] Erro ao adicionar coluna {coluna}: {e}")
 
-
 def criar_tabelas():
     db = get_db()
     db.execute('''CREATE TABLE IF NOT EXISTS clientes_web (
@@ -447,7 +503,6 @@ def criar_tabelas():
     # Adicionar campo de garantia aos clientes
     adicionar_coluna_segura(db, 'clientes_web', 'data_garantia', 'TEXT')
     adicionar_coluna_segura(db, 'clientes_web', 'periodo_garantia_meses', 'INTEGER', '12')
-
 
     # Criar índices para melhorar performance de queries
     db.execute('CREATE INDEX IF NOT EXISTS idx_clientes_cnpj ON clientes_web(cnpj)')
@@ -543,7 +598,6 @@ def criar_tabelas():
     db.execute('CREATE INDEX IF NOT EXISTS idx_recibos_cliente ON recibos(cliente_id)')
     db.execute('CREATE INDEX IF NOT EXISTS idx_recibos_emissao ON recibos(data_emissao)')
     db.execute('CREATE INDEX IF NOT EXISTS idx_recibos_numero ON recibos(numero_recibo)')
-
 
     # Tabela de usuarios do sistema
     db.execute('''CREATE TABLE IF NOT EXISTS usuarios (
@@ -795,58 +849,6 @@ def salvar_dados_treinamento(nome_arquivo, conteudo_texto, tag_id):
     except Exception as e:
         print(f"Erro ao salvar dados de treinamento: {e}")
         return False
-
-# ==================== FUNÇÕES DE GARANTIA ====================
-
-def verificar_garantias_vencendo(dias_aviso=30):
-    """Verifica clientes com garantia vencendo nos próximos X dias"""
-    db = get_db()
-    hoje = datetime.now()
-    data_limite = hoje + timedelta(days=dias_aviso)
-
-    # Buscar clientes com garantia
-    clientes = db.execute('''
-        SELECT id, nome_fantasia, razao_social, telefone, data_garantia,
-               periodo_garantia_meses, ultima_data_servico
-        FROM clientes_web
-        WHERE data_garantia IS NOT NULL AND data_garantia != ''
-        ORDER BY data_garantia ASC
-    ''').fetchall()
-
-    avisos = []
-    for cliente in clientes:
-        try:
-            data_garantia = datetime.strptime(cliente['data_garantia'], '%Y-%m-%d')
-            dias_restantes = (data_garantia - hoje).days
-
-            if dias_restantes <= dias_aviso and dias_restantes >= 0:
-                status = 'urgente' if dias_restantes <= 7 else 'atencao' if dias_restantes <= 15 else 'proximo'
-                avisos.append({
-                    'id': cliente['id'],
-                    'nome': cliente['nome_fantasia'],
-                    'razao_social': cliente['razao_social'],
-                    'telefone': cliente['telefone'],
-                    'data_garantia': cliente['data_garantia'],
-                    'dias_restantes': dias_restantes,
-                    'status': status,
-                    'vencida': False
-                })
-            elif dias_restantes < 0:
-                avisos.append({
-                    'id': cliente['id'],
-                    'nome': cliente['nome_fantasia'],
-                    'razao_social': cliente['razao_social'],
-                    'telefone': cliente['telefone'],
-                    'data_garantia': cliente['data_garantia'],
-                    'dias_restantes': dias_restantes,
-                    'status': 'vencida',
-                    'vencida': True
-                })
-        except (ValueError, TypeError):
-            continue  # Data inválida ou ausente, pular cliente
-
-    return avisos
-
 @lru_cache(maxsize=1)
 def carregar_cnaes_permitidos():
     """Carrega CNAEs do arquivo com cache LRU"""
@@ -1289,470 +1291,10 @@ def extrair_dados_pdf(caminho_arquivo):
         print(f"ERRO Erro ao processar PDF: {e}")
         return dados
 
+# Inicializar helpers do blueprint IA (após definição das funções necessárias)
+ia_init_upload_helpers(extrair_dados_pdf, sugerir_tags_automaticas, adicionar_tag_documento)
 
-def obter_contexto_completo():
-    """Busca todos os dados do banco de dados (documentos: laudos, recibos, orçamentos)"""
-    conn = get_db()
-
-    docs = conn.execute('''
-        SELECT tipo_doc, nome_arquivo, valor_total, data_geracao, cliente_nome
-        FROM documentos_gerados
-        ORDER BY data_geracao DESC
-    ''').fetchall()
-
-    clientes = conn.execute('''
-        SELECT nome_fantasia, razao_social, cnpj, cidade, telefone
-        FROM clientes_web
-        ORDER BY nome_fantasia
-    ''').fetchall()
-
-    return {
-        'documentos': [dict(d) for d in docs],
-        'clientes': [dict(c) for c in clientes]
-    }
-
-
-def calcular_estatisticas(dados):
-    """Calcula estatísticas de documentos (laudos, recibos, orçamentos)"""
-    docs = dados.get('documentos', [])
-
-    if not docs:
-        return {}
-
-    # Contadores por tipo
-    laudos = 0
-    recibos = 0
-    orcamentos = 0
-    valor_recibos = 0.0
-    por_mes = defaultdict(float)
-
-    for doc in docs:
-        tipo = (doc.get('tipo_doc') or '').upper()
-        valor = doc.get('valor_total') or 0
-
-        if 'LAUDO' in tipo:
-            laudos += 1
-        elif 'RECIBO' in tipo:
-            recibos += 1
-            valor_recibos += valor
-        elif 'ORÇAMENTO' in tipo or 'ORCAMENTO' in tipo:
-            orcamentos += 1
-
-        data = doc.get('data_geracao')
-        if data and len(data) >= 7:
-            mes = data[:7]
-            por_mes[mes] += valor or 0
-
-    return {
-        'total_documentos': len(docs),
-        'laudos': laudos,
-        'recibos': recibos,
-        'orcamentos': orcamentos,
-        'valor_recibos': valor_recibos,
-        'faturamento_mensal': dict(por_mes)
-    }
-
-
-def consultar_ia_analise(pergunta_usuario, tipo_analise='geral'):
-    """
-    Consulta Gemini API com análise de dados de documentos
-    """
-    try:
-        dados = obter_contexto_completo()
-        stats = calcular_estatisticas(dados)
-
-        # Preparar contexto
-        contexto_dados = f"""
-=== ESTATÍSTICAS DE DOCUMENTOS ===
-Total de Documentos: {stats.get('total_documentos', 0)}
-Laudos: {stats.get('laudos', 0)}
-Recibos: {stats.get('recibos', 0)}
-Orçamentos: {stats.get('orcamentos', 0)}
-Valor Total dos Recibos: R$ {stats.get('valor_recibos', 0):.2f}
-
-=== DOCUMENTOS RECENTES (Top 10) ===
-"""
-
-        for i, doc in enumerate(dados['documentos'][:10], 1):
-            tipo = doc.get('tipo_doc') or 'Documento'
-            cliente = doc.get('cliente_nome') or 'Cliente'
-            valor = doc.get('valor_total') or 0
-            data = doc.get('data_geracao') or 'Sem data'
-            contexto_dados += f"{i}. {tipo} - {cliente} - R$ {valor:.2f} ({data})\n"
-
-        # Chamar Gemini API
-        api_key = os.environ.get("GEMINI_API_KEY")
-
-        if not api_key or api_key == "SUBSTITUA-PELA-SUA-CHAVE-GEMINI-AQUI":
-            return {
-                "sucesso": False,
-                "erro": "API Key não configurada ou inválida",
-                "resposta": "Configure a GEMINI_API_KEY no arquivo .env. Obtenha em: https://makersuite.google.com/app/apikey"
-            }
-
-        # Preparar prompt completo
-        prompt_completo = f"""Você é um assistente de análise de dados de negócios.
-Responda perguntas sobre documentos (laudos, recibos, orçamentos) e análises de desempenho.
-Seja direto, use dados específicos e forneça insights quando relevante.
-
-{contexto_dados}
-
-PERGUNTA: {pergunta_usuario}"""
-
-        # Gerar resposta (novo SDK google-genai)
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt_completo
-        )
-
-        return {
-            "sucesso": True,
-            "resposta": response.text,
-            "tipo_analise": tipo_analise,
-            "modelo": "gemini-2.5-flash"
-        }
-
-    except Exception as e:
-        traceback.print_exc()
-        return {
-            "sucesso": False,
-            "erro": str(e),
-            "resposta": f"Erro ao processar: {str(e)}"
-        }
-
-
-def gerar_insights_automaticos():
-    """Gera insights automáticos sobre documentos"""
-    pergunta = """Analise os dados de documentos (laudos, recibos, orçamentos) e forneça:
-1. 3 principais insights sobre a produção de documentos
-2. 2 oportunidades de crescimento no volume de serviços
-3. 1 alerta importante
-
-Seja específico e use números reais."""
-
-    return consultar_ia_analise(pergunta, tipo_analise='documentos')
-
-
-def gerar_analise_completa_faturamento():
-    """
-    Gera análise completa e detalhada de documentos
-    Focado em laudos, recibos e orçamentos com análise profunda
-    """
-    try:
-        conn = get_db()
-
-        # Buscar TODOS os documentos
-        todos_docs = conn.execute('''
-            SELECT tipo_doc, nome_arquivo, valor_total, data_geracao, cliente_nome
-            FROM documentos_gerados
-            ORDER BY data_geracao DESC
-        ''').fetchall()
-
-        # Separar por tipo
-        laudos = [d for d in todos_docs if 'LAUDO' in (d['tipo_doc'] or '').upper()]
-        recibos = [d for d in todos_docs if 'RECIBO' in (d['tipo_doc'] or '').upper()]
-        orcamentos = [d for d in todos_docs if 'ORÇAMENTO' in (d['tipo_doc'] or '').upper() or 'ORCAMENTO' in (d['tipo_doc'] or '').upper()]
-
-        # Calcular totais
-        total_valor_recibos = sum([r['valor_total'] or 0 for r in recibos])
-
-        # Análise por mês e cliente
-        por_mes = defaultdict(lambda: {'laudos': 0, 'recibos': 0, 'orcamentos': 0, 'valor': 0})
-        por_cliente = defaultdict(lambda: {'docs': 0, 'valor': 0})
-        valores_recibos = []
-
-        for doc in todos_docs:
-            tipo = (doc['tipo_doc'] or '').upper()
-            data = doc['data_geracao']
-            valor = doc['valor_total'] or 0
-            cliente = doc['cliente_nome'] or 'Não identificado'
-
-            if data and len(data) >= 7:
-                mes = data[:7]
-                if 'LAUDO' in tipo:
-                    por_mes[mes]['laudos'] += 1
-                elif 'RECIBO' in tipo:
-                    por_mes[mes]['recibos'] += 1
-                    por_mes[mes]['valor'] += valor
-                    valores_recibos.append(valor)
-                elif 'ORÇAMENTO' in tipo or 'ORCAMENTO' in tipo:
-                    por_mes[mes]['orcamentos'] += 1
-
-            por_cliente[cliente]['docs'] += 1
-            por_cliente[cliente]['valor'] += valor
-
-        # Calcular estatísticas
-        media_mensal = sum([m['valor'] for m in por_mes.values()]) / len(por_mes) if por_mes else 0
-
-        # Ticket médio dos recibos
-        ticket_medio = sum(valores_recibos) / len(valores_recibos) if valores_recibos else 0
-        ticket_maximo = max(valores_recibos) if valores_recibos else 0
-        ticket_minimo = min(valores_recibos) if valores_recibos else 0
-
-        # Top 5 clientes por quantidade de documentos
-        top_clientes = sorted(por_cliente.items(), key=lambda x: x[1]['docs'], reverse=True)[:5]
-
-        # Preparar relatório
-        relatorio = f"""
-=== ANÁLISE COMPLETA DE DOCUMENTOS ===
-
-RESUMO:
-- Total de Laudos: {len(laudos)}
-- Total de Recibos: {len(recibos)} (R$ {total_valor_recibos:,.2f})
-- Total de Orçamentos: {len(orcamentos)}
-- Total Geral: {len(todos_docs)} documentos
-
-INDICADORES:
-- Ticket Médio (Recibos): R$ {ticket_medio:,.2f}
-- Maior Recibo: R$ {ticket_maximo:,.2f}
-- Menor Recibo: R$ {ticket_minimo:,.2f}
-- Média Mensal (Valor): R$ {media_mensal:,.2f}
-
-TOP 5 CLIENTES (por quantidade):
-"""
-        for i, (cliente, dados) in enumerate(top_clientes, 1):
-            relatorio += f"{i}. {cliente}: {dados['docs']} docs - R$ {dados['valor']:,.2f}\n"
-
-        relatorio += f"\nEVOLUÇÃO MENSAL:\n"
-        for mes, dados in sorted(por_mes.items(), reverse=True)[:12]:
-            relatorio += f"- {mes}: {dados['laudos']} laudos, {dados['recibos']} recibos (R$ {dados['valor']:,.2f}), {dados['orcamentos']} orçamentos\n"
-
-        relatorio += f"\nRECIBOS RECENTES (Top 20):\n"
-        for i, recibo in enumerate(recibos[:20], 1):
-            relatorio += f"{i}. {recibo['nome_arquivo']} - R$ {recibo['valor_total'] or 0:,.2f} - {recibo['data_geracao']}\n"
-
-        # Chamar Gemini para análise
-        api_key = os.environ.get("GEMINI_API_KEY")
-
-        if not api_key or api_key == "SUBSTITUA-PELA-SUA-CHAVE-GEMINI-AQUI":
-            return {
-                "sucesso": False,
-                "erro": "API Key não configurada",
-                "dados_brutos": {
-                    "total_laudos": len(laudos),
-                    "total_recibos": len(recibos),
-                    "total_orcamentos": len(orcamentos),
-                    "valor_recibos": total_valor_recibos,
-                    "relatorio": relatorio
-                }
-            }
-
-        prompt = f"""{relatorio}
-
-Com base nesses dados de documentos (laudos, recibos, orçamentos), forneça uma análise detalhada:
-
-1. **DIAGNÓSTICO DE PRODUTIVIDADE**
-   - Volume de documentos gerados
-   - Tendência de crescimento ou declínio
-   - Proporção entre tipos de documentos
-
-2. **ANÁLISE DE CLIENTES**
-   - Clientes mais ativos
-   - Diversificação da base
-   - Oportunidades de expansão
-
-3. **ANÁLISE DE VALORES (RECIBOS)**
-   - Ticket médio e sua variação
-   - Distribuição de valores
-   - Oportunidades de precificação
-
-4. **TENDÊNCIAS E PADRÕES**
-   - Sazonalidade na produção
-   - Meses de maior/menor atividade
-   - Padrões identificados
-
-5. **RECOMENDAÇÕES**
-   - 3 ações para aumentar produtividade
-   - 2 oportunidades de crescimento
-   - 1 alerta importante
-
-Seja específico e use os números reais do relatório."""
-
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-
-        return {
-            "sucesso": True,
-            "analise_ia": response.text,
-            "dados_brutos": {
-                "total_laudos": len(laudos),
-                "total_recibos": len(recibos),
-                "total_orcamentos": len(orcamentos),
-                "valor_recibos": total_valor_recibos,
-                "faturamento_mensal": {k: v['valor'] for k, v in sorted(por_mes.items(), reverse=True)},
-                "ticket_medio": ticket_medio,
-                "top_clientes": {c: d for c, d in top_clientes}
-            },
-            "relatorio": relatorio
-        }
-
-    except Exception as e:
-        traceback.print_exc()
-        return {
-            "sucesso": False,
-            "erro": str(e),
-            "detalhes": traceback.format_exc()
-        }
-
-
-# ==================== AUTENTICACAO ====================
 # login_required e admin_required importados de services/auth.py
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'GET':
-        if 'usuario_id' in session:
-            return redirect(url_for('dashboard'))
-        return render_template('login.html')
-
-    # POST - processar login
-    dados = request.form
-    email = dados.get('email', '').strip()
-    senha = dados.get('senha', '').strip()
-
-    if not email or not senha:
-        flash('Preencha email e senha', 'erro')
-        return render_template('login.html')
-
-    conn = get_db()
-    usuario = conn.execute('SELECT * FROM usuarios WHERE email = ? AND ativo = 1', (email,)).fetchone()
-
-    if usuario and check_password_hash(usuario['senha_hash'], senha):
-        session['usuario_id'] = usuario['id']
-        session['usuario_nome'] = usuario['nome']
-        session['usuario_email'] = usuario['email']
-        session['usuario_perfil'] = usuario['perfil']
-
-        # Atualizar ultimo login
-        conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?',
-                     (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), usuario['id']))
-        conn.commit()
-
-        next_url = request.args.get('next') or url_for('dashboard')
-        return redirect(next_url)
-    else:
-        flash('Email ou senha incorretos', 'erro')
-        return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-@app.route('/reset-admin')
-def reset_admin():
-    """Rota de emergencia para resetar o usuario admin padrao.
-    Só funciona se: (a) não existem usuários no sistema, ou (b) já está logado como admin.
-    """
-    try:
-        conn = get_db()
-        # Segurança: só permite reset se não há usuários OU se é admin logado
-        total_usuarios = conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
-        if total_usuarios > 0 and session.get('usuario_perfil') != 'admin':
-            flash('Acesso negado. Apenas administradores podem resetar o admin.', 'erro')
-            return redirect(url_for('login'))
-
-        admin = conn.execute('SELECT id FROM usuarios WHERE email = ?', ('admin@sistema.com',)).fetchone()
-        senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
-        if admin:
-            conn.execute('UPDATE usuarios SET senha_hash = ?, ativo = 1, perfil = ? WHERE email = ?',
-                         (senha_hash, 'admin', 'admin@sistema.com'))
-        else:
-            conn.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
-                            VALUES (?, ?, ?, ?)''',
-                         ('Administrador', 'admin@sistema.com', senha_hash, 'admin'))
-        conn.commit()
-        flash('Admin resetado com sucesso! Email: admin@sistema.com | Senha: admin123', 'sucesso')
-    except Exception as e:
-        flash(f'Erro ao resetar admin: {e}', 'erro')
-    return redirect(url_for('login'))
-
-# ==================== API DE USUARIOS ====================
-
-@app.route('/admin/usuarios')
-@login_required
-def admin_usuarios():
-    return redirect(url_for('dashboard') + '?view=administracao')
-
-@app.route('/api/usuarios', methods=['GET'])
-@admin_required
-def listar_usuarios():
-    conn = get_db()
-    usuarios = conn.execute('SELECT id, nome, email, perfil, ativo, data_criacao, ultimo_login FROM usuarios ORDER BY nome').fetchall()
-    return jsonify([dict(u) for u in usuarios])
-
-@app.route('/api/usuarios', methods=['POST'])
-@admin_required
-def criar_usuario():
-    dados = request.json
-    nome = dados.get('nome', '').strip()
-    email = dados.get('email', '').strip()
-    senha = dados.get('senha', '').strip()
-    perfil = dados.get('perfil', 'operador')
-
-    if not nome or not email or not senha:
-        return jsonify({'erro': 'Nome, email e senha sao obrigatorios'}), 400
-
-    if perfil not in ('admin', 'operador'):
-        return jsonify({'erro': 'Perfil deve ser admin ou operador'}), 400
-
-    conn = get_db()
-    existente = conn.execute('SELECT id FROM usuarios WHERE email = ?', (email,)).fetchone()
-    if existente:
-        return jsonify({'erro': 'Ja existe um usuario com este email'}), 409
-
-    conn.execute('INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)',
-                 (nome, email, generate_password_hash(senha), perfil))
-    conn.commit()
-    return jsonify({'sucesso': True, 'mensagem': f'Usuario {nome} criado com sucesso'})
-
-@app.route('/api/usuarios/<int:id>', methods=['PUT'])
-@admin_required
-def editar_usuario(id):
-    dados = request.json
-    conn = get_db()
-
-    usuario = conn.execute('SELECT * FROM usuarios WHERE id = ?', (id,)).fetchone()
-    if not usuario:
-        return jsonify({'erro': 'Usuario nao encontrado'}), 404
-
-    nome = dados.get('nome', usuario['nome']).strip()
-    email = dados.get('email', usuario['email']).strip()
-    perfil = dados.get('perfil', usuario['perfil'])
-    ativo = dados.get('ativo', usuario['ativo'])
-
-    # Verificar email duplicado
-    duplicado = conn.execute('SELECT id FROM usuarios WHERE email = ? AND id != ?', (email, id)).fetchone()
-    if duplicado:
-        return jsonify({'erro': 'Ja existe outro usuario com este email'}), 409
-
-    conn.execute('UPDATE usuarios SET nome = ?, email = ?, perfil = ?, ativo = ? WHERE id = ?',
-                 (nome, email, perfil, ativo, id))
-
-    # Se senha nova foi fornecida, atualizar
-    nova_senha = dados.get('senha', '').strip()
-    if nova_senha:
-        conn.execute('UPDATE usuarios SET senha_hash = ? WHERE id = ?',
-                     (generate_password_hash(nova_senha), id))
-
-    conn.commit()
-    return jsonify({'sucesso': True, 'mensagem': f'Usuario {nome} atualizado'})
-
-@app.route('/api/usuarios/<int:id>', methods=['DELETE'])
-@admin_required
-def excluir_usuario(id):
-    conn = get_db()
-    # Nao permitir excluir a si mesmo
-    if session.get('usuario_id') == id:
-        return jsonify({'erro': 'Voce nao pode excluir seu proprio usuario'}), 400
-
-    conn.execute('DELETE FROM usuarios WHERE id = ?', (id,))
-    conn.commit()
-    return jsonify({'sucesso': True, 'mensagem': 'Usuario excluido'})
-
-# ==================== ROTAS PRINCIPAIS ====================
 
 @app.route('/')
 @login_required
@@ -1813,339 +1355,10 @@ def empresas():
 def gerar():
     return render_template('gerar.html')
 
-
 @app.route('/documentos')
 def documentos():
     # Redirecionar para dashboard_novo.html que já existe e funciona
     return render_template('dashboard_novo.html')
-
-@app.route('/api/clientes', methods=['GET', 'POST'])
-def api_clientes():
-    conn = get_db()
-
-    if request.method == 'GET':
-        query = "SELECT * FROM clientes_web WHERE 1=1"
-        count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
-        params = []
-
-        nome = request.args.get('nome', '')
-        if nome:
-            query += " AND nome_fantasia LIKE ?"
-            count_query += " AND nome_fantasia LIKE ?"
-            params.append(f'%{nome}%')
-
-        cidade = request.args.get('cidade', '')
-        if cidade:
-            query += " AND cidade LIKE ?"
-            count_query += " AND cidade LIKE ?"
-            params.append(f'%{cidade}%')
-
-        cnpj = request.args.get('cnpj', '')
-        if cnpj:
-            query += " AND cnpj LIKE ?"
-            count_query += " AND cnpj LIKE ?"
-            params.append(f'%{cnpj}%')
-
-        cnae = request.args.get('cnae', '')
-        if cnae:
-            query += " AND cnae LIKE ?"
-            count_query += " AND cnae LIKE ?"
-            params.append(f'%{cnae}%')
-
-        rua = request.args.get('rua', '')
-        if rua:
-            query += " AND rua LIKE ?"
-            count_query += " AND rua LIKE ?"
-            params.append(f'%{rua}%')
-
-        query += " ORDER BY nome_fantasia"
-
-        # Paginação (opcional - se page for enviado)
-        page = request.args.get('page', type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        per_page = min(per_page, 200)  # Limite máximo de 200
-
-        if page is not None and page > 0:
-            # Paginação habilitada
-            total = conn.execute(count_query, params).fetchone()['total']
-            offset = (page - 1) * per_page
-            query += f" LIMIT {per_page} OFFSET {offset}"
-
-            clientes = conn.execute(query, params).fetchall()
-            return jsonify({
-                "data": [dict(row) for row in clientes],
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": total,
-                    "pages": (total + per_page - 1) // per_page
-                }
-            })
-        else:
-            # Sem paginação (comportamento original para compatibilidade)
-            # OTIMIZAÇÃO: Limitar a 500 registros por padrão para evitar sobrecarga
-            query += " LIMIT 500"
-            clientes = conn.execute(query, params).fetchall()
-
-            # OTIMIZAÇÃO: Converter códigos de cidade para nomes (50x mais rápido)
-            clientes_convertidos = []
-            for cliente in clientes:
-                cliente_dict = dict(cliente)
-                if 'cidade' in cliente_dict:
-                    cliente_dict['cidade'] = converter_municipios_rapido(cliente_dict['cidade'])
-                if 'endereco_completo' in cliente_dict:
-                    cliente_dict['endereco_completo'] = converter_municipios_rapido(cliente_dict['endereco_completo'])
-                clientes_convertidos.append(cliente_dict)
-            return jsonify(clientes_convertidos)
-
-    # POST - Criar ou Atualizar
-    dados = request.json
-    nome = dados.get('nome_fantasia', '').strip()
-    if not nome:
-        return jsonify({"error": "Nome obrigatorio"}), 400
-
-    try:
-        cliente_id = dados.get('id')
-
-        if cliente_id:
-            # Atualizar
-            conn.execute('''UPDATE clientes_web SET
-                nome_fantasia = ?, razao_social = ?, cnpj = ?, cnae = ?,
-                rua = ?, numero = ?, bairro = ?, cidade = ?, uf = ?,
-                telefone = ?, data_garantia = ?, periodo_garantia_meses = ?
-                WHERE id = ?''',
-                (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
-                 dados.get('rua'), dados.get('numero'), dados.get('bairro'),
-                 dados.get('cidade'), dados.get('uf'),
-                 dados.get('telefone'), dados.get('data_garantia'),
-                 dados.get('periodo_garantia_meses', 12), cliente_id))
-        else:
-            # Inserir
-            endereco_completo = f"{dados.get('rua', '')}, {dados.get('numero', '')} - {dados.get('cidade', '')}/{dados.get('uf', '')}"
-            conn.execute('''INSERT INTO clientes_web
-                (nome_fantasia, razao_social, cnpj, cnae, rua, numero, bairro, cidade, uf, endereco_completo,
-                 telefone, data_garantia, periodo_garantia_meses)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
-                 dados.get('rua'), dados.get('numero'), dados.get('bairro'),
-                 dados.get('cidade'), dados.get('uf'), endereco_completo,
-                 dados.get('telefone'), dados.get('data_garantia'),
-                 dados.get('periodo_garantia_meses', 12)))
-
-        conn.commit()
-        return jsonify({"message": "Cliente salvo!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/clientes/<int:id>', methods=['DELETE'])
-def deletar_cliente(id):
-    get_db().execute("DELETE FROM clientes_web WHERE id = ?", (id,))
-    get_db().commit()
-    return jsonify({"message": "Cliente excluido"})
-
-
-@app.route('/api/cnpj/autocomplete', methods=['GET'])
-def cnpj_autocomplete():
-    """
-    Autocomplete de CNPJs da Receita Federal
-
-    Query params:
-        campo: cnpj, razao_social, nome_fantasia, logradouro, bairro, cnae_fiscal
-        termo: Termo de busca (mínimo 2 caracteres)
-        uf: Filtro por UF (opcional)
-        limit: Limite de resultados (default: 10, max: 50)
-
-    Exemplo: /api/cnpj/autocomplete?campo=nome_fantasia&termo=Padaria&uf=MG&limit=10
-    """
-    if not api_cnpj:
-        return jsonify({'erro': 'Autocomplete de CNPJs não disponível'}), 503
-
-    try:
-        campo = request.args.get('campo')
-        termo = request.args.get('termo')
-
-        if not campo or not termo:
-            return jsonify({'erro': 'Parâmetros obrigatórios: campo, termo'}), 400
-
-        campos_validos = ['cnpj', 'razao_social', 'nome_fantasia', 'logradouro', 'bairro', 'cnae_fiscal']
-        if campo not in campos_validos:
-            return jsonify({'erro': f'Campo inválido. Use: {", ".join(campos_validos)}'}), 400
-
-        if len(termo.strip()) < 2:
-            return jsonify({'erro': 'Termo deve ter no mínimo 2 caracteres'}), 400
-
-        filtros = {}
-        if request.args.get('uf'):
-            filtros['uf'] = request.args.get('uf').upper()
-
-        try:
-            limit = int(request.args.get('limit', 10))
-            limit = max(1, min(limit, 50))
-        except ValueError:
-            limit = 10
-
-        resultados = api_cnpj.buscar_sugestoes(campo, termo, filtros, limit)
-
-        return jsonify({
-            'sucesso': True,
-            'total': len(resultados),
-            'resultados': resultados
-        })
-
-    except ValueError as e:
-        return jsonify({'erro': str(e)}), 400
-    except Exception as e:
-        print(f"[ERRO] Autocomplete CNPJ: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': 'Erro interno no servidor'}), 500
-
-
-@app.route('/api/garantias/vencimentos', methods=['GET'])
-def api_garantias_vencimentos():
-    """
-    Retorna clientes com garantia vencida ou próxima ao vencimento
-    OTIMIZAÇÃO: Cálculo movido para SQL (10x mais rápido)
-
-    Query params:
-        dias_antecedencia: número de dias para alertar antes do vencimento (padrão: 30)
-    """
-    try:
-        conn = get_db()
-        dias_antecedencia = request.args.get('dias_antecedencia', 30, type=int)
-
-        # OTIMIZAÇÃO: Fazer todos os cálculos no SQL ao invés de Python (10x mais rápido)
-        avisos = conn.execute('''
-            SELECT
-                id as cliente_id,
-                nome_fantasia as cliente_nome,
-                razao_social,
-                cnpj,
-                telefone,
-                email,
-                cidade,
-                data_garantia,
-                COALESCE(periodo_garantia_meses, 12) as periodo_meses,
-                date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months') as data_vencimento,
-                CAST((julianday(date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months')) - julianday('now')) AS INTEGER) as dias_restantes,
-                CASE
-                    WHEN CAST((julianday(date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months')) - julianday('now')) AS INTEGER) < 0 THEN 'vencida'
-                    WHEN CAST((julianday(date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months')) - julianday('now')) AS INTEGER) <= 7 THEN 'vence_esta_semana'
-                    ELSE 'proxima_vencer'
-                END as status,
-                CASE
-                    WHEN CAST((julianday(date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months')) - julianday('now')) AS INTEGER) < 0 THEN 'critico'
-                    WHEN CAST((julianday(date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months')) - julianday('now')) AS INTEGER) <= 7 THEN 'urgente'
-                    ELSE 'atencao'
-                END as urgencia
-            FROM clientes_web
-            WHERE data_garantia IS NOT NULL
-                AND data_garantia != ''
-                AND CAST((julianday(date(data_garantia, '+' || COALESCE(periodo_garantia_meses, 12) || ' months')) - julianday('now')) AS INTEGER) <= ?
-            ORDER BY dias_restantes ASC
-        ''', (dias_antecedencia,)).fetchall()
-
-        # Converter para lista de dicts
-        avisos_list = [dict(row) for row in avisos]
-
-        # Ordenar por urgência e dias restantes (já vem ordenado do SQL, mas garantir)
-        ordem_urgencia = {'critico': 0, 'urgente': 1, 'atencao': 2}
-        avisos_list.sort(key=lambda x: (ordem_urgencia[x['urgencia']], x['dias_restantes']))
-
-        return jsonify({
-            'sucesso': True,
-            'total': len(avisos_list),
-            'avisos': avisos_list,
-            'resumo': {
-                'vencidas': len([a for a in avisos_list if a['status'] == 'vencida']),
-                'esta_semana': len([a for a in avisos_list if a['status'] == 'vence_esta_semana']),
-                'proximas': len([a for a in avisos_list if a['status'] == 'proxima_vencer'])
-            }
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Garantias vencimentos: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': str(e)}), 500
-
-
-@app.route('/api/clientes/<int:cliente_id>/garantia', methods=['PUT'])
-def atualizar_garantia_cliente(cliente_id):
-    """
-    Atualiza data de garantia e período de garantia de um cliente
-
-    Body JSON:
-        {
-            "data_garantia": "2025-01-14",  // Data do último serviço/garantia
-            "periodo_garantia_meses": 12     // Período em meses (padrão: 12)
-        }
-    """
-    try:
-        dados = request.json
-        data_garantia = dados.get('data_garantia')
-        periodo_meses = dados.get('periodo_garantia_meses', 12)
-
-        if not data_garantia:
-            return jsonify({'erro': 'Data de garantia é obrigatória'}), 400
-
-        # Validar formato da data
-        try:
-            datetime.strptime(data_garantia, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({'erro': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
-
-        conn = get_db()
-        conn.execute('''
-            UPDATE clientes_web
-            SET data_garantia = ?,
-                periodo_garantia_meses = ?
-            WHERE id = ?
-        ''', (data_garantia, periodo_meses, cliente_id))
-        conn.commit()
-
-        return jsonify({
-            'sucesso': True,
-            'mensagem': 'Garantia atualizada com sucesso'
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Atualizar garantia: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': str(e)}), 500
-
-
-@app.route('/api/cnae/formatar', methods=['POST'])
-def formatar_cnae_api():
-    """
-    Formata código CNAE com descrição completa
-
-    Body JSON:
-        cnae: Código CNAE (com ou sem formatação)
-
-    Retorna:
-        {"cnae_formatado": "81.22-2-00 - Imunização e controle de pragas urbanas"}
-
-    Exemplo: {"cnae": "8122200"} → {"cnae_formatado": "81.22-2-00 - Imunização..."}
-    """
-    try:
-        dados = request.json
-        cnae_codigo = dados.get('cnae', '')
-
-        if not cnae_codigo:
-            return jsonify({'erro': 'Código CNAE não fornecido'}), 400
-
-        cnae_formatado = formatar_cnae(cnae_codigo)
-
-        return jsonify({
-            'sucesso': True,
-            'cnae_formatado': cnae_formatado
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Formatar CNAE: {e}")
-        traceback.print_exc()
-        return jsonify({'erro': 'Erro ao formatar CNAE'}), 500
-
-
 @app.route('/api/empresa/sync', methods=['POST'])
 def sync_empresa_receita():
     """
@@ -2287,7 +1500,6 @@ def sync_empresa_receita():
             'detalhes': str(e)
         }), 500
 
-
 @app.route('/api/modelos/listar')
 def listar_modelos():
     """
@@ -2335,7 +1547,6 @@ def listar_modelos():
             'erro': 'Erro ao listar modelos',
             'detalhes': str(e)
         }), 500
-
 
 def extrair_variaveis_modelo(caminho_modelo):
     """
@@ -2394,7 +1605,6 @@ def extrair_variaveis_modelo(caminho_modelo):
         traceback.print_exc()
         # Retornar lista vazia mas não impedir que o modelo apareça na lista
         return []
-
 
 @app.route('/api/documento/gerar-inteligente', methods=['POST'])
 def gerar_documento_inteligente():
@@ -2490,7 +1700,6 @@ def gerar_documento_inteligente():
             'erro': 'Erro ao gerar documento',
             'detalhes': str(e)
         }), 500
-
 
 def preparar_context_inteligente(cliente, variaveis_extras=None, nome_modelo=''):
     """
@@ -2753,7 +1962,6 @@ def preparar_context_inteligente(cliente, variaveis_extras=None, nome_modelo='')
 
     return context
 
-
 @app.route('/api/cnae/descricao/<cnae_codigo>')
 def buscar_descricao_cnae(cnae_codigo):
     """
@@ -2811,7 +2019,6 @@ def buscar_descricao_cnae(cnae_codigo):
             'detalhes': str(e)
         }), 500
 
-
 @app.route('/api/documentos-gerados')
 def api_documentos_gerados():
     conn = get_db()
@@ -2852,7 +2059,6 @@ def api_documentos_gerados():
         docs = conn.execute("SELECT * FROM documentos_gerados ORDER BY data_geracao DESC LIMIT 100").fetchall()
         return jsonify([converter_cidade(row) for row in docs])
 
-
 @app.route('/api/documentos/<path:nome_arquivo>', methods=['DELETE'])
 def deletar_documento(nome_arquivo):
     """Excluir documento gerado"""
@@ -2880,7 +2086,6 @@ def deletar_documento(nome_arquivo):
         print(f"[ERRO] Ao excluir documento: {e}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
-
 
 @app.route('/api/documentos/renomear', methods=['POST'])
 def renomear_documento():
@@ -2925,7 +2130,6 @@ def renomear_documento():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
-
 @app.route('/api/documentos/mover', methods=['POST'])
 def mover_documento():
     """Mover documento para outra pasta"""
@@ -2964,7 +2168,6 @@ def mover_documento():
         print(f"[ERRO] Ao mover documento: {e}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
-
 
 @app.route('/api/orcamentos')
 def api_orcamentos():
@@ -3568,8 +2771,6 @@ def visualizar_documento_html(filename):
         traceback.print_exc()
         return jsonify({"error": f"Erro ao visualizar documento: {str(e)}"}), 500
 
-
-
 @app.route('/api/compartilhar/<path:filename>')
 def compartilhar_arquivo(filename):
     """Gera link de compartilhamento"""
@@ -3816,421 +3017,6 @@ def api_empresas():
         resultado.append(emp)
 
     return jsonify(resultado)
-
-# ==================== ROTAS DA API PARA TAGS ====================
-
-@app.route('/api/tags', methods=['GET', 'POST'])
-def api_obter_tags():
-    """Retorna todas as tags cadastradas (GET) ou cria nova tag (POST)"""
-    if request.method == 'GET':
-        try:
-            tags = obter_todas_tags()
-            return jsonify(tags)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'POST':
-        try:
-            dados = request.json
-            nome = dados.get('nome', '').strip()
-            descricao = dados.get('descricao', '').strip()
-            cor = dados.get('cor', '#3B82F6')
-
-            if not nome:
-                return jsonify({"error": "Nome da tag é obrigatório"}), 400
-
-            db = get_db()
-            cursor = db.execute('INSERT INTO tags (nome, descricao, cor) VALUES (?, ?, ?)',
-                              (nome, descricao, cor))
-            db.commit()
-
-            return jsonify({
-                "success": True,
-                "tag_id": cursor.lastrowid,
-                "message": "Tag criada com sucesso"
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/documento', methods=['GET'])
-def api_obter_tags_documento():
-    """Retorna tags de um documento específico"""
-    try:
-        arquivo_id = request.args.get('arquivo_id', type=int)
-        arquivo_tipo = request.args.get('arquivo_tipo', '')
-
-        if not arquivo_id or not arquivo_tipo:
-            return jsonify({"error": "arquivo_id e arquivo_tipo são obrigatórios"}), 400
-
-        tags = obter_tags_documento(arquivo_id, arquivo_tipo)
-        return jsonify(tags)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/adicionar', methods=['POST'])
-def api_adicionar_tag():
-    """Adiciona uma tag a um documento"""
-    try:
-        dados = request.json
-        arquivo_id = dados.get('arquivo_id')
-        arquivo_tipo = dados.get('arquivo_tipo')
-        tag_id = dados.get('tag_id')
-        confianca = dados.get('confianca', 1.0)
-        manual = dados.get('manual', True)
-
-        if not arquivo_id or not arquivo_tipo or not tag_id:
-            return jsonify({"error": "arquivo_id, arquivo_tipo e tag_id são obrigatórios"}), 400
-
-        sucesso = adicionar_tag_documento(arquivo_id, arquivo_tipo, tag_id, confianca, manual)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag adicionada com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao adicionar tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/remover', methods=['POST'])
-def api_remover_tag():
-    """Remove uma tag de um documento"""
-    try:
-        dados = request.json
-        arquivo_id = dados.get('arquivo_id')
-        arquivo_tipo = dados.get('arquivo_tipo')
-        tag_id = dados.get('tag_id')
-
-        if not arquivo_id or not arquivo_tipo or not tag_id:
-            return jsonify({"error": "arquivo_id, arquivo_tipo e tag_id são obrigatórios"}), 400
-
-        sucesso = remover_tag_documento(arquivo_id, arquivo_tipo, tag_id)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag removida com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao remover tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/sugerir', methods=['POST'])
-def api_sugerir_tags():
-    """Sugere tags automaticamente para um documento"""
-    try:
-        dados = request.json
-        arquivo_id = dados.get('arquivo_id')
-        arquivo_tipo = dados.get('arquivo_tipo')
-        nome_arquivo = dados.get('nome_arquivo', '')
-        conteudo_texto = dados.get('conteudo_texto', '')
-
-        if not nome_arquivo:
-            return jsonify({"error": "nome_arquivo é obrigatório"}), 400
-
-        tags_sugeridas = sugerir_tags_automaticas(arquivo_id, arquivo_tipo, nome_arquivo, conteudo_texto)
-        return jsonify(tags_sugeridas)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/arquivo/tags', methods=['GET'])
-def api_obter_tags_arquivo():
-    """Retorna tags de um arquivo físico baseado no caminho"""
-    try:
-        caminho = request.args.get('caminho', '')
-
-        if not caminho:
-            return jsonify({"error": "Caminho do arquivo é obrigatório"}), 400
-
-        # Usar hash do caminho como ID único
-        import hashlib
-        arquivo_id = int(hashlib.md5(caminho.encode()).hexdigest()[:8], 16)
-        arquivo_tipo = 'arquivo_fisico'
-
-        tags = obter_tags_documento(arquivo_id, arquivo_tipo)
-        return jsonify(tags)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/arquivo/tag/adicionar', methods=['POST'])
-def api_adicionar_tag_arquivo():
-    """Adiciona uma tag a um arquivo físico"""
-    try:
-        dados = request.json
-        caminho = dados.get('caminho', '')
-        tag_id = dados.get('tag_id')
-
-        if not caminho or not tag_id:
-            return jsonify({"error": "Caminho e tag_id são obrigatórios"}), 400
-
-        # Usar hash do caminho como ID único
-        import hashlib
-        arquivo_id = int(hashlib.md5(caminho.encode()).hexdigest()[:8], 16)
-        arquivo_tipo = 'arquivo_fisico'
-
-        sucesso = adicionar_tag_documento(arquivo_id, arquivo_tipo, tag_id, confianca=1.0, manual=True)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag adicionada com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao adicionar tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/arquivo/tag/remover', methods=['POST'])
-def api_remover_tag_arquivo():
-    """Remove uma tag de um arquivo físico"""
-    try:
-        dados = request.json
-        caminho = dados.get('caminho', '')
-        tag_id = dados.get('tag_id')
-
-        if not caminho or not tag_id:
-            return jsonify({"error": "Caminho e tag_id são obrigatórios"}), 400
-
-        # Usar hash do caminho como ID único
-        import hashlib
-        arquivo_id = int(hashlib.md5(caminho.encode()).hexdigest()[:8], 16)
-        arquivo_tipo = 'arquivo_fisico'
-
-        sucesso = remover_tag_documento(arquivo_id, arquivo_tipo, tag_id)
-
-        if sucesso:
-            return jsonify({"success": True, "message": "Tag removida com sucesso"})
-        else:
-            return jsonify({"error": "Erro ao remover tag"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/tags/criar', methods=['POST'])
-def api_criar_tag():
-    """Cria uma nova tag personalizada"""
-    try:
-        dados = request.json
-        nome = dados.get('nome', '').strip()
-        descricao = dados.get('descricao', '').strip()
-        cor = dados.get('cor', '#3B82F6')
-
-        if not nome:
-            return jsonify({"error": "Nome da tag é obrigatório"}), 400
-
-        db = get_db()
-        cursor = db.execute('INSERT INTO tags (nome, descricao, cor) VALUES (?, ?, ?)',
-                           (nome, descricao, cor))
-        db.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Tag criada com sucesso",
-            "tag_id": cursor.lastrowid
-        })
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Já existe uma tag com esse nome"}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ==================== ROTAS DA API PARA BOLETOS ====================
-
-@app.route('/api/boletos', methods=['GET', 'POST'])
-def api_boletos():
-    """Lista todos os boletos (GET) ou cria um novo boleto (POST)"""
-    db = get_db()
-
-    if request.method == 'GET':
-        try:
-            status_filter = request.args.get('status', '')
-            query = 'SELECT * FROM boletos'
-            params = []
-
-            if status_filter:
-                query += ' WHERE status = ?'
-                params.append(status_filter)
-
-            query += ' ORDER BY data_vencimento ASC'
-
-            boletos = db.execute(query, params).fetchall()
-            return jsonify([dict(b) for b in boletos])
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'POST':
-        try:
-            dados = request.json
-            cliente_id = dados.get('cliente_id')
-            cliente_nome = dados.get('cliente_nome', '').strip()
-            descricao = dados.get('descricao', '').strip()
-            valor = dados.get('valor')
-            data_emissao = dados.get('data_emissao')
-            data_vencimento = dados.get('data_vencimento')
-            numero_documento = dados.get('numero_documento', '').strip()
-            codigo_barras = dados.get('codigo_barras', '').strip()
-            arquivo_caminho = dados.get('arquivo_caminho', '').strip()
-
-            if not cliente_nome or not valor or not data_emissao or not data_vencimento:
-                return jsonify({"error": "Campos obrigatórios: cliente_nome, valor, data_emissao, data_vencimento"}), 400
-
-            cursor = db.execute('''
-                INSERT INTO boletos (cliente_id, cliente_nome, descricao, valor, data_emissao, data_vencimento,
-                                   numero_documento, codigo_barras, arquivo_caminho)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (cliente_id, cliente_nome, descricao, valor, data_emissao, data_vencimento,
-                  numero_documento, codigo_barras, arquivo_caminho))
-            db.commit()
-
-            return jsonify({
-                "success": True,
-                "boleto_id": cursor.lastrowid,
-                "message": "Boleto criado com sucesso"
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/<int:boleto_id>', methods=['GET', 'PUT', 'DELETE'])
-def api_boleto(boleto_id):
-    """Obtém, atualiza ou deleta um boleto específico"""
-    db = get_db()
-
-    if request.method == 'GET':
-        try:
-            boleto = db.execute('SELECT * FROM boletos WHERE id = ?', (boleto_id,)).fetchone()
-            if not boleto:
-                return jsonify({"error": "Boleto não encontrado"}), 404
-            return jsonify(dict(boleto))
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'PUT':
-        try:
-            dados = request.json
-            cliente_nome = dados.get('cliente_nome')
-            descricao = dados.get('descricao')
-            valor = dados.get('valor')
-            data_vencimento = dados.get('data_vencimento')
-            numero_documento = dados.get('numero_documento')
-            codigo_barras = dados.get('codigo_barras')
-            observacoes = dados.get('observacoes')
-
-            db.execute('''
-                UPDATE boletos
-                SET cliente_nome = ?, descricao = ?, valor = ?, data_vencimento = ?,
-                    numero_documento = ?, codigo_barras = ?, observacoes = ?
-                WHERE id = ?
-            ''', (cliente_nome, descricao, valor, data_vencimento, numero_documento, codigo_barras, observacoes, boleto_id))
-            db.commit()
-
-            return jsonify({"success": True, "message": "Boleto atualizado com sucesso"})
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'DELETE':
-        try:
-            db.execute('DELETE FROM boletos WHERE id = ?', (boleto_id,))
-            db.commit()
-            return jsonify({"success": True, "message": "Boleto excluído com sucesso"})
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/<int:boleto_id>/pagar', methods=['POST'])
-def api_pagar_boleto(boleto_id):
-    """Marca um boleto como pago (usa o valor original do boleto)"""
-    try:
-        db = get_db()
-
-        # Buscar o valor original do boleto
-        boleto = db.execute('SELECT valor FROM boletos WHERE id = ?', (boleto_id,)).fetchone()
-
-        if not boleto:
-            return jsonify({"error": "Boleto não encontrado"}), 404
-
-        valor_original = boleto['valor']
-        data_pagamento = datetime.now().strftime('%Y-%m-%d')  # Data atual
-
-        # Marcar como pago com o valor original
-        db.execute('''
-            UPDATE boletos
-            SET status = 'pago', data_pagamento = ?, valor_pago = ?
-            WHERE id = ?
-        ''', (data_pagamento, valor_original, boleto_id))
-        db.commit()
-
-        print(f"[BOLETO] Boleto ID {boleto_id} marcado como PAGO - Valor: R$ {valor_original:.2f}")
-
-        return jsonify({
-            "success": True,
-            "message": "Boleto marcado como pago",
-            "valor_pago": valor_original,
-            "data_pagamento": data_pagamento
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/<int:boleto_id>/cancelar', methods=['POST'])
-def api_cancelar_boleto(boleto_id):
-    """Marca um boleto como cancelado"""
-    try:
-        db = get_db()
-        db.execute('UPDATE boletos SET status = ? WHERE id = ?', ('cancelado', boleto_id))
-        db.commit()
-        return jsonify({"success": True, "message": "Boleto cancelado"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/boletos/vencendo', methods=['GET'])
-def api_boletos_vencendo():
-    """Retorna boletos que estão vencendo ou vencidos"""
-    try:
-        db = get_db()
-        hoje = datetime.now().date()
-        dias_aviso = request.args.get('dias', default=7, type=int)
-        data_limite = hoje + timedelta(days=dias_aviso)
-
-        boletos = db.execute('''
-            SELECT * FROM boletos
-            WHERE status = 'pendente' AND date(data_vencimento) <= ?
-            ORDER BY data_vencimento ASC
-        ''', (data_limite.isoformat(),)).fetchall()
-
-        avisos = []
-        for b in boletos:
-            data_venc = datetime.fromisoformat(b['data_vencimento']).date()
-            dias_restantes = (data_venc - hoje).days
-
-            status_aviso = 'vencido' if dias_restantes < 0 else 'urgente' if dias_restantes <= 3 else 'atenção'
-
-            avisos.append({
-                'id': b['id'],
-                'cliente_nome': b['cliente_nome'],
-                'descricao': b['descricao'],
-                'valor': b['valor'],
-                'data_vencimento': b['data_vencimento'],
-                'dias_restantes': dias_restantes,
-                'status_aviso': status_aviso,
-                'numero_documento': b['numero_documento']
-            })
-
-        return jsonify({
-            'total': len(avisos),
-            'vencidos': len([a for a in avisos if a['status_aviso'] == 'vencido']),
-            'urgentes': len([a for a in avisos if a['status_aviso'] == 'urgente']),
-            'boletos': avisos
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ==================== ROTA DA API PARA GARANTIAS ====================
-
-@app.route('/api/garantias/vencendo', methods=['GET'])
-def api_garantias_vencendo():
-    """Retorna clientes com garantias vencendo"""
-    try:
-        dias_aviso = request.args.get('dias', default=30, type=int)
-        avisos = verificar_garantias_vencendo(dias_aviso)
-        return jsonify({
-            'total': len(avisos),
-            'urgentes': len([a for a in avisos if a['status'] == 'urgente']),
-            'atencao': len([a for a in avisos if a['status'] == 'atencao']),
-            'vencidas': len([a for a in avisos if a['vencida']]),
-            'avisos': avisos
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 def formatar_numero_meses(valor) -> str:
     """
     Formata o número de meses para o formato correto: "X mês" ou "X meses".
@@ -4671,474 +3457,6 @@ def gerar_orcamento():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
-@app.route('/api/analise-financeira', methods=['GET'])
-def analise_financeira():
-    """Análise focada em Laudos, Orçamentos e Recibos"""
-    try:
-        data_inicio = request.args.get('data_inicio')
-        data_fim = request.args.get('data_fim')
-
-        conn = get_db()
-
-        # Contar documentos gerados por tipo (LAUDO, RECIBO, ORÇAMENTO)
-        query_docs = "SELECT tipo_doc, COUNT(*) as total, SUM(COALESCE(valor_total, 0)) as valor_total FROM documentos_gerados"
-        params_docs = []
-
-        if data_inicio and data_fim:
-            query_docs += " WHERE date(data_geracao) BETWEEN ? AND ?"
-            params_docs = [data_inicio, data_fim]
-
-        query_docs += " GROUP BY tipo_doc"
-
-        docs = conn.execute(query_docs, params_docs).fetchall()
-        documentos = {}
-        valores_por_tipo = {}
-        for doc in docs:
-            documentos[doc['tipo_doc']] = doc['total']
-            valores_por_tipo[doc['tipo_doc']] = doc['valor_total'] or 0
-
-        # Valor total dos recibos
-        valor_recibos = valores_por_tipo.get('RECIBO', 0)
-
-        # Total de laudos
-        total_laudos = documentos.get('LAUDO', 0)
-
-        # Total de orçamentos
-        total_orcamentos = documentos.get('ORCAMENTO', 0) + documentos.get('ORÇAMENTO', 0)
-
-        # Total de recibos
-        total_recibos = documentos.get('RECIBO', 0)
-
-        # Faturamento total = soma dos valores dos recibos (documentos com valor)
-        faturamento_total = valor_recibos
-
-        # Documentos por mês (últimos 12 meses) - Laudos, Orçamentos e Recibos
-        query_mensal = """
-        SELECT
-            strftime('%Y-%m', data_geracao) as mes,
-            tipo_doc,
-            COUNT(*) as total_docs,
-            SUM(COALESCE(valor_total, 0)) as total_valor
-        FROM documentos_gerados
-        WHERE tipo_doc IN ('LAUDO', 'RECIBO', 'ORCAMENTO', 'ORÇAMENTO')
-        GROUP BY mes, tipo_doc
-        ORDER BY mes DESC
-        LIMIT 36
-        """
-
-        docs_mensal = conn.execute(query_mensal).fetchall()
-
-        # Agrupar por mês
-        mensal_agrupado = {}
-        for row in docs_mensal:
-            mes = row['mes']
-            if mes not in mensal_agrupado:
-                mensal_agrupado[mes] = {'mes': mes, 'laudos': 0, 'recibos': 0, 'orcamentos': 0, 'valor_recibos': 0}
-            tipo = row['tipo_doc']
-            if tipo == 'LAUDO':
-                mensal_agrupado[mes]['laudos'] = row['total_docs']
-            elif tipo == 'RECIBO':
-                mensal_agrupado[mes]['recibos'] = row['total_docs']
-                mensal_agrupado[mes]['valor_recibos'] = row['total_valor']
-            elif tipo in ('ORCAMENTO', 'ORÇAMENTO'):
-                mensal_agrupado[mes]['orcamentos'] += row['total_docs']
-
-        # Converter para lista ordenada
-        faturamento_mensal = sorted(mensal_agrupado.values(), key=lambda x: x['mes'], reverse=True)[:12]
-
-        # Top clientes por quantidade de documentos
-        query_top_clientes = """
-        SELECT
-            cliente_nome,
-            COUNT(*) as total_docs,
-            SUM(COALESCE(valor_total, 0)) as total_valor
-        FROM documentos_gerados
-        WHERE cliente_nome IS NOT NULL AND cliente_nome != ''
-        GROUP BY cliente_nome
-        ORDER BY total_docs DESC, total_valor DESC
-        LIMIT 10
-        """
-        top_clientes = conn.execute(query_top_clientes).fetchall()
-
-        return jsonify({
-            "documentos": documentos,
-            "laudos": {
-                "total": total_laudos
-            },
-            "recibos": {
-                "total": total_recibos,
-                "valor_total": valor_recibos
-            },
-            "orcamentos": {
-                "total": total_orcamentos
-            },
-            "faturamento_total": faturamento_total,
-            "faturamento_mensal": faturamento_mensal,
-            "top_clientes": [dict(row) for row in top_clientes]
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/upload-pdf', methods=['POST'])
-def upload_pdf():
-    """Upload e processamento de múltiplos PDFs (salva em documentos_gerados)"""
-    try:
-        if 'arquivos' not in request.files:
-            return jsonify({"error": "Nenhum arquivo enviado"}), 400
-
-        arquivos = request.files.getlist('arquivos')
-        if len(arquivos) == 0:
-            return jsonify({"error": "Lista vazia"}), 400
-
-        resultados = []
-        conn = get_db()
-
-        for arquivo in arquivos:
-            if not arquivo.filename.lower().endswith('.pdf'):
-                resultados.append({
-                    "arquivo": arquivo.filename,
-                    "status": "erro",
-                    "mensagem": "Não é PDF"
-                })
-                continue
-
-            try:
-                # Salvar arquivo
-                filename = secure_filename(arquivo.filename)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                nome_arquivo = f"{timestamp}_{filename}"
-                caminho_arquivo = UPLOAD_DIR / nome_arquivo
-                arquivo.save(str(caminho_arquivo))
-
-                # Extrair dados
-                dados = extrair_dados_pdf(str(caminho_arquivo))
-
-                # Determinar tipo de documento
-                tipo_doc = dados.get('tipo_documento', 'UPLOAD')
-
-                # Salvar em documentos_gerados
-                cursor = conn.execute('''
-                    INSERT INTO documentos_gerados
-                    (tipo_doc, nome_arquivo, caminho_arquivo, valor_total, cliente_nome, data_geracao)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    tipo_doc,
-                    nome_arquivo,
-                    str(caminho_arquivo),
-                    dados.get('valor_total', 0),
-                    dados.get('cliente_nome'),
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                ))
-                arquivo_id = cursor.lastrowid
-                conn.commit()
-
-                # Sugerir e aplicar tags automaticamente
-                conteudo_texto = dados.get('texto_completo', '')
-                tags_sugeridas = sugerir_tags_automaticas(arquivo_id, 'documento', nome_arquivo, conteudo_texto)
-
-                # Aplicar tags sugeridas automaticamente
-                for tag_sugerida in tags_sugeridas:
-                    adicionar_tag_documento(
-                        arquivo_id,
-                        'documento',
-                        tag_sugerida['tag_id'],
-                        tag_sugerida['confianca'],
-                        manual=False
-                    )
-
-                resultados.append({
-                    "arquivo": filename,
-                    "status": "sucesso",
-                    "dados": dados,
-                    "tags_sugeridas": tags_sugeridas,
-                    "arquivo_id": arquivo_id
-                })
-
-            except Exception as e:
-                resultados.append({
-                    "arquivo": arquivo.filename,
-                    "status": "erro",
-                    "mensagem": str(e)
-                })
-
-        sucessos = len([r for r in resultados if r['status'] == 'sucesso'])
-        erros = len([r for r in resultados if r['status'] == 'erro'])
-
-        return jsonify({
-            "mensagem": f"{sucessos} sucesso(s), {erros} erro(s)",
-            "resultados": resultados,
-            "total": len(arquivos),
-            "sucessos": sucessos,
-            "erros": erros
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/pdfs-processados', methods=['GET'])
-def listar_pdfs_processados():
-    """Lista todos os documentos PDF processados"""
-    try:
-        conn = get_db()
-        docs = conn.execute('''
-            SELECT * FROM documentos_gerados
-            WHERE nome_arquivo LIKE '%.pdf'
-            ORDER BY data_geracao DESC
-        ''').fetchall()
-        return jsonify([dict(row) for row in docs])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/ia-consulta', methods=['POST'])
-def ia_consulta():
-    """Endpoint para consultas à IA"""
-    try:
-        dados = request.json
-        pergunta = dados.get('pergunta', '').strip()
-        tipo_analise = dados.get('tipo_analise', 'geral')
-
-        if not pergunta or len(pergunta) < 3:
-            return jsonify({"erro": "Pergunta muito curta"}), 400
-
-        if len(pergunta) > 1000:
-            return jsonify({"erro": "Pergunta muito longa"}), 400
-
-        resultado = consultar_ia_analise(pergunta, tipo_analise)
-        return jsonify(resultado)
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({
-            "sucesso": False,
-            "erro": str(e),
-            "resposta": "Erro ao processar"
-        }), 500
-
-
-@app.route('/api/ia-insights', methods=['GET'])
-def ia_insights():
-    """Insights automáticos"""
-    try:
-        resultado = gerar_insights_automaticos()
-        return jsonify(resultado)
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-
-@app.route('/api/ia-status', methods=['GET'])
-def ia_status():
-    """Verifica status da IA"""
-    try:
-        api_key = os.environ.get("GEMINI_API_KEY")
-
-        if not api_key:
-            return jsonify({
-                "configurada": False,
-                "mensagem": "API Key não configurada. Obtenha em: https://makersuite.google.com/app/apikey"
-            })
-
-        if api_key == "SUBSTITUA-PELA-SUA-CHAVE-GEMINI-AQUI":
-            return jsonify({
-                "configurada": False,
-                "mensagem": "API Key precisa ser configurada no arquivo .env"
-            })
-
-        return jsonify({
-            "configurada": True,
-            "mensagem": "IA pronta com Gemini 2.5 Flash",
-            "modelo": "gemini-2.5-flash"
-        })
-
-    except Exception as e:
-        return jsonify({
-            "configurada": False,
-            "erro": str(e)
-        })
-
-
-@app.route('/api/ia-analise-completa', methods=['GET'])
-def ia_analise_completa():
-    """Retorna análise completa de faturamento com IA"""
-    try:
-        resultado = gerar_analise_completa_faturamento()
-        return jsonify(resultado)
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({
-            "sucesso": False,
-            "erro": str(e),
-            "detalhes": traceback.format_exc()
-        }), 500
-
-
-# ==================== GESTÃO DE BANCO DE DADOS ====================
-
-@app.route('/api/database/tables', methods=['GET'])
-def listar_tabelas():
-    """Lista todas as tabelas do banco de dados"""
-    try:
-        conn = get_db()
-        tabelas = conn.execute("""
-            SELECT name FROM sqlite_master
-            WHERE type='table' AND name NOT LIKE 'sqlite_%'
-            ORDER BY name
-        """).fetchall()
-
-        resultado = []
-        for tabela in tabelas:
-            nome_tabela = tabela['name']
-            # Contar registros
-            count = conn.execute(f"SELECT COUNT(*) as total FROM {nome_tabela}").fetchone()['total']
-            resultado.append({
-                'nome': nome_tabela,
-                'registros': count
-            })
-
-        return jsonify(resultado)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/database/table/<table_name>', methods=['GET'])
-def listar_registros_tabela(table_name):
-    """Lista todos os registros de uma tabela específica"""
-    try:
-        # Validar nome da tabela (segurança)
-        tabelas_permitidas = ['clientes_web', 'documentos_gerados', 'boletos', 'recibos']
-        if table_name not in tabelas_permitidas:
-            return jsonify({"error": "Tabela não permitida"}), 403
-
-        conn = get_db()
-        limit = request.args.get('limit', 100, type=int)
-        offset = request.args.get('offset', 0, type=int)
-
-        registros = conn.execute(f"SELECT * FROM {table_name} LIMIT ? OFFSET ?",
-                                (limit, offset)).fetchall()
-
-        # Pegar informações das colunas
-        colunas_info = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
-        colunas = [col['name'] for col in colunas_info]
-
-        return jsonify({
-            'colunas': colunas,
-            'registros': [dict(row) for row in registros],
-            'total': conn.execute(f"SELECT COUNT(*) as total FROM {table_name}").fetchone()['total']
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/database/table/<table_name>/record/<int:record_id>', methods=['PUT'])
-def editar_registro(table_name, record_id):
-    """Edita um registro específico"""
-    try:
-        tabelas_permitidas = ['clientes_web', 'documentos_gerados', 'boletos', 'recibos']
-        if table_name not in tabelas_permitidas:
-            return jsonify({"error": "Tabela não permitida"}), 403
-
-        dados = request.json
-        conn = get_db()
-
-        # Construir UPDATE dinamicamente
-        campos = [f"{k} = ?" for k in dados.keys() if k != 'id']
-        valores = [v for k, v in dados.items() if k != 'id']
-        valores.append(record_id)
-
-        query = f"UPDATE {table_name} SET {', '.join(campos)} WHERE id = ?"
-        conn.execute(query, valores)
-        conn.commit()
-
-        return jsonify({"message": "Registro atualizado com sucesso"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/database/table/<table_name>/record/<int:record_id>', methods=['DELETE'])
-def deletar_registro(table_name, record_id):
-    """Deleta um registro específico"""
-    try:
-        tabelas_permitidas = ['clientes_web', 'documentos_gerados', 'boletos', 'recibos']
-        if table_name not in tabelas_permitidas:
-            return jsonify({"error": "Tabela não permitida"}), 403
-
-        conn = get_db()
-        conn.execute(f"DELETE FROM {table_name} WHERE id = ?", (record_id,))
-        conn.commit()
-
-        return jsonify({"message": "Registro deletado com sucesso"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/database/table/<table_name>/clear', methods=['POST'])
-def limpar_tabela(table_name):
-    """Limpa todos os registros de uma tabela (mantém estrutura)"""
-    try:
-        tabelas_permitidas = ['clientes_web', 'documentos_gerados', 'boletos', 'recibos']
-        if table_name not in tabelas_permitidas:
-            return jsonify({"error": "Tabela não permitida"}), 403
-
-        conn = get_db()
-        conn.execute(f"DELETE FROM {table_name}")
-        # Resetar autoincrement
-        conn.execute(f"DELETE FROM sqlite_sequence WHERE name = '{table_name}'")
-        conn.commit()
-
-        return jsonify({"message": f"Tabela {table_name} limpa com sucesso"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/database/limpar-laudos', methods=['POST'])
-def limpar_laudos():
-    """Limpa apenas os laudos da tabela documentos_gerados"""
-    try:
-        conn = get_db()
-        # Contar quantos serão deletados
-        count = conn.execute("SELECT COUNT(*) as total FROM documentos_gerados WHERE tipo_doc = 'LAUDO'").fetchone()['total']
-
-        # Deletar apenas laudos
-        conn.execute("DELETE FROM documentos_gerados WHERE tipo_doc = 'LAUDO'")
-        conn.commit()
-
-        return jsonify({
-            "message": f"Laudos limpos com sucesso",
-            "deletados": count
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ==================== CONFIGURAÇÕES DE TEMA ====================
-
-@app.route('/api/config/tema', methods=['GET', 'POST'])
-def config_tema():
-    """Salva/carrega configurações de tema"""
-    config_file = Path('config_tema.json')
-
-    if request.method == 'GET':
-        if config_file.exists():
-            with open(config_file, 'r', encoding='utf-8') as f:
-                return jsonify(json.load(f))
-        else:
-            return jsonify({
-                'modo': 'claro',
-                'cor_primaria': '#4f46e5',
-                'cor_secundaria': '#10b981',
-                'cor_destaque': '#f59e0b'
-            })
-
-    else:  # POST
-        try:
-            dados = request.json
-            with open(config_file, 'w', encoding='utf-8') as f:
-                json.dump(dados, f, ensure_ascii=False, indent=2)
-            return jsonify({"message": "Tema salvo com sucesso"})
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-# ==================== CONFIGURAÇÕES DE LOGO E MASCOTE ====================
-
 MEDIA_DIR = Path('static/media')
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -5146,559 +3464,6 @@ ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'svg', 'webp'}
 
 def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
-
-@app.route('/api/config/logo-mascote', methods=['GET'])
-def get_logo_mascote():
-    """Retorna caminhos atuais da logo e mascote"""
-    logo_path = ''
-    mascote_path = ''
-
-    for ext in ALLOWED_IMAGE_EXTENSIONS:
-        if (MEDIA_DIR / f'logo.{ext}').exists():
-            logo_path = f'/static/media/logo.{ext}'
-            break
-    for ext in ALLOWED_IMAGE_EXTENSIONS:
-        if (MEDIA_DIR / f'mascote.{ext}').exists():
-            mascote_path = f'/static/media/mascote.{ext}'
-            break
-
-    return jsonify({
-        'logo': logo_path,
-        'mascote': mascote_path
-    })
-
-@app.route('/api/config/upload-imagem', methods=['POST'])
-def upload_imagem_config():
-    """Upload de logo ou mascote da empresa"""
-    try:
-        tipo = request.form.get('tipo')  # 'logo' ou 'mascote'
-        if tipo not in ('logo', 'mascote'):
-            return jsonify({'erro': 'Tipo deve ser "logo" ou "mascote"'}), 400
-
-        if 'arquivo' not in request.files:
-            return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
-
-        arquivo = request.files['arquivo']
-        if arquivo.filename == '':
-            return jsonify({'erro': 'Nome de arquivo vazio'}), 400
-
-        if not allowed_image(arquivo.filename):
-            return jsonify({'erro': f'Formato não suportado. Use: {", ".join(ALLOWED_IMAGE_EXTENSIONS)}'}), 400
-
-        ext = arquivo.filename.rsplit('.', 1)[1].lower()
-
-        # Remover arquivos antigos do mesmo tipo
-        for old_ext in ALLOWED_IMAGE_EXTENSIONS:
-            old_file = MEDIA_DIR / f'{tipo}.{old_ext}'
-            if old_file.exists():
-                old_file.unlink()
-
-        # Salvar novo arquivo
-        nome_arquivo = f'{tipo}.{ext}'
-        caminho = MEDIA_DIR / nome_arquivo
-        arquivo.save(str(caminho))
-
-        print(f"[OK] {tipo.capitalize()} salvo: {caminho}")
-
-        return jsonify({
-            'sucesso': True,
-            'caminho': f'/static/media/{nome_arquivo}',
-            'tipo': tipo
-        })
-
-    except Exception as e:
-        print(f"[ERRO] Upload {tipo}: {e}")
-        return jsonify({'erro': str(e)}), 500
-
-@app.route('/api/config/remover-imagem', methods=['POST'])
-def remover_imagem_config():
-    """Remove logo ou mascote"""
-    try:
-        dados = request.json
-        tipo = dados.get('tipo')
-        if tipo not in ('logo', 'mascote'):
-            return jsonify({'erro': 'Tipo deve ser "logo" ou "mascote"'}), 400
-
-        removido = False
-        for ext in ALLOWED_IMAGE_EXTENSIONS:
-            arquivo = MEDIA_DIR / f'{tipo}.{ext}'
-            if arquivo.exists():
-                arquivo.unlink()
-                removido = True
-
-        return jsonify({
-            'sucesso': True,
-            'removido': removido
-        })
-    except Exception as e:
-        return jsonify({'erro': str(e)}), 500
-
-# ==================== TREINAMENTO DO SISTEMA ====================
-
-@app.route('/api/treinar-sistema', methods=['POST'])
-def treinar_sistema():
-    """Treina o sistema de aprendizagem com os arquivos da pasta training_samples"""
-    try:
-        print("\n" + "="*60)
-        print("INICIANDO TREINAMENTO DO SISTEMA")
-        print("="*60)
-
-        # Verificar se tabelas existem
-        layout_learner.criar_tabelas()
-        print("[OK] Tabelas do banco verificadas/criadas")
-
-        # Treinar com Documentos
-        print("\n[1/2] Treinando com Documentos...")
-        print(f"    Diretório: {layout_learner.nfse_dir}")
-        resultado_docs = layout_learner.treinar_com_diretorio(layout_learner.nfse_dir)
-        print(f"    Resultado Docs: {resultado_docs}")
-
-        # Treinar com Boletos
-        print("\n[2/2] Treinando com Boletos...")
-        print(f"    Diretório: {layout_learner.boleto_dir}")
-        resultado_boletos = layout_learner.treinar_com_diretorio(layout_learner.boleto_dir)
-        print(f"    Resultado Boletos: {resultado_boletos}")
-
-        # Recarregar layouts
-        layout_learner.carregar_layouts()
-        print(f"[OK] Layouts recarregados: {len(layout_learner.layouts_conhecidos)} layouts em cache")
-
-        print("\n" + "="*60)
-        print("TREINAMENTO CONCLUÍDO!")
-        print("="*60 + "\n")
-
-        return jsonify({
-            "success": True,
-            "message": "Sistema treinado com sucesso!",
-            "documentos": {
-                "total_arquivos": resultado_docs.get('total_arquivos', 0),
-                "processados": resultado_docs.get('processados', 0),
-                "erros": resultado_docs.get('erros', 0),
-                "layouts_novos": resultado_docs.get('layouts_novos', 0),
-                "layouts_existentes": resultado_docs.get('layouts_existentes', 0)
-            },
-            "boletos": {
-                "total_arquivos": resultado_boletos.get('total_arquivos', 0),
-                "processados": resultado_boletos.get('processados', 0),
-                "erros": resultado_boletos.get('erros', 0),
-                "layouts_novos": resultado_boletos.get('layouts_novos', 0),
-                "layouts_existentes": resultado_boletos.get('layouts_existentes', 0)
-            }
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-@app.route('/api/layouts-conhecidos', methods=['GET'])
-def listar_layouts():
-    """Lista todos os layouts aprendidos com detalhes"""
-    try:
-        conn = get_db()
-
-        # Buscar layouts
-        layouts = conn.execute("""
-            SELECT id, tipo_doc, nome_layout, emissor, palavras_chave,
-                   regex_patterns, posicoes_campos, confianca, num_amostras,
-                   data_criacao, ultima_atualizacao
-            FROM document_layouts
-            ORDER BY tipo_doc, data_criacao DESC
-        """).fetchall()
-
-        # Buscar amostras de cada layout
-        resultado = []
-        for layout in layouts:
-            layout_dict = dict(layout)
-
-            # Buscar amostras deste layout
-            amostras = conn.execute("""
-                SELECT arquivo_nome, sucesso, data_adicao
-                FROM training_samples
-                WHERE layout_id = ?
-                ORDER BY data_adicao DESC
-            """, (layout['id'],)).fetchall()
-
-            layout_dict['amostras'] = [dict(a) for a in amostras]
-
-            # Parse JSON fields
-            if layout_dict['palavras_chave']:
-                try:
-                    layout_dict['palavras_chave'] = json.loads(layout_dict['palavras_chave'])
-                except (json.JSONDecodeError, TypeError):
-                    pass  # Manter como string se não for JSON válido
-            if layout_dict['regex_patterns']:
-                try:
-                    layout_dict['regex_patterns'] = json.loads(layout_dict['regex_patterns'])
-                except (json.JSONDecodeError, TypeError):
-                    pass  # Manter como string se não for JSON válido
-            if layout_dict['posicoes_campos']:
-                try:
-                    layout_dict['posicoes_campos'] = json.loads(layout_dict['posicoes_campos'])
-                except (json.JSONDecodeError, TypeError):
-                    pass  # Manter como string se não for JSON válido
-
-            resultado.append(layout_dict)
-
-        return jsonify({
-            "success": True,
-            "total_layouts": len(resultado),
-            "layouts": resultado
-        })
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-# ==================== ANÁLISE GEMINI AUTOMÁTICA ====================
-
-def extrair_dados_com_regex(texto):
-    """Extrai dados usando regex patterns pré-compilados (otimizado)"""
-    dados = {
-        'data_emissao': None,
-        'data_vencimento': None,
-        'valor_total': None,
-        'numero_documento': None,
-        'cnpj': None,
-        'nome_cliente': None,
-        'tributos': {}
-    }
-
-    # Data de emissão - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['data_emissao']:
-        match = pattern.search(texto)
-        if match:
-            dados['data_emissao'] = match.group(1).replace('-', '/')
-            break
-
-    # Data de vencimento - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['vencimento']:
-        match = pattern.search(texto)
-        if match:
-            dados['data_vencimento'] = match.group(1).replace('-', '/')
-            break
-
-    # Valor total - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['valor']:
-        match = pattern.search(texto)
-        if match:
-            valor_str = match.group(1).replace('.', '').replace(',', '.')
-            try:
-                dados['valor_total'] = float(valor_str)
-                break
-            except (ValueError, AttributeError):
-                pass  # Valor não convertível
-
-    # Número do documento - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['numero']:
-        match = pattern.search(texto)
-        if match:
-            dados['numero_documento'] = match.group(1)
-            break
-
-    # CNPJ - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['cnpj']:
-        match = pattern.search(texto)
-        if match:
-            dados['cnpj'] = match.group(1)
-            break
-
-    # Nome do Cliente / Tomador - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['nome']:
-        match = pattern.search(texto)
-        if match:
-            nome = match.group(1).strip()
-            if len(nome) > 5:  # Pelo menos 5 caracteres
-                dados['nome_cliente'] = nome
-                break
-
-    # Endereço - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['endereco']:
-        match = pattern.search(texto)
-        if match:
-            endereco = match.group(1).strip()
-            # Limpar possíveis caracteres extras
-            endereco = re.sub(r'\s*-\s*$', '', endereco)  # Remove traço no final
-            if len(endereco) > 10:  # Endereço razoável
-                dados['endereco'] = endereco
-                break
-
-    # Bairro - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['bairro']:
-        match = pattern.search(texto)
-        if match:
-            bairro = match.group(1).strip()
-            if len(bairro) > 2:
-                dados['bairro'] = bairro
-                break
-
-    # CEP - usar patterns pré-compilados
-    for pattern in COMPILED_PATTERNS['cep']:
-        match = pattern.search(texto)
-        if match:
-            cep = match.group(1)
-            # Formatar CEP se necessário
-            if '-' not in cep and len(cep) == 8:
-                cep = f"{cep[:5]}-{cep[5:]}"
-            dados['cep'] = cep
-            break
-
-    # Tributos - usar patterns pré-compilados
-    for tributo, patterns in COMPILED_PATTERNS['tributos'].items():
-        for pattern in patterns:
-            match = pattern.search(texto)
-            if match:
-                valor_str = match.group(1).replace('.', '').replace(',', '.')
-                try:
-                    dados['tributos'][tributo] = float(valor_str)
-                    break
-                except (ValueError, AttributeError):
-                    pass  # Valor não convertível
-
-    return dados
-
-def analisar_arquivo_com_gemini(caminho_arquivo, nome_arquivo):
-    """Analisa arquivo com múltiplas estratégias (REGEX, OCR, IA)"""
-    try:
-        conteudo = ""
-        dados_extraidos = {}
-
-        # ESTRATÉGIA 1: Extrair texto do PDF com pdfplumber
-        if caminho_arquivo.endswith('.pdf'):
-            try:
-                import pdfplumber
-                with pdfplumber.open(caminho_arquivo) as pdf:
-                    for page in pdf.pages[:10]:  # Aumentar para 10 páginas
-                        texto_pagina = page.extract_text() or ""
-                        conteudo += texto_pagina + "\n"
-            except Exception as e:
-                print(f"Erro ao extrair PDF: {e}")
-                return None
-        else:
-            try:
-                with open(caminho_arquivo, 'r', encoding='utf-8') as f:
-                    conteudo = f.read()[:20000]
-            except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
-                print(f"[AVISO] Erro ao ler arquivo {caminho_arquivo}: {e}")
-                return None
-
-        if not conteudo or len(conteudo) < 50:
-            return None
-
-        # ESTRATÉGIA 3: REGEX para extrair dados estruturados (MAIS CONFIÁVEL)
-        dados_regex = extrair_dados_com_regex(conteudo)
-
-        # Se regex encontrou dados suficientes, usar eles
-        if dados_regex.get('data_emissao') and dados_regex.get('valor_total'):
-            print(f"OK Dados extraídos via REGEX: {dados_regex}")
-
-            # Tentar identificar tipo de documento (MELHORADO)
-            tipo_doc = 'outro'
-            conteudo_lower = conteudo.lower()
-
-            # Detectar LAUDO
-            palavras_laudo = ['laudo', 'técnico', 'vistoria', 'inspeção', 'diagnóstico']
-            matches_laudo = sum(1 for palavra in palavras_laudo if palavra in conteudo_lower)
-
-            # Detectar RECIBO
-            palavras_recibo = ['recibo', 'recebi de', 'valor recebido']
-            matches_recibo = sum(1 for palavra in palavras_recibo if palavra in conteudo_lower)
-
-            # Detectar ORÇAMENTO
-            palavras_orcamento = ['orçamento', 'orcamento', 'proposta', 'cotação']
-            matches_orcamento = sum(1 for palavra in palavras_orcamento if palavra in conteudo_lower)
-
-            # Determinar tipo baseado em pontuação
-            if matches_laudo >= 1:
-                tipo_doc = 'laudo'
-                print(f"[DETECÇÃO] OK Identificado como LAUDO ({matches_laudo} palavras-chave)")
-            elif matches_recibo >= 1:
-                tipo_doc = 'recibo'
-                print(f"[DETECÇÃO] OK Identificado como RECIBO ({matches_recibo} palavras-chave)")
-            elif matches_orcamento >= 1:
-                tipo_doc = 'orcamento'
-                print(f"[DETECÇÃO] OK Identificado como ORÇAMENTO ({matches_orcamento} palavras-chave)")
-            else:
-                print(f"[DETECÇÃO] AVISO Não identificado - marcado como 'outro'")
-
-            return {
-                'tipo_documento': tipo_doc,
-                'dados_cliente': {
-                    'nome': dados_regex.get('nome_cliente', ''),
-                    'cnpj': dados_regex.get('cnpj', ''),
-                    'endereco': dados_regex.get('endereco', ''),
-                    'telefone': ''
-                },
-                'valores': {
-                    'total': dados_regex.get('valor_total'),
-                    'data_emissao': dados_regex.get('data_emissao'),
-                    'data_vencimento': dados_regex.get('data_vencimento'),
-                    'numero_documento': dados_regex.get('numero_documento', ''),
-                    'tributos': dados_regex.get('tributos', {})
-                },
-                'informacoes_chave': ['Extraído via REGEX'],
-                'resumo': f'{tipo_doc} - {dados_regex.get("data_emissao", "")}'
-            }
-
-        # ESTRATÉGIA 4: GEMINI como fallback (apenas se regex falhou)
-        if not os.environ.get("GEMINI_API_KEY"):
-            return None
-
-        fallback_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
-        # Prompt para extração estruturada
-        prompt = f"""
-Analise o documento a seguir e extraia as informações mais importantes em formato JSON.
-
-DOCUMENTO: {nome_arquivo}
-
-CONTEÚDO:
-{conteudo[:3000]}
-
-Retorne APENAS um objeto JSON válido com esta estrutura:
-{{
-  "tipo_documento": "boleto|recibo|orcamento|laudo|contrato|outro",
-  "dados_cliente": {{
-    "nome": "nome ou razão social encontrada",
-    "cnpj": "CNPJ se encontrado",
-    "endereco": "endereço se encontrado",
-    "telefone": "telefone se encontrado"
-  }},
-  "valores": {{
-    "total": valor_numerico_ou_null,
-    "data_emissao": "data de emissão no formato DD/MM/YYYY ou null",
-    "data_vencimento": "data de vencimento no formato DD/MM/YYYY ou null (se for boleto)",
-    "numero_documento": "número do documento/nota/boleto se houver",
-    "tributos": {{
-      "iss": valor_ou_null,
-      "pis": valor_ou_null,
-      "cofins": valor_ou_null,
-      "inss": valor_ou_null,
-      "ir": valor_ou_null
-    }}
-  }},
-  "informacoes_chave": ["lista", "de", "informações", "importantes"],
-  "resumo": "resumo breve do documento em 1-2 frases"
-}}
-
-IMPORTANTE:
-- Extraia SEMPRE a data que está no documento, não use a data de hoje
-- Se for boleto, procure por "Data de Vencimento" e "Data de Emissão"
-- Se for recibo/orçamento/laudo, procure pela data do documento
-- Formato de data SEMPRE DD/MM/YYYY
-
-Retorne APENAS o JSON, sem explicações adicionais.
-"""
-
-        response = fallback_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        resultado_texto = response.text.strip()
-
-        # Limpar markdown se houver
-        if resultado_texto.startswith('```'):
-            resultado_texto = resultado_texto.split('```')[1]
-            if resultado_texto.startswith('json'):
-                resultado_texto = resultado_texto[4:]
-
-        # Parse JSON
-        dados_extraidos = json.loads(resultado_texto)
-        return dados_extraidos
-
-    except Exception as e:
-        print(f"Erro na análise Gemini: {e}")
-        return None
-
-def consultar_cnpj_receita(cnpj):
-    """Consulta dados do CNPJ na Receita Federal (API ReceitaWS)"""
-    try:
-        import requests
-
-        # Limpar CNPJ (apenas números)
-        cnpj_limpo = ''.join(filter(str.isdigit, cnpj))
-
-        if len(cnpj_limpo) != 14:
-            print(f"[CNPJ] CNPJ inválido: {cnpj}")
-            return None
-
-        print(f"[CNPJ] Consultando CNPJ na Receita Federal: {cnpj_limpo}")
-
-        # API gratuita da ReceitaWS
-        url = f"https://www.receitaws.com.br/v1/cnpj/{cnpj_limpo}"
-
-        response = requests.get(url, timeout=10)
-
-        if response.status_code == 200:
-            dados = response.json()
-
-            if dados.get('status') == 'ERROR':
-                print(f"[CNPJ] Erro na consulta: {dados.get('message')}")
-                return None
-
-            # Montar endereço completo
-            print(f"[CNPJ] Montando endereço a partir dos dados da API...")
-            print(f"[CNPJ]   Logradouro: {dados.get('logradouro', 'N/A')}")
-            print(f"[CNPJ]   Número: {dados.get('numero', 'N/A')}")
-            print(f"[CNPJ]   Complemento: {dados.get('complemento', 'N/A')}")
-            print(f"[CNPJ]   Bairro: {dados.get('bairro', 'N/A')}")
-            print(f"[CNPJ]   Município: {dados.get('municipio', 'N/A')}")
-            print(f"[CNPJ]   UF: {dados.get('uf', 'N/A')}")
-            print(f"[CNPJ]   CEP: {dados.get('cep', 'N/A')}")
-
-            endereco_completo = ""
-            if dados.get('logradouro'):
-                endereco_completo = dados['logradouro']
-                if dados.get('numero'):
-                    endereco_completo += f", {dados['numero']}"
-                if dados.get('complemento') and dados['complemento'].strip():
-                    endereco_completo += f", {dados['complemento']}"
-                if dados.get('bairro'):
-                    endereco_completo += f", {dados['bairro']}"
-                if dados.get('municipio'):
-                    endereco_completo += f", {dados['municipio']}"
-                if dados.get('uf'):
-                    endereco_completo += f", {dados['uf']}"
-                if dados.get('cep'):
-                    endereco_completo += f", CEP: {dados['cep']}"
-
-            print(f"[CNPJ] Endereço montado: {endereco_completo}")
-
-            resultado = {
-                'nome': dados.get('nome', ''),
-                'razao_social': dados.get('nome', ''),
-                'nome_fantasia': dados.get('fantasia', ''),
-                'cnpj': dados.get('cnpj', ''),
-                'endereco_completo': endereco_completo,
-                'logradouro': dados.get('logradouro', ''),
-                'numero': dados.get('numero', ''),
-                'complemento': dados.get('complemento', ''),
-                'bairro': dados.get('bairro', ''),
-                'municipio': dados.get('municipio', ''),
-                'uf': dados.get('uf', ''),
-                'cep': dados.get('cep', ''),
-                'telefone': dados.get('telefone', ''),
-                'email': dados.get('email', ''),
-                'situacao': dados.get('situacao', ''),
-                'data_abertura': dados.get('abertura', ''),
-            }
-
-            print(f"[CNPJ] OK Dados encontrados na Receita Federal!")
-            print(f"[CNPJ]   Razão Social: {resultado['razao_social']}")
-            print(f"[CNPJ]   Nome Fantasia: {resultado['nome_fantasia']}")
-            print(f"[CNPJ]   Endereço: {endereco_completo[:100]}")
-            print(f"[CNPJ]   Situação: {resultado['situacao']}")
-
-            return resultado
-        else:
-            print(f"[CNPJ] Erro HTTP {response.status_code}")
-            return None
-
-    except Exception as e:
-        print(f"[CNPJ] Erro ao consultar CNPJ: {e}")
-        return None
-
 def processar_boleto(caminho_arquivo, arquivo_nome, documento_id):
     """
     Processa ESPECIFICAMENTE boletos - Função dedicada e otimizada
@@ -5886,237 +3651,6 @@ def processar_boleto(caminho_arquivo, arquivo_nome, documento_id):
         print(f"[BOLETO] ERROERROERRO ERRO NO PROCESSAMENTO: {e}")
         traceback.print_exc()
         return None
-
-def salvar_dados_gemini_no_banco(dados_extraidos, arquivo_id, arquivo_nome, respeitar_limite=False):
-    """Salva dados extraídos pelo Gemini no banco de dados"""
-    try:
-        if not dados_extraidos:
-            return
-
-        conn = get_db()
-        tipo_doc = dados_extraidos.get('tipo_documento', 'outro')
-        valores = dados_extraidos.get('valores', {})
-
-        print(f"\n[SALVAR] Iniciando salvamento no banco...")
-        print(f"[SALVAR] Tipo do documento extraído: {tipo_doc}")
-        print(f"[SALVAR] Valores extraídos: {valores}")
-        print(f"[SALVAR] Tem valor total? {bool(valores.get('total'))}")
-
-        # Se for cliente identificado, tentar cadastrar (sem duplicar)
-        # REGRA: Cadastro automático SÓ com CNPJ + Nome + Endereço
-        if dados_extraidos.get('dados_cliente'):
-            cliente = dados_extraidos['dados_cliente']
-            nome = cliente.get('nome', '').strip()
-            cnpj = cliente.get('cnpj', '').strip()
-            endereco = cliente.get('endereco', '').strip()
-
-            # CONSULTAR CNPJ NA RECEITA FEDERAL PARA COMPLEMENTAR DADOS
-            if cnpj:
-                # Se deve respeitar limite, adicionar delay
-                if respeitar_limite:
-                    import time
-                    # Verificar se já houve consultas recentes
-                    if not hasattr(salvar_dados_gemini_no_banco, '_ultimas_consultas'):
-                        salvar_dados_gemini_no_banco._ultimas_consultas = []
-
-                    agora = time.time()
-                    # Remover consultas mais antigas que 60 segundos
-                    salvar_dados_gemini_no_banco._ultimas_consultas = [
-                        t for t in salvar_dados_gemini_no_banco._ultimas_consultas
-                        if agora - t < 60
-                    ]
-
-                    # Se já tem 3 consultas no último minuto, esperar
-                    if len(salvar_dados_gemini_no_banco._ultimas_consultas) >= 3:
-                        tempo_espera = 60 - (agora - salvar_dados_gemini_no_banco._ultimas_consultas[0])
-                        if tempo_espera > 0:
-                            print(f"[CNPJ] Aguardando {tempo_espera:.0f}s para respeitar limite de 3/min...")
-                            time.sleep(tempo_espera + 1)  # +1 segundo de margem
-
-                    # Registrar esta consulta
-                    salvar_dados_gemini_no_banco._ultimas_consultas.append(time.time())
-
-                # Tentar consultar, mas não falhar se der erro
-                try:
-                    dados_receita = consultar_cnpj_receita(cnpj)
-                except Exception as e:
-                    print(f"[CNPJ] ERRO ao consultar Receita: {e}")
-                    dados_receita = None
-                if dados_receita:
-                    # Usar dados da Receita Federal (SEMPRE PRIORITÁRIOS)
-                    print(f"[CLIENTE] OK Dados da Receita Federal recebidos!")
-
-                    # SEMPRE usar dados da Receita quando disponíveis (mais confiáveis)
-                    nome_receita = dados_receita.get('nome_fantasia') or dados_receita.get('razao_social', '')
-                    razao_receita = dados_receita.get('razao_social', '')
-                    endereco_receita = dados_receita.get('endereco_completo', '')
-                    cnpj_receita = dados_receita.get('cnpj', cnpj)
-                    telefone_receita = dados_receita.get('telefone', '')
-                    email_receita = dados_receita.get('email', '')
-
-                    print(f"[CLIENTE] Dados extraídos da Receita:")
-                    print(f"[CLIENTE]   Nome Fantasia: {nome_receita}")
-                    print(f"[CLIENTE]   Razão Social: {razao_receita}")
-                    print(f"[CLIENTE]   Endereço: {endereco_receita}")
-                    print(f"[CLIENTE]   Telefone: {telefone_receita}")
-                    print(f"[CLIENTE]   Email: {email_receita}")
-
-                    # PRIORIZAR dados da Receita, usar extraído do PDF apenas como fallback
-                    nome = nome_receita if nome_receita else nome
-                    endereco = endereco_receita if endereco_receita else endereco
-
-                    # Atualizar dados do cliente com informações da Receita (prioritárias)
-                    cliente.update({
-                        'nome': nome,
-                        'razao_social': razao_receita if razao_receita else nome,
-                        'nome_fantasia': nome_receita if nome_receita else nome,
-                        'cnpj': cnpj_receita,
-                        'endereco': endereco,
-                        'telefone': telefone_receita if telefone_receita else cliente.get('telefone', ''),
-                        'email': email_receita if email_receita else cliente.get('email', ''),
-                    })
-
-                    print(f"[CLIENTE] Dados finais após Receita:")
-                    print(f"[CLIENTE]   Nome: {nome}")
-                    print(f"[CLIENTE]   Endereço: {endereco[:100] if endereco else 'N/A'}")
-                else:
-                    print(f"[CLIENTE] AVISO Consulta à Receita falhou ou não retornou dados")
-
-            # Validar se tem TODOS os dados obrigatórios para cadastro automático
-            tem_dados_completos = bool(nome and cnpj and endereco)
-
-            if not tem_dados_completos:
-                print(f"[CLIENTE] Dados incompletos para cadastro automático")
-                print(f"[CLIENTE]   Nome: {'OK' if nome else 'ERRO'} {nome[:50] if nome else 'N/A'}")
-                print(f"[CLIENTE]   CNPJ: {'OK' if cnpj else 'ERRO'} {cnpj if cnpj else 'N/A'}")
-                print(f"[CLIENTE]   Endereço: {'OK' if endereco else 'ERRO'} {endereco[:50] if endereco else 'N/A'}")
-                print(f"[CLIENTE] AVISO Cliente NÃO será cadastrado automaticamente (faltam dados)")
-            else:
-                # Verificar se cliente já existe (por CNPJ primeiro, depois por nome)
-                existe = None
-
-                if cnpj:
-                    # Remover pontuação do CNPJ para comparação
-                    cnpj_limpo = ''.join(filter(str.isdigit, cnpj))
-                    if cnpj_limpo:
-                        existe = conn.execute(
-                            "SELECT id, nome_fantasia FROM clientes_web WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '/', ''), '-', '') = ?",
-                            (cnpj_limpo,)
-                        ).fetchone()
-
-                # Se não encontrou por CNPJ, tentar por nome exato
-                if not existe and nome:
-                    existe = conn.execute(
-                        "SELECT id, nome_fantasia FROM clientes_web WHERE nome_fantasia = ? OR razao_social = ?",
-                        (nome, nome)
-                    ).fetchone()
-
-                if existe:
-                    print(f"[CLIENTE] Cliente já existe: {existe[1]} (ID: {existe[0]})")
-                else:
-                    # Cadastrar novo cliente com todos os dados obrigatórios
-                    print(f"[CLIENTE] OK Dados completos encontrados!")
-                    print(f"[CLIENTE]   Nome: {nome}")
-                    print(f"[CLIENTE]   CNPJ: {cnpj}")
-                    print(f"[CLIENTE]   Endereço: {endereco[:100]}")
-
-                    # Valores que serão inseridos no banco
-                    razao_social_final = cliente.get('razao_social', nome)
-                    telefone_final = cliente.get('telefone', '')
-                    email_final = cliente.get('email', '')
-
-                    print(f"[CLIENTE] >>> VALORES SENDO INSERIDOS NO BANCO:")
-                    print(f"[CLIENTE] >>> nome_fantasia: {nome}")
-                    print(f"[CLIENTE] >>> razao_social: {razao_social_final}")
-                    print(f"[CLIENTE] >>> cnpj: {cnpj}")
-                    print(f"[CLIENTE] >>> endereco_completo: {endereco}")
-                    print(f"[CLIENTE] >>> telefone: {telefone_final}")
-                    print(f"[CLIENTE] >>> email: {email_final}")
-
-                    conn.execute('''INSERT INTO clientes_web
-                        (nome_fantasia, razao_social, cnpj, endereco_completo, telefone, email, data_cadastro)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                        (nome,
-                         razao_social_final,
-                         cnpj,
-                         endereco,
-                         telefone_final,
-                         email_final,
-                         datetime.now()))
-                    conn.commit()
-
-                    # Verificar o que foi realmente salvo
-                    cliente_inserido = conn.execute(
-                        "SELECT id, nome_fantasia, endereco_completo FROM clientes_web WHERE cnpj = ? ORDER BY id DESC LIMIT 1",
-                        (cnpj,)
-                    ).fetchone()
-
-                    if cliente_inserido:
-                        print(f"[CLIENTE] OKOKOK Cliente cadastrado com sucesso! ID: {cliente_inserido[0]}")
-                        print(f"[CLIENTE] >>> VERIFICAÇÃO NO BANCO:")
-                        print(f"[CLIENTE] >>> Nome salvo: {cliente_inserido[1]}")
-                        print(f"[CLIENTE] >>> Endereço salvo: {cliente_inserido[2]}")
-                    else:
-                        print(f"[CLIENTE] AVISO️ Erro ao verificar cliente inserido!")
-
-        # Log do tipo detectado
-        print(f"[SALVAR] Tipo detectado: {tipo_doc}, tem_total: {bool(valores.get('total'))}")
-
-        # Atualizar documento_gerados com a data correta do documento
-        data_documento = valores.get('data_emissao') or datetime.now().strftime('%d/%m/%Y')
-        try:
-            # Converter DD/MM/YYYY para objeto datetime
-            if '/' in data_documento:
-                partes = data_documento.split('/')
-                data_obj = datetime(int(partes[2]), int(partes[1]), int(partes[0]))
-            else:
-                data_obj = datetime.now()
-        except (ValueError, IndexError, AttributeError):
-            data_obj = datetime.now()
-
-        # Preparar nome do cliente
-        cliente_nome_para_doc = dados_extraidos.get('dados_cliente', {}).get('nome', '')
-
-        # Mapear tipo_doc para formato documentos_gerados
-        tipo_doc_map = {
-            'recibo': 'RECIBO',
-            'laudo': 'LAUDO',
-            'orcamento': 'ORÇAMENTO',
-            'outro': 'UPLOAD'
-        }
-        tipo_doc_final = tipo_doc_map.get(tipo_doc, tipo_doc.upper())
-
-        conn.execute('''UPDATE documentos_gerados
-                       SET data_geracao = ?, valor_total = ?, tipo_doc = ?, cliente_nome = ?
-                       WHERE id = ?''',
-                    (data_obj, valores.get('total', 0.0), tipo_doc_final, cliente_nome_para_doc, arquivo_id))
-        conn.commit()
-        print(f"[SALVAR] OK Registro atualizado em documentos_gerados: tipo='{tipo_doc_final}', cliente='{cliente_nome_para_doc}'")
-
-        # Salvar resumo e informações em tabela de análises
-        conn.execute('''CREATE TABLE IF NOT EXISTS analises_gemini (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            arquivo_id INTEGER,
-            arquivo_nome TEXT,
-            tipo_documento TEXT,
-            dados_extraidos TEXT,
-            resumo TEXT,
-            data_analise TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''')
-
-        conn.execute('''INSERT INTO analises_gemini
-            (arquivo_id, arquivo_nome, tipo_documento, dados_extraidos, resumo)
-            VALUES (?, ?, ?, ?, ?)''',
-            (arquivo_id, arquivo_nome,
-             tipo_doc,
-             json.dumps(dados_extraidos, ensure_ascii=False),
-             dados_extraidos.get('resumo', '')))
-        conn.commit()
-
-    except Exception as e:
-        print(f"Erro ao salvar dados Gemini: {e}")
-        traceback.print_exc()
-
 with app.app_context():
     criar_tabelas()
     # Criar tabelas do sistema de aprendizagem
@@ -6556,7 +4090,6 @@ def busca_global():
         })
 
     return jsonify({'resultados': resultados, 'total': len(resultados)})
-
 
 @app.route('/api/abrir-arquivo', methods=['POST'])
 def abrir_arquivo():

@@ -49,14 +49,22 @@ def login():
 @auth_bp.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    return redirect(url_for('.login'))
 
 
 @auth_bp.route('/reset-admin')
 def reset_admin():
-    """Rota de emergencia para resetar o usuario admin padrao"""
+    """Rota de emergencia para resetar o usuario admin padrao.
+    So funciona se nao existem usuarios OU se o usuario logado e admin."""
     try:
         conn = get_db()
+
+        # Seguranca: so permite reset se nao ha usuarios ou se logado como admin
+        total_usuarios = conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+        if total_usuarios > 0 and session.get('usuario_perfil') != 'admin':
+            flash('Acesso negado. Apenas administradores podem resetar o admin.', 'erro')
+            return redirect(url_for('.login'))
+
         # Verificar se admin existe
         admin = conn.execute('SELECT id FROM usuarios WHERE email = ?', ('admin@sistema.com',)).fetchone()
         senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
@@ -71,7 +79,7 @@ def reset_admin():
         flash('Admin resetado com sucesso! Email: admin@sistema.com | Senha: admin123', 'sucesso')
     except Exception as e:
         flash(f'Erro ao resetar admin: {e}', 'erro')
-    return redirect(url_for('login'))
+    return redirect(url_for('.login'))
 
 
 # ==================== API DE USUARIOS ====================
