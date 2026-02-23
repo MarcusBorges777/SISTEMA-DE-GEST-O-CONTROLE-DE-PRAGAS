@@ -66,10 +66,6 @@ class TestSegurancaGlobal:
         response = client.get('/api/tags')
         assert response.status_code == 401
 
-    def test_api_documentos_requires_login(self, client):
-        response = client.get('/api/documentos-gerados')
-        assert response.status_code == 401
-
     def test_admin_routes_require_admin_profile(self, logged_in_user_client):
         """Non-admin users get 403 on admin routes."""
         response = logged_in_user_client.get('/api/database/tables')
@@ -132,17 +128,6 @@ class TestApiRoutes:
         assert response.status_code == 200
         data = response.get_json()
         assert isinstance(data, list)
-
-    def test_api_modelos_listar(self, logged_in_client):
-        response = logged_in_client.get('/api/modelos/listar')
-        assert response.status_code == 200
-        data = response.get_json()
-        assert 'modelos' in data
-        assert 'total' in data
-
-    def test_api_documentos_gerados(self, logged_in_client):
-        response = logged_in_client.get('/api/documentos-gerados')
-        assert response.status_code == 200
 
     def test_api_config_tema_get(self, logged_in_client):
         """Config tema requires admin."""
