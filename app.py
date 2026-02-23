@@ -500,7 +500,8 @@ def criar_tabelas():
     adicionar_coluna_segura(db, 'documentos_gerados', 'razao_social', 'TEXT')
     adicionar_coluna_segura(db, 'documentos_gerados', 'cliente_cnpj', 'TEXT')
 
-    # Adicionar campo de garantia aos clientes
+    # Adicionar campo de garantia e contato aos clientes
+    adicionar_coluna_segura(db, 'clientes_web', 'email', 'TEXT')
     adicionar_coluna_segura(db, 'clientes_web', 'data_garantia', 'TEXT')
     adicionar_coluna_segura(db, 'clientes_web', 'periodo_garantia_meses', 'INTEGER', '12')
 

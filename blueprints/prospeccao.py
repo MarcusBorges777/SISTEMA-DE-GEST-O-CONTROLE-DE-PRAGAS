@@ -18,6 +18,16 @@ prospeccao_bp = Blueprint('prospeccao', __name__, url_prefix='/api/prospeccao')
 BASE_DIR = Path(__file__).parent.parent
 CNPJ_DB_PATH = BASE_DIR / 'cnpj_filtrado.db'
 
+
+@prospeccao_bp.before_request
+def verificar_banco_prospeccao():
+    """Verifica se o banco de CNPJs existe antes de processar qualquer rota."""
+    if not CNPJ_DB_PATH.exists():
+        return jsonify({
+            'erro': 'Módulo de prospecção indisponível. O banco de dados cnpj_filtrado.db não foi encontrado.',
+            'instrucoes': 'Importe o banco de dados da Receita Federal para habilitar este módulo.'
+        }), 503
+
 # CNAEs Estratégicos - Obrigados pela ANVISA
 CNAES_OURO = {
     'alimentacao': {
@@ -462,6 +472,8 @@ CNAES_OURO = {
 
 def get_db_connection():
     """Conexão otimizada com o banco de CNPJs"""
+    if not CNPJ_DB_PATH.exists():
+        return None
     conn = sqlite3.connect(str(CNPJ_DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
