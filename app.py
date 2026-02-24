@@ -1142,6 +1142,11 @@ def gerador_recibo():
 def gerador_orcamento():
     return render_template('gerador_orcamento.html')
 
+@app.route('/gerador/laudo')
+@login_required
+def gerador_laudo():
+    return render_template('gerador_laudo.html')
+
 @app.route('/dashboard-antigo')
 def dashboard_antigo():
     return render_template('dashboard.html')

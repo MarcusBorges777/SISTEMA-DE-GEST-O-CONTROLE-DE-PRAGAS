@@ -715,6 +715,13 @@ function abrirGeradorOrcamento() {
     window.open('/gerador/orcamento', '_blank');
 }
 
+function abrirGeradorLaudo() {
+    if (clienteSelecionadoCompleto) {
+        sessionStorage.setItem('clienteDocumento', JSON.stringify(clienteSelecionadoCompleto));
+    }
+    window.open('/gerador/laudo', '_blank');
+}
+
 // Limpar previews de cliente nos blocos de documento
 function limparPreviewClienteDocumentos() {
     clienteSelecionadoCompleto = null;

@@ -40,6 +40,10 @@ class TestAuthRoutes:
         response = client.get('/gerador/orcamento')
         assert response.status_code == 302
 
+    def test_gerador_laudo_requires_login(self, client):
+        response = client.get('/gerador/laudo')
+        assert response.status_code == 302
+
 
 class TestSegurancaGlobal:
     """Tests for global security (before_request)."""

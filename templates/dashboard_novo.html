@@ -101,7 +101,7 @@
                 <i data-lucide="users" class="w-5 h-5 inline mr-2"></i> Clientes
             </button>
             <button onclick="mostrarView('gerar-documento')" id="btn-gerar-documento" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
-                <i data-lucide="file-plus" class="w-5 h-5 inline mr-2"></i> Novo Documento
+                <i data-lucide="file-plus" class="w-5 h-5 inline mr-2"></i> GERADOR DE DOCUMENTOS
             </button>
             <button onclick="mostrarView('documentos')" id="btn-documentos" class="flex-1 min-w-[140px] px-6 py-3 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition">
                 <i data-lucide="folder" class="w-5 h-5 inline mr-2"></i> Arquivos
@@ -345,607 +345,131 @@
             </div>
         </div>
 
-        <!-- VIEW: GERAR DOCUMENTO -->
+        <!-- VIEW: GERADOR DE DOCUMENTOS -->
         <div id="view-gerar-documento" class="view-content hidden">
             <!-- Header com gradiente -->
             <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-xl shadow-lg p-8 mb-6 text-white">
                 <div class="flex items-center gap-3 mb-3">
                     <div class="bg-white/20 backdrop-blur-sm rounded-lg p-3">
-                        <i data-lucide="sparkles" class="w-8 h-8"></i>
+                        <i data-lucide="file-text" class="w-8 h-8"></i>
                     </div>
                     <div>
-                        <h2 class="text-3xl font-bold">Geração Inteligente de Documentos</h2>
-                        <p class="text-indigo-100 mt-1">Sistema detecta variáveis automaticamente e preenche com dados do cliente</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover-lift cursor-default">
-                        <i data-lucide="zap" class="w-5 h-5 mb-2"></i>
-                        <p class="text-sm font-semibold">Preenchimento Automático</p>
-                        <p class="text-xs text-indigo-100 mt-1">Dados do cliente preenchidos instantaneamente</p>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover-lift cursor-default">
-                        <i data-lucide="shield-check" class="w-5 h-5 mb-2"></i>
-                        <p class="text-sm font-semibold">100% Seguro</p>
-                        <p class="text-xs text-indigo-100 mt-1">Seus documentos são processados localmente</p>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover-lift cursor-default">
-                        <i data-lucide="clock" class="w-5 h-5 mb-2"></i>
-                        <p class="text-sm font-semibold">Economia de Tempo</p>
-                        <p class="text-xs text-indigo-100 mt-1">Gere documentos em segundos</p>
+                        <h2 class="text-3xl font-bold">Gerador de Documentos</h2>
+                        <p class="text-indigo-100 mt-1">Selecione um cliente e escolha o tipo de documento para gerar</p>
                     </div>
                 </div>
             </div>
 
             <div class="bg-white rounded-xl shadow-lg p-8">
-                <form id="form-gerar-documento" class="space-y-8">
-                    <!-- Passo 1: Cliente -->
-                    <div class="relative">
-                        <div class="absolute -left-4 top-0 w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                            1
-                        </div>
-                        <div class="ml-12">
-                            <label class="block text-lg font-bold text-gray-800 mb-3">
-                                <i data-lucide="user" class="w-5 h-5 inline mr-2"></i> Selecione o Cliente
-                            </label>
-
-                            <!-- Hidden input para armazenar ID do cliente selecionado -->
-                            <input type="hidden" name="cliente_id" id="cliente-id-selecionado" required>
-
-                            <!-- Barra de Pesquisa -->
-                            <div class="relative mb-4">
-                                <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <i data-lucide="search" class="w-5 h-5 text-indigo-400"></i>
-                                </div>
-                                <input type="text" id="pesquisa-cliente" placeholder="Digite para buscar cliente..."
-                                       class="w-full pl-12 pr-4 py-3 text-base border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 focus:outline-none transition-all shadow-sm"
-                                       oninput="filtrarClientesCards(this.value)">
-                            </div>
-
-                            <!-- Grid de Cards de Clientes -->
-                            <div id="grid-clientes-selecao" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-2">
-                                <!-- Será preenchido via JavaScript -->
-                            </div>
-
-                            <!-- Cliente Selecionado -->
-                            <div id="cliente-selecionado-display" class="hidden mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 rounded-lg">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <p class="text-xs text-indigo-600 font-semibold uppercase mb-1">Cliente Selecionado</p>
-                                        <p class="text-lg font-bold text-gray-800" id="nome-cliente-selecionado"></p>
-                                        <p class="text-sm text-gray-600" id="info-cliente-selecionado"></p>
-                                    </div>
-                                    <button type="button" onclick="limparSelecaoCliente()"
-                                            class="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-200 transition">
-                                        <i data-lucide="x" class="w-4 h-4 inline"></i> Alterar
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p class="text-sm text-gray-500 mt-3 ml-1 flex items-center gap-1">
-                                <i data-lucide="sparkles" class="w-4 h-4 text-indigo-500"></i>
-                                <span>Os dados do cliente serão preenchidos automaticamente</span>
-                            </p>
-                        </div>
+                <!-- Passo 1: Cliente -->
+                <div class="relative">
+                    <div class="absolute -left-4 top-0 w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        1
                     </div>
+                    <div class="ml-12">
+                        <label class="block text-lg font-bold text-gray-800 mb-3">
+                            <i data-lucide="user" class="w-5 h-5 inline mr-2"></i> Selecione o Cliente
+                        </label>
 
-                    <!-- Divisor -->
-                    <div class="border-t-2 border-gray-200"></div>
+                        <input type="hidden" name="cliente_id" id="cliente-id-selecionado">
 
-                    <!-- Passo 2: Modelo -->
-                    <div class="relative">
-                        <div class="absolute -left-4 top-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                            2
-                        </div>
-                        <div class="ml-12">
-                            <label class="block text-lg font-bold text-gray-800 mb-3">
-                                <i data-lucide="file-text" class="w-5 h-5 inline mr-2"></i> Escolha o Tipo de Documento
-                            </label>
-
-                            <!-- Hidden input para armazenar modelo selecionado -->
-                            <input type="hidden" name="modelo" id="modelo-selecionado" required>
-
-                            <!-- Cards de Categorias Principais -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                <!-- Card LAUDOS -->
-                                <div class="card-categoria border-2 border-gray-200 rounded-xl p-5 cursor-pointer hover:border-blue-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white"
-                                     onclick="toggleCategoria('laudos')" id="card-laudos">
-                                    <div class="text-center">
-                                        <div class="bg-blue-100 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                                            <i data-lucide="file-check" class="w-8 h-8 text-blue-600"></i>
-                                        </div>
-                                        <h3 class="font-bold text-gray-800 text-lg mb-1">Laudos</h3>
-                                        <p class="text-xs text-gray-500">Documentos técnicos</p>
-                                        <div class="mt-2 text-xs text-blue-600 font-semibold">
-                                            <i data-lucide="chevron-down" class="w-4 h-4 inline"></i> Clique para ver opções
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Card RECIBOS -->
-                                <div class="card-categoria border-2 border-gray-200 rounded-xl p-5 cursor-pointer hover:border-green-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white"
-                                     onclick="toggleCategoria('recibos')" id="card-recibos">
-                                    <div class="text-center">
-                                        <div class="bg-green-100 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                                            <i data-lucide="receipt" class="w-8 h-8 text-green-600"></i>
-                                        </div>
-                                        <h3 class="font-bold text-gray-800 text-lg mb-1">Recibos</h3>
-                                        <p class="text-xs text-gray-500">Comprovantes de pagamento</p>
-                                        <div class="mt-2 text-xs text-green-600 font-semibold">
-                                            <i data-lucide="chevron-down" class="w-4 h-4 inline"></i> Clique para ver opções
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Card ORÇAMENTOS -->
-                                <div class="card-categoria border-2 border-gray-200 rounded-xl p-5 cursor-pointer hover:border-amber-500 hover:shadow-xl transition-all transform hover:scale-105 bg-white"
-                                     onclick="toggleCategoria('orcamentos')" id="card-orcamentos">
-                                    <div class="text-center">
-                                        <div class="bg-amber-100 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                                            <i data-lucide="calculator" class="w-8 h-8 text-amber-600"></i>
-                                        </div>
-                                        <h3 class="font-bold text-gray-800 text-lg mb-1">Orçamentos</h3>
-                                        <p class="text-xs text-gray-500">Propostas comerciais</p>
-                                        <div class="mt-2 text-xs text-amber-600 font-semibold">
-                                            <i data-lucide="chevron-down" class="w-4 h-4 inline"></i> Clique para ver opções
-                                        </div>
-                                    </div>
-                                </div>
+                        <!-- Barra de Pesquisa -->
+                        <div class="relative mb-4">
+                            <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <i data-lucide="search" class="w-5 h-5 text-indigo-400"></i>
                             </div>
-
-                            <!-- Área Expansível de Submodelos -->
-                            <div id="area-submodelos" class="hidden">
-                                <!-- Título da Categoria Expandida -->
-                                <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded-lg">
-                                    <h4 class="font-bold text-gray-800 flex items-center gap-2">
-                                        <i data-lucide="layers" class="w-5 h-5 text-purple-600"></i>
-                                        <span id="titulo-categoria-expandida"></span>
-                                    </h4>
-                                    <button type="button" onclick="fecharSubmodelos()"
-                                            class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 transition">
-                                        <i data-lucide="x" class="w-4 h-4 inline"></i> Fechar
-                                    </button>
-                                </div>
-
-                                <!-- Grid de Submodelos -->
-                                <div id="grid-submodelos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto p-2">
-                                    <!-- Será preenchido via JavaScript -->
-                                </div>
-                            </div>
-
-                            <!-- Modelo Selecionado -->
-                            <div id="modelo-selecionado-display" class="hidden mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500 rounded-lg">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <p class="text-xs text-purple-600 font-semibold uppercase mb-1">Modelo Selecionado</p>
-                                        <p class="text-lg font-bold text-gray-800" id="nome-modelo-selecionado"></p>
-                                        <p class="text-sm text-gray-600" id="info-modelo-selecionado"></p>
-                                    </div>
-                                    <button type="button" onclick="limparSelecaoModelo()"
-                                            class="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-200 transition">
-                                        <i data-lucide="x" class="w-4 h-4 inline"></i> Alterar
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p class="text-sm text-gray-500 mt-3 ml-1 flex items-center gap-1">
-                                <i data-lucide="layers" class="w-4 h-4 text-purple-500"></i>
-                                <span>Selecione entre Laudos, Orçamentos ou Recibos</span>
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Divisor -->
-                    <div class="border-t-2 border-gray-200"></div>
-
-                    <!-- Passo 3: Variáveis -->
-                    <div id="container-variaveis" class="hidden relative">
-                        <div class="absolute -left-4 top-0 w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                            3
-                        </div>
-                        <div class="ml-12">
-                            <label class="block text-lg font-bold text-gray-800 mb-3">
-                                <i data-lucide="edit" class="w-5 h-5 inline mr-2"></i> Preencha as Informações do Documento
-                            </label>
-                            <p class="text-sm text-gray-500 mb-6">
-                                <i data-lucide="wand-2" class="w-4 h-4 inline"></i> Dados do cliente já foram preenchidos automaticamente
-                            </p>
-
-                        <!-- Campos Especiais: Data e Garantia -->
-                        <div class="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg p-4 border-l-4 border-cyan-500 mb-4">
-                            <h3 class="font-bold text-gray-800 mb-3">
-                                <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i> Informações do Serviço
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <!-- Data do Serviço -->
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                                        <i data-lucide="calendar-days" class="w-4 h-4 inline mr-1"></i> Data do Serviço
-                                        <span class="font-mono text-xs bg-cyan-100 px-2 py-1 rounded ml-2">{{DATA}}</span>
-                                    </label>
-                                    <input type="date" name="extra_DATA" id="campo-data-servico"
-                                           class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-cyan-500 focus:outline-none text-base font-semibold"
-                                           style="color-scheme: light;">
-                                </div>
-
-                                <!-- Garantia (Meses) -->
-                                <div id="campo-garantia-container">
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                                        <i data-lucide="shield-check" class="w-4 h-4 inline mr-1"></i> Garantia (Meses)
-                                        <span class="font-mono text-xs bg-cyan-100 px-2 py-1 rounded ml-2">{{numero_meses}}</span>
-                                    </label>
-                                    <select name="extra_numero_meses" id="campo-garantia-meses"
-                                            class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-cyan-500 focus:outline-none text-base font-semibold">
-                                        <option value="1">1 mês</option>
-                                        <option value="2">2 meses</option>
-                                        <option value="3">3 meses</option>
-                                        <option value="4">4 meses</option>
-                                        <option value="5">5 meses</option>
-                                        <option value="6" selected>6 meses</option>
-                                        <option value="7">7 meses</option>
-                                        <option value="8">8 meses</option>
-                                        <option value="9">9 meses</option>
-                                        <option value="10">10 meses</option>
-                                        <option value="11">11 meses</option>
-                                        <option value="12">12 meses</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <p class="text-xs text-gray-600 mt-3">
-                                <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
-                                <strong>Próximo Serviço:</strong> Será calculado automaticamente somando a Data do Serviço + Garantia ({{Proximo_servico}})
-                            </p>
+                            <input type="text" id="pesquisa-cliente" placeholder="Digite para buscar cliente..."
+                                   class="w-full pl-12 pr-4 py-3 text-base border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 focus:outline-none transition-all shadow-sm"
+                                   oninput="filtrarClientesCards(this.value)">
                         </div>
 
-                        <!-- Pragas Controladas (APENAS LAUDOS) -->
-                        <div id="bloco-pragas" class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border-l-4 border-orange-500 hidden">
-                            <h3 class="font-bold text-gray-800 mb-3">
-                                <i data-lucide="bug" class="w-4 h-4 inline mr-1"></i> Pragas Controladas
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Selecione as pragas que foram controladas no serviço</p>
-                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_B" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🪳 Barata</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_R" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🐀 Rato</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_C" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🐭 Camundongo</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_P" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🪲 Pulga</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_W" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🪵 Cupim</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_V" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🦂 Escorpião</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_M" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🪰 Mosca</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_F" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">🐜 Formiga</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition">
-                                    <input type="checkbox" name="praga_O" class="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                    <span class="text-sm font-semibold text-gray-700">Outro</span>
-                                </label>
-                            </div>
+                        <!-- Grid de Cards de Clientes -->
+                        <div id="grid-clientes-selecao" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-2">
                         </div>
 
-                        <!-- Orçamentos (somente 1 linha simples) -->
-                        <div id="bloco-orcamento" class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-l-4 border-blue-500 hidden">
-                            <!-- Preview dos dados do cliente no Orçamento -->
-                            <div id="orcamento-cliente-info" class="hidden mb-4 bg-white rounded-lg p-4 border border-blue-200">
-                                <h4 class="text-sm font-bold text-blue-700 mb-2 flex items-center gap-1">
-                                    <i data-lucide="user-check" class="w-4 h-4"></i> Dados do Cliente no Orçamento
-                                </h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <span class="text-gray-500 font-medium">Nome Fantasia:</span>
-                                        <span class="text-gray-800 font-semibold ml-1" id="orcamento-cliente-nome"></span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-500 font-medium">CNPJ:</span>
-                                        <span class="text-gray-800 font-semibold ml-1" id="orcamento-cliente-cnpj"></span>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <span class="text-gray-500 font-medium">Endereço:</span>
-                                        <span class="text-gray-800 font-semibold ml-1" id="orcamento-cliente-endereco"></span>
-                                    </div>
+                        <!-- Cliente Selecionado -->
+                        <div id="cliente-selecionado-display" class="hidden mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 rounded-lg">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <p class="text-xs text-indigo-600 font-semibold uppercase mb-1">Cliente Selecionado</p>
+                                    <p class="text-lg font-bold text-gray-800" id="nome-cliente-selecionado"></p>
+                                    <p class="text-sm text-gray-600" id="info-cliente-selecionado"></p>
                                 </div>
-                            </div>
-
-                            <!-- Botão para abrir gerador visual -->
-                            <div class="mb-4 p-4 bg-white rounded-lg border-2 border-blue-300 border-dashed text-center">
-                                <p class="text-sm text-gray-600 mb-3">
-                                    <i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i>
-                                    Use o <strong>Gerador Visual de Orçamentos</strong> para criar orçamentos profissionais com logo, mascote e layout A4.
-                                </p>
-                                <button type="button" onclick="abrirGeradorOrcamento()" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl">
-                                    <i data-lucide="external-link" class="w-4 h-4 inline mr-2"></i> Abrir Gerador Visual de Orçamento
+                                <button type="button" onclick="limparSelecaoCliente()"
+                                        class="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-200 transition">
+                                    <i data-lucide="x" class="w-4 h-4 inline"></i> Alterar
                                 </button>
                             </div>
-
-                            <div class="mb-3">
-                                <h3 class="font-bold text-gray-800">
-                                    <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Informações do Orçamento
-                                </h3>
-                                <p class="text-xs text-gray-600">Preencha os dados do orçamento. Valor será escrito por extenso automaticamente.</p>
-                            </div>
-
-                            <div class="space-y-3">
-                                <!-- Linha única para orçamento -->
-                                <div class="bg-white rounded-lg p-4 border border-blue-200">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">PROCEDIMENTO (Categoria do Serviço)</label>
-                                            <input type="text" name="extra_servico_categoria" placeholder="Ex: Dedetização, Desratização, etc."
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">LOCAL (Dependências do Serviço)</label>
-                                            <input type="text" name="extra_dependencias_servico" placeholder="Ex: Todo o estabelecimento, Cozinha, etc."
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">VALOR (R$)</label>
-                                            <input type="text" id="campo-valor-formatado" name="extra_valor_formatado" placeholder="Digite apenas números"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                                                   oninput="formatarValorMonetario(this)">
-                                            <p class="text-xs text-gray-500 mt-1">
-                                                <i data-lucide="info" class="w-3 h-3 inline"></i> Digite apenas números (ex: 1000 vira R$ 1.000,00)
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">VALOR POR EXTENSO</label>
-                                            <input type="text" name="extra_escrito" placeholder="Ex: cem reais"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
-                                            <p class="text-xs text-gray-500 mt-1">
-                                                <i data-lucide="info" class="w-3 h-3 inline"></i> Digite o valor por extenso
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
-                        <!-- Tabela de Itens (APENAS RECIBOS) -->
-                        <div id="bloco-tabela-itens" class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-l-4 border-green-500 hidden">
-                            <!-- Preview dos dados do cliente no Recibo -->
-                            <div id="recibo-cliente-info" class="hidden mb-4 bg-white rounded-lg p-4 border border-green-200">
-                                <h4 class="text-sm font-bold text-green-700 mb-2 flex items-center gap-1">
-                                    <i data-lucide="user-check" class="w-4 h-4"></i> Dados do Cliente no Recibo
-                                </h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <span class="text-gray-500 font-medium">Nome Fantasia:</span>
-                                        <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-nome"></span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-500 font-medium">CNPJ:</span>
-                                        <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-cnpj"></span>
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <span class="text-gray-500 font-medium">Endereço:</span>
-                                        <span class="text-gray-800 font-semibold ml-1" id="recibo-cliente-endereco"></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Botão para abrir gerador visual -->
-                            <div class="mb-4 p-4 bg-white rounded-lg border-2 border-green-300 border-dashed text-center">
-                                <p class="text-sm text-gray-600 mb-3">
-                                    <i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i>
-                                    Use o <strong>Gerador Visual de Recibos</strong> para criar recibos profissionais com logo, mascote e layout A4.
-                                </p>
-                                <button type="button" onclick="abrirGeradorRecibo()" class="px-6 py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-all shadow-lg hover:shadow-xl">
-                                    <i data-lucide="external-link" class="w-4 h-4 inline mr-2"></i> Abrir Gerador Visual de Recibo
-                                </button>
-                            </div>
-
-                            <div class="flex justify-between items-center mb-3">
-                                <div>
-                                    <h3 class="font-bold text-gray-800">
-                                        <i data-lucide="shopping-cart" class="w-4 h-4 inline mr-1"></i> Detalhamento do Recibo
-                                    </h3>
-                                    <p class="text-xs text-gray-600">Adicione os serviços e valores. Os totais serão calculados automaticamente.</p>
-                                </div>
-                                <button type="button" onclick="toggleDetalhamento()" class="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
-                                    <i data-lucide="chevron-down" id="icon-toggle-detalhamento" class="w-4 h-4 inline"></i>
-                                </button>
-                            </div>
-
-                            <div id="conteudo-detalhamento" class="space-y-3">
-                                <!-- Linha 1 -->
-                                <div class="bg-white rounded-lg p-3 border border-green-200">
-                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                        <div class="md:col-span-6">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Descrição do Serviço 1</label>
-                                            <input type="text" name="extra_servico" placeholder="Ex: Dedetização residencial"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Quantidade</label>
-                                            <input type="number" name="extra_quant" min="1" value="1"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Valor Unit. (R$)</label>
-                                            <input type="number" name="extra_valor" min="0" step="0.01" placeholder="0,00"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Total (R$)</label>
-                                            <input type="text" id="valortotal-display" readonly
-                                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm font-bold text-green-700">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Linha 2 -->
-                                <div class="bg-white rounded-lg p-3 border border-green-200">
-                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                        <div class="md:col-span-6">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Descrição do Serviço 2</label>
-                                            <input type="text" name="extra_servico1" placeholder="Ex: Aplicação de gel"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Quantidade</label>
-                                            <input type="number" name="extra_quant1" min="1" value="1"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Valor Unit. (R$)</label>
-                                            <input type="number" name="extra_valor1" min="0" step="0.01" placeholder="0,00"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Total (R$)</label>
-                                            <input type="text" id="valortotal1-display" readonly
-                                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm font-bold text-green-700">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Linha 3 -->
-                                <div class="bg-white rounded-lg p-3 border border-green-200">
-                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                        <div class="md:col-span-6">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Descrição do Serviço 3</label>
-                                            <input type="text" name="extra_servico2" placeholder="Ex: Limpeza e desinfecção"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Quantidade</label>
-                                            <input type="number" name="extra_quant2" min="1" value="1"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Valor Unit. (R$)</label>
-                                            <input type="number" name="extra_valor2" min="0" step="0.01" placeholder="0,00"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Total (R$)</label>
-                                            <input type="text" id="valortotal2-display" readonly
-                                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm font-bold text-green-700">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Linha 4 -->
-                                <div class="bg-white rounded-lg p-3 border border-green-200">
-                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                        <div class="md:col-span-6">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Descrição do Serviço 4</label>
-                                            <input type="text" name="extra_servico3" placeholder="Ex: Manutenção preventiva"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Quantidade</label>
-                                            <input type="number" name="extra_quant3" min="1" value="1"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Valor Unit. (R$)</label>
-                                            <input type="number" name="extra_valor3" min="0" step="0.01" placeholder="0,00"
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none text-sm"
-                                                   onchange="calcularTotais()">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-xs font-semibold text-gray-700 mb-1">Total (R$)</label>
-                                            <input type="text" id="valortotal3-display" readonly
-                                                   class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm font-bold text-green-700">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Total Geral -->
-                                <div class="mt-4 pt-4 border-t-2 border-green-300">
-                                    <div class="flex justify-end items-center gap-4">
-                                        <span class="text-lg font-bold text-gray-800">Valor Total:</span>
-                                        <div class="bg-green-600 text-white px-6 py-3 rounded-lg">
-                                            <span class="text-2xl font-bold" id="valorsomatotal-display">R$ 0,00</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        </div>
+                        <p class="text-sm text-gray-500 mt-3 ml-1 flex items-center gap-1">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-500"></i>
+                            <span>Os dados do cliente serao preenchidos automaticamente no documento</span>
+                        </p>
                     </div>
+                </div>
 
-                    <!-- Divisor -->
-                    <div class="border-t-2 border-gray-200"></div>
+                <!-- Divisor -->
+                <div class="border-t-2 border-gray-200 my-8"></div>
 
-                    <!-- Botões -->
-                    <div class="flex gap-4 pt-6">
-                        <button type="submit" id="btn-gerar-doc-inteligente"
-                                class="flex-1 px-8 py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-xl font-bold text-lg hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-                                style="color: #f0f4ff;">
-                            <i data-lucide="sparkles" class="w-6 h-6 inline mr-2"></i>
-                            Gerar Documento Inteligente
-                            <i data-lucide="arrow-right" class="w-5 h-5 inline ml-2"></i>
-                        </button>
-                        <button type="button" onclick="mostrarView('clientes')"
-                                class="px-8 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all border-2 border-gray-300 hover:border-gray-400">
-                            <i data-lucide="x" class="w-5 h-5 inline mr-2"></i> Cancelar
-                        </button>
+                <!-- Passo 2: Tipo de Documento -->
+                <div class="relative">
+                    <div class="absolute -left-4 top-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        2
                     </div>
-                </form>
+                    <div class="ml-12">
+                        <label class="block text-lg font-bold text-gray-800 mb-6">
+                            <i data-lucide="file-text" class="w-5 h-5 inline mr-2"></i> Escolha o Tipo de Documento
+                        </label>
 
-                <!-- Resultado da Geração -->
-                <div id="resultado-geracao" class="hidden mt-8 animate-fade-in">
-                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-2xl p-8 text-white">
-                        <div class="flex items-start gap-4">
-                            <div class="bg-white/20 backdrop-blur-sm rounded-full p-4">
-                                <i data-lucide="check-circle" class="w-10 h-10"></i>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="text-2xl font-bold mb-2">
-                                    Documento Gerado com Sucesso!
-                                </h3>
-                                <p class="text-green-50 mb-4">
-                                    Seu documento foi criado e está pronto para download
-                                </p>
-                                <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-4">
-                                    <p class="text-sm text-green-100 mb-1">Arquivo gerado:</p>
-                                    <p class="font-mono font-bold text-lg" id="resultado-arquivo"></p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Card LAUDOS -->
+                            <div onclick="abrirGeradorLaudo()" class="border-2 border-gray-200 rounded-xl p-6 cursor-pointer hover:border-blue-500 hover:shadow-2xl transition-all transform hover:scale-105 bg-white group">
+                                <div class="text-center">
+                                    <div class="bg-blue-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center group-hover:bg-blue-200 transition">
+                                        <i data-lucide="file-check" class="w-10 h-10 text-blue-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800 text-xl mb-2">Laudos</h3>
+                                    <p class="text-sm text-gray-500 mb-3">Laudo Tecnico de Controle de Pragas e Higienizacao</p>
+                                    <div class="mt-3 px-4 py-2 bg-blue-50 rounded-lg text-blue-600 font-semibold text-sm group-hover:bg-blue-600 group-hover:text-white transition">
+                                        <i data-lucide="external-link" class="w-4 h-4 inline mr-1"></i> Abrir Gerador
+                                    </div>
                                 </div>
-                                <div class="flex gap-3 flex-wrap">
-                                    <button id="resultado-visualizar" onclick="" class="px-6 py-3 bg-white text-purple-600 rounded-lg font-bold hover:bg-purple-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
-                                        <i data-lucide="eye" class="w-5 h-5 inline mr-2"></i> Visualizar Documento
-                                    </button>
-                                    <a id="resultado-download" href="#" download class="px-6 py-3 bg-white text-green-600 rounded-lg font-bold hover:bg-green-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
-                                        <i data-lucide="download" class="w-5 h-5 inline mr-2"></i> Baixar Documento
-                                    </a>
-                                    <button onclick="mostrarView('gerar-documento'); document.getElementById('resultado-geracao').classList.add('hidden');" class="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-lg font-semibold hover:bg-white/30 transition-all border-2 border-white/40">
-                                        <i data-lucide="plus-circle" class="w-5 h-5 inline mr-2"></i> Gerar Outro Documento
-                                    </button>
-                                    <button onclick="mostrarView('documentos')" class="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-lg font-semibold hover:bg-white/30 transition-all border-2 border-white/40">
-                                        <i data-lucide="folder" class="w-5 h-5 inline mr-2"></i> Ver Todos os Arquivos
-                                    </button>
+                            </div>
+
+                            <!-- Card RECIBOS -->
+                            <div onclick="abrirGeradorRecibo()" class="border-2 border-gray-200 rounded-xl p-6 cursor-pointer hover:border-green-500 hover:shadow-2xl transition-all transform hover:scale-105 bg-white group">
+                                <div class="text-center">
+                                    <div class="bg-green-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center group-hover:bg-green-200 transition">
+                                        <i data-lucide="receipt" class="w-10 h-10 text-green-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800 text-xl mb-2">Recibos</h3>
+                                    <p class="text-sm text-gray-500 mb-3">Recibo de Prestacao de Servicos</p>
+                                    <div class="mt-3 px-4 py-2 bg-green-50 rounded-lg text-green-600 font-semibold text-sm group-hover:bg-green-600 group-hover:text-white transition">
+                                        <i data-lucide="external-link" class="w-4 h-4 inline mr-1"></i> Abrir Gerador
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card ORCAMENTOS -->
+                            <div onclick="abrirGeradorOrcamento()" class="border-2 border-gray-200 rounded-xl p-6 cursor-pointer hover:border-amber-500 hover:shadow-2xl transition-all transform hover:scale-105 bg-white group">
+                                <div class="text-center">
+                                    <div class="bg-amber-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center group-hover:bg-amber-200 transition">
+                                        <i data-lucide="calculator" class="w-10 h-10 text-amber-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800 text-xl mb-2">Orcamentos</h3>
+                                    <p class="text-sm text-gray-500 mb-3">Orcamento de Prestacao de Servicos</p>
+                                    <div class="mt-3 px-4 py-2 bg-amber-50 rounded-lg text-amber-600 font-semibold text-sm group-hover:bg-amber-600 group-hover:text-white transition">
+                                        <i data-lucide="external-link" class="w-4 h-4 inline mr-1"></i> Abrir Gerador
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <p class="text-sm text-gray-500 mt-4 ml-1 flex items-center gap-1">
+                            <i data-lucide="info" class="w-4 h-4 text-purple-500"></i>
+                            <span>O documento sera aberto em uma nova aba com os dados do cliente preenchidos</span>
+                        </p>
                     </div>
                 </div>
             </div>
