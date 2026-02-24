@@ -21,8 +21,11 @@ async function carregarLogoMascote() {
         if (data.mascote) {
             mostrarPreviewImagem('mascote', data.mascote);
         }
+        if (data.alvara) {
+            mostrarPreviewImagem('alvara', data.alvara);
+        }
     } catch (error) {
-        console.error('Erro ao carregar logo/mascote:', error);
+        console.error('Erro ao carregar logo/mascote/alvara:', error);
     }
 }
 
@@ -95,7 +98,8 @@ async function uploadImagem(tipo, input) {
 
         if (response.ok && data.sucesso) {
             mostrarPreviewImagem(tipo, data.caminho);
-            showToast(`${tipo === 'logo' ? 'Logo' : 'Mascote'} salvo com sucesso!`, 'success');
+            const nomesTipos = { logo: 'Logo', mascote: 'Mascote', alvara: 'Alvara Sanitario' };
+            showToast(`${nomesTipos[tipo] || tipo} salvo com sucesso!`, 'success');
         } else {
             showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }
@@ -109,7 +113,8 @@ async function uploadImagem(tipo, input) {
 }
 
 async function removerImagem(tipo) {
-    if (!confirm(`Deseja realmente remover ${tipo === 'logo' ? 'a logo' : 'o mascote'}?`)) return;
+    const nomesTipos = { logo: 'a logo', mascote: 'o mascote', alvara: 'o alvara sanitario' };
+    if (!confirm(`Deseja realmente remover ${nomesTipos[tipo] || tipo}?`)) return;
 
     try {
         const response = await fetch('/api/config/remover-imagem', {
@@ -122,7 +127,8 @@ async function removerImagem(tipo) {
 
         if (response.ok && data.sucesso) {
             esconderPreviewImagem(tipo);
-            showToast(`${tipo === 'logo' ? 'Logo' : 'Mascote'} removido com sucesso!`, 'success');
+            const nomesRemover = { logo: 'Logo', mascote: 'Mascote', alvara: 'Alvara Sanitario' };
+            showToast(`${nomesRemover[tipo] || tipo} removido com sucesso!`, 'success');
         } else {
             showToast('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
         }

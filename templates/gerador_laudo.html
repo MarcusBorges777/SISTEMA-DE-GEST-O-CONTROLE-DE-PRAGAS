@@ -504,6 +504,17 @@
         </div>
     </div>
 
+    <!-- ================================================ -->
+    <!-- PAGINA 3: ANEXO - ALVARA SANITARIO               -->
+    <!-- ================================================ -->
+    <div id="pagina-alvara" class="hidden a4-page bg-white shadow-2xl p-[15mm] flex flex-col items-center justify-center mt-8 overflow-hidden print-page-break">
+        <h2 class="text-xl font-black text-[#254191] uppercase tracking-wider mb-6 text-center">Anexo - Alvara Sanitario</h2>
+        <img id="alvara-img" src="" alt="Alvara Sanitario" class="max-w-full max-h-[250mm] object-contain rounded-lg shadow-lg border border-gray-200">
+        <div class="absolute bottom-6 left-0 right-0 text-center text-[8px] text-zinc-300 font-bold tracking-[0.4em] uppercase italic">
+            Dedetizadora Borges &#8226; CNPJ: 10.409.228/0001-93
+        </div>
+    </div>
+
 <script>
 // ============================================================
 // BASE DE DADOS DE PRODUTOS
@@ -628,6 +639,10 @@ function carregarLogoServidor() {
         .then(data => {
             if (data.logo) {
                 setLogo(data.logo);
+            }
+            if (data.alvara) {
+                document.getElementById('alvara-img').src = data.alvara;
+                document.getElementById('pagina-alvara').classList.remove('hidden');
             }
         })
         .catch(() => {});

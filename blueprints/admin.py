@@ -198,13 +198,14 @@ def config_tema():
             return jsonify({"error": str(e)}), 500
 
 
-# ==================== CONFIGURAÇÕES DE LOGO E MASCOTE ====================
+# ==================== CONFIGURAÇÕES DE LOGO, MASCOTE E ALVARÁ ====================
 
 @admin_bp.route('/api/config/logo-mascote', methods=['GET'])
 def get_logo_mascote():
-    """Retorna caminhos atuais da logo e mascote"""
+    """Retorna caminhos atuais da logo, mascote e alvará"""
     logo_path = ''
     mascote_path = ''
+    alvara_path = ''
 
     for ext in ALLOWED_IMAGE_EXTENSIONS:
         if (MEDIA_DIR / f'logo.{ext}').exists():
@@ -214,20 +215,25 @@ def get_logo_mascote():
         if (MEDIA_DIR / f'mascote.{ext}').exists():
             mascote_path = f'/static/media/mascote.{ext}'
             break
+    for ext in ALLOWED_IMAGE_EXTENSIONS:
+        if (MEDIA_DIR / f'alvara.{ext}').exists():
+            alvara_path = f'/static/media/alvara.{ext}'
+            break
 
     return jsonify({
         'logo': logo_path,
-        'mascote': mascote_path
+        'mascote': mascote_path,
+        'alvara': alvara_path
     })
 
 
 @admin_bp.route('/api/config/upload-imagem', methods=['POST'])
 def upload_imagem_config():
-    """Upload de logo ou mascote da empresa"""
+    """Upload de logo, mascote ou alvará da empresa"""
     try:
-        tipo = request.form.get('tipo')  # 'logo' ou 'mascote'
-        if tipo not in ('logo', 'mascote'):
-            return jsonify({'erro': 'Tipo deve ser "logo" ou "mascote"'}), 400
+        tipo = request.form.get('tipo')  # 'logo', 'mascote' ou 'alvara'
+        if tipo not in ('logo', 'mascote', 'alvara'):
+            return jsonify({'erro': 'Tipo deve ser "logo", "mascote" ou "alvara"'}), 400
 
         if 'arquivo' not in request.files:
             return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
@@ -267,12 +273,12 @@ def upload_imagem_config():
 
 @admin_bp.route('/api/config/remover-imagem', methods=['POST'])
 def remover_imagem_config():
-    """Remove logo ou mascote"""
+    """Remove logo, mascote ou alvará"""
     try:
         dados = request.json
         tipo = dados.get('tipo')
-        if tipo not in ('logo', 'mascote'):
-            return jsonify({'erro': 'Tipo deve ser "logo" ou "mascote"'}), 400
+        if tipo not in ('logo', 'mascote', 'alvara'):
+            return jsonify({'erro': 'Tipo deve ser "logo", "mascote" ou "alvara"'}), 400
 
         removido = False
         for ext in ALLOWED_IMAGE_EXTENSIONS:

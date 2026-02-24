@@ -707,12 +707,12 @@
                 </div>
             </div>
 
-            <!-- Secao: Logo e Mascote -->
+            <!-- Secao: Logo, Mascote e Alvara -->
             <div class="mb-8">
                 <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <i data-lucide="image" class="w-6 h-6 text-indigo-600"></i> Logo e Mascote
+                    <i data-lucide="image" class="w-6 h-6 text-indigo-600"></i> Logo, Mascote e Alvara Sanitario
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Card: Logo -->
                     <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                         <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 text-white">
@@ -772,6 +772,38 @@
                                 <button type="button" id="btn-remover-mascote" onclick="removerImagem('mascote')"
                                         class="hidden w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition border border-red-200">
                                     <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Remover Mascote
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card: Alvara Sanitario -->
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-white">
+                            <h3 class="text-lg font-bold flex items-center gap-2">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i> Alvara Sanitario
+                            </h3>
+                            <p class="text-sm text-green-100">Documento exibido como anexo nos laudos e geradores</p>
+                        </div>
+                        <div class="p-6">
+                            <div id="alvara-preview-container" class="mb-4 flex items-center justify-center">
+                                <div id="alvara-preview-empty" class="w-48 h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                    <i data-lucide="shield-check" class="w-12 h-12 mb-2"></i>
+                                    <p class="text-sm font-medium">Nenhum alvara definido</p>
+                                </div>
+                                <img id="alvara-preview-img" src="" alt="Alvara" class="hidden max-w-48 max-h-48 rounded-xl shadow-md object-contain border border-gray-200">
+                            </div>
+                            <div class="space-y-3">
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Selecionar imagem do alvara</span>
+                                    <input type="file" id="input-alvara" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                           class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer"
+                                           onchange="uploadImagem('alvara', this)">
+                                </label>
+                                <p class="text-xs text-gray-500">Formatos aceitos: PNG, JPG, SVG, WEBP</p>
+                                <button type="button" id="btn-remover-alvara" onclick="removerImagem('alvara')"
+                                        class="hidden w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition border border-red-200">
+                                    <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Remover Alvara
                                 </button>
                             </div>
                         </div>

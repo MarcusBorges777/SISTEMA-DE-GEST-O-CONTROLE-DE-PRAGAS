@@ -44,6 +44,14 @@
             .print-bg-light-blue { background-color: #eff6ff !important; }
             .print-border-light-blue { border-color: #dbeafe !important; }
             .print-bg-row-val { background-color: #eff6ff !important; }
+            .print-page-break { page-break-before: always; }
+            #pagina-alvara {
+                box-shadow: none !important;
+                width: 210mm;
+                height: 297mm;
+                padding: 15mm;
+                margin: 0;
+            }
         }
         .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         textarea { overflow: hidden; }
@@ -240,6 +248,17 @@
         </div>
     </div>
 
+    <!-- PAGINA ANEXO: ALVARA SANITARIO -->
+    <div id="pagina-alvara" class="hidden bg-white w-[210mm] min-h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col items-center justify-center p-[15mm] mt-8 print-page-break">
+        <h2 class="text-xl font-black text-[#254191] uppercase tracking-wider mb-6 text-center">Anexo - Alvara Sanitario</h2>
+        <img id="alvara-img" src="" alt="Alvara Sanitario" class="max-w-full max-h-[250mm] object-contain rounded-lg shadow-lg border border-gray-200">
+        <div class="absolute bottom-6 left-0 w-full text-center">
+            <p class="text-[9px] text-gray-300 font-bold italic uppercase tracking-widest">
+                DEDETIZADORA BORGES &bull; CNPJ: 10.409.228/0001-93
+            </p>
+        </div>
+    </div>
+
 <script>
 // ============================================================
 // DADOS
@@ -272,6 +291,10 @@ function carregarLogoServidor() {
                 logoImg.src = data.logo;
                 logoImg.classList.remove('hidden');
                 document.getElementById('logo-placeholder').classList.add('hidden');
+            }
+            if (data.alvara) {
+                document.getElementById('alvara-img').src = data.alvara;
+                document.getElementById('pagina-alvara').classList.remove('hidden');
             }
         })
         .catch(() => {});
