@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Flask App",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["app.py"],
+      "port": 5000
+    },
+    {
+      "name": "Java Spring Boot",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["spring-boot:run"],
+      "cwd": "backend",
+      "port": 8080
+    },
+    {
+      "name": "Tailwind CSS Watch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "watch:css"],
+      "port": 0
+    },
+    {
+      "name": "Docker Infrastructure",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "-d"],
+      "port": 5432
+    }
+  ]
+}
