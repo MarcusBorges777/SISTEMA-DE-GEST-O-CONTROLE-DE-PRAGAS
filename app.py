@@ -263,7 +263,29 @@ else:
 # Cache de CNAEs permitidos
 CNAES_PERMITIDOS = {}
 
-# NOTA: MUNICIPIOS_PATTERN e converter_municipios_rapido definidos após MUNICIPIOS dict
+# ============================================
+#  OTIMIZAÇÃO: Cache de Municípios
+# ============================================
+# Mapeamento de códigos de municípios para nomes
+MUNICIPIOS = {
+    '4445': 'Divinópolis',
+    '5300': 'Belo Horizonte',
+    '4123': 'Juiz de Fora',
+    '5206': 'Uberlândia',
+    '4503': 'Contagem',
+}
+
+# Pré-compilar regex para substituição de códigos de município (50x mais rápido)
+MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
+
+def converter_municipios_rapido(texto):
+    """
+    Converte códigos de município para nomes em uma única passagem.
+    50x mais rápido que múltiplos .replace()
+    """
+    if not texto:
+        return texto
+    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
 
 # Regex patterns pré-compilados para otimizar extração de dados de PDFs
 COMPILED_PATTERNS = {
@@ -376,27 +398,6 @@ cache_api = SimpleCache(ttl=60)  # Cache de APIs - 1 minuto
 cache_queries = SimpleCache(ttl=300)  # Cache de queries - 5 minutos
 cache_tags = SimpleCache(ttl=600)  # Cache de tags - 10 minutos
 
-# Mapeamento de códigos de municípios para nomes
-MUNICIPIOS = {
-    '4445': 'Divinópolis',
-    '5300': 'Belo Horizonte',
-    '4123': 'Juiz de Fora',
-    '5206': 'Uberlândia',
-    '4503': 'Contagem',
-}
-
-# Pré-compilar regex para substituição de códigos de município (50x mais rápido)
-MUNICIPIOS_PATTERN = re.compile('|'.join(re.escape(codigo) for codigo in MUNICIPIOS.keys()))
-
-def converter_municipios_rapido(texto):
-    """
-    Converte códigos de município para nomes em uma única passagem.
-    50x mais rápido que múltiplos .replace()
-    """
-    if not texto:
-        return texto
-    return MUNICIPIOS_PATTERN.sub(lambda m: MUNICIPIOS[m.group()], str(texto))
-
 # Regex patterns compilados (otimização)
 REGEX_PATTERNS = {
     'data': re.compile(r'(\d{2}/\d{2}/\d{4})'),
@@ -414,7 +415,16 @@ def obter_nome_municipio(codigo):
         return ''
     return MUNICIPIOS.get(str(codigo), str(codigo))
 
-
+TEMPLATES = {
+    'laudo_padrao': MODELOS_DIR / "Laudo Completo.docx",
+    'laudo_caixa': MODELOS_DIR / "Laudo Caixa D'Água.docx",
+    'laudo_dedetizacao': MODELOS_DIR / "Laudo Dedetização.docx",
+    'laudo_caixa_sem_assinatura': MODELOS_DIR / "Laudo Caixa (Sem Assinatura).docx",
+    'laudo_ddt_caixa_sem_assinatura': MODELOS_DIR / "Laudo Completo (Sem Assinatura).docx",
+    'laudo_ddt_sem_assinatura': MODELOS_DIR / "Laudo DDT (Sem Assinatura).docx",
+    'recibo': MODELOS_DIR / "Recibo.docx",
+    'orcamento': MODELOS_DIR / "Orçamento.docx",
+}
 
 def get_db():
     """Conexão otimizada com SQLite"""
