@@ -220,6 +220,7 @@ def seguranca_global():
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / 'gestao_documentos.db'
+MODELOS_DIR = BASE_DIR / 'modelos'
 
 OUTPUT_DIR = BASE_DIR / 'output'
 CNAES_FILE = BASE_DIR / 'cnaes_permitidos.txt'
