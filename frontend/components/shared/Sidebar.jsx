@@ -33,18 +33,12 @@ export default function Sidebar() {
         ${collapsed ? 'w-[68px]' : 'w-64'}`}
     >
       {/* Logo */}
-      <div className={`flex items-center h-16 px-4 border-b border-slate-200 dark:border-slate-700 ${collapsed ? 'justify-center' : 'gap-3'}`}>
+      <div className={`flex items-center justify-center h-20 px-3 border-b border-slate-200 dark:border-slate-700`}>
         {logoPath ? (
-          <img src={logoPath} alt="Logo" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+          <img src={logoPath} alt="Logo" className={`object-contain flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10 rounded-lg' : 'w-full h-16 rounded-xl'}`} />
         ) : (
-          <div className="w-9 h-9 rounded-lg bg-brand-500 flex items-center justify-center flex-shrink-0">
-            <Bug size={20} className="text-white" />
-          </div>
-        )}
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-800 dark:text-white truncate">Dedetizadora</p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Borges</p>
+          <div className={`rounded-xl bg-brand-500 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10' : 'w-14 h-14'}`}>
+            <Bug size={collapsed ? 20 : 28} className="text-white" />
           </div>
         )}
       </div>

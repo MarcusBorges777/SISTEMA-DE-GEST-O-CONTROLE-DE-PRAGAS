@@ -138,6 +138,31 @@ def api_clientes():
         return jsonify({"error": str(e)}), 500
 
 
+@clientes_bp.route('/api/clientes/<int:id>', methods=['PUT'])
+def atualizar_cliente(id):
+    dados = request.json
+    nome = dados.get('nome_fantasia', '').strip()
+    if not nome:
+        return jsonify({"error": "Nome obrigatorio"}), 400
+
+    try:
+        conn = get_db()
+        endereco_completo = f"{dados.get('rua', '')}, {dados.get('numero', '')} - {dados.get('cidade', '')}/{dados.get('uf', '')}"
+        conn.execute('''UPDATE clientes_web SET
+            nome_fantasia = ?, razao_social = ?, cnpj = ?, cnae = ?,
+            rua = ?, numero = ?, bairro = ?, cidade = ?, uf = ?,
+            endereco_completo = ?, telefone = ?
+            WHERE id = ?''',
+            (nome, dados.get('razao_social'), dados.get('cnpj'), dados.get('cnae'),
+             dados.get('rua'), dados.get('numero'), dados.get('bairro'),
+             dados.get('cidade'), dados.get('uf'), endereco_completo,
+             dados.get('telefone'), id))
+        conn.commit()
+        return jsonify({"message": "Cliente atualizado!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @clientes_bp.route('/api/clientes/<int:id>', methods=['DELETE'])
 def deletar_cliente(id):
     get_db().execute("DELETE FROM clientes_web WHERE id = ?", (id,))

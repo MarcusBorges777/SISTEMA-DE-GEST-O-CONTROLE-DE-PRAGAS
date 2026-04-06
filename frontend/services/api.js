@@ -74,6 +74,10 @@ export async function deleteCliente(id) {
   return api.del(`/api/clientes/${id}`);
 }
 
+export async function updateCliente(id, data) {
+  return api.put(`/api/clientes/${id}`, data);
+}
+
 // === APIs de Documentos ===
 
 export async function fetchDocumentos() {
