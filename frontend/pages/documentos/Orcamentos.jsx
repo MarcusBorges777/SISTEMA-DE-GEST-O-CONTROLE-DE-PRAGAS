@@ -21,6 +21,14 @@ export default function Orcamentos({ feriados = [] }) {
   const [logo, setLogo] = useState(null);
   const fileInputLogo = useRef(null);
 
+  // Auto-load logo do servidor
+  useEffect(() => {
+    fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.logo && !logo) setLogo(data.logo); })
+      .catch(() => {});
+  }, []);
+
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro, Pix, Cartão de credito (contém juros)');
   const [terms, setTerms] = useState('Este orçamento é válido por 15 dias.');
   const [items, setItems] = useState([

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bug, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function Login() {
@@ -8,6 +8,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const [logoPath, setLogoPath] = useState(null);
+
+  // Auto-load logo da empresa
+  useEffect(() => {
+    fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.logo) setLogoPath(data.logo); })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -74,9 +83,13 @@ export default function Login() {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-500/20 backdrop-blur-sm border border-brand-400/30 mb-4">
-            <Bug size={32} className="text-brand-300" />
-          </div>
+          {logoPath ? (
+            <img src={logoPath} alt="Logo" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 shadow-lg border border-white/20" />
+          ) : (
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-500/20 backdrop-blur-sm border border-brand-400/30 mb-4">
+              <Bug size={32} className="text-brand-300" />
+            </div>
+          )}
           <h1 className="text-2xl font-bold text-white">Dedetizadora Borges</h1>
           <p className="text-slate-400 mt-1 text-sm">Sistema de Gestao de Documentos</p>
         </div>

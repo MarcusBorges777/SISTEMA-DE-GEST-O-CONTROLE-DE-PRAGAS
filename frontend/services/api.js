@@ -128,3 +128,35 @@ export async function fetchCnpjAutocomplete(campo, termo, limit = 10) {
   const qs = new URLSearchParams({ campo, termo, limit });
   return api.get(`/api/cnpj/autocomplete?${qs.toString()}`);
 }
+
+// === APIs de Imagens da Empresa (Admin) ===
+
+export async function fetchImagensEmpresa() {
+  return api.get('/api/config/logo-mascote');
+}
+
+export async function uploadImagemEmpresa(tipo, arquivo) {
+  const formData = new FormData();
+  formData.append('tipo', tipo);
+  formData.append('arquivo', arquivo);
+
+  const res = await fetch('/api/config/upload-imagem', {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: formData, // NÃO usar Content-Type header — FormData define automaticamente
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    window.location.href = '/login';
+    throw new Error('Nao autenticado');
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function removerImagemEmpresa(tipo) {
+  return api.post('/api/config/remover-imagem', { tipo });
+}

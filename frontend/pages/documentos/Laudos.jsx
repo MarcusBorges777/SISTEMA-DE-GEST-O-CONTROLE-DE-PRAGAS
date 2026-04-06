@@ -15,6 +15,17 @@ export default function Laudos({ feriados = [] }) {
   const alvaraInputRef = useRef(null);
   const [feriadoAtual, setFeriadoAtual] = useState(null);
 
+  // Auto-load logo e alvará do servidor
+  useEffect(() => {
+    fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.logo && !logo) setLogo(data.logo);
+        if (data?.alvara && !alvaraImage) setAlvaraImage(data.alvara);
+      })
+      .catch(() => {});
+  }, []);
+
   const [formData, setFormData] = useState({
     laudoNumero: "0001",
     dataExecucao: new Date().toISOString().split('T')[0],

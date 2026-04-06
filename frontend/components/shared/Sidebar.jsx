@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, FolderOpen, Shield,
@@ -16,6 +16,14 @@ const navItems = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [logoPath, setLogoPath] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.logo) setLogoPath(data.logo); })
+      .catch(() => {});
+  }, []);
 
   return (
     <aside
@@ -26,9 +34,13 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className={`flex items-center h-16 px-4 border-b border-slate-200 dark:border-slate-700 ${collapsed ? 'justify-center' : 'gap-3'}`}>
-        <div className="w-9 h-9 rounded-lg bg-brand-500 flex items-center justify-center flex-shrink-0">
-          <Bug size={20} className="text-white" />
-        </div>
+        {logoPath ? (
+          <img src={logoPath} alt="Logo" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-9 h-9 rounded-lg bg-brand-500 flex items-center justify-center flex-shrink-0">
+            <Bug size={20} className="text-white" />
+          </div>
+        )}
         {!collapsed && (
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-800 dark:text-white truncate">Dedetizadora</p>
