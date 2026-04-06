@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Target, Search, Building2, TrendingUp, UserPlus, Phone, MapPin, Sparkles, ChevronLeft, ChevronRight, Filter, Loader2, CheckCircle2, FileText, Globe, Mail, Hash, AlertTriangle } from 'lucide-react';
+import { Target, Search, Building2, TrendingUp, UserPlus, Phone, MapPin, Sparkles, ChevronLeft, ChevronRight, Filter, Loader2, CheckCircle2, FileText, Globe, Mail, Hash, AlertTriangle, Calendar, DollarSign, Briefcase, BadgeCheck, Users } from 'lucide-react';
 import { fetchProspeccaoStats, fetchProspeccaoSegmentos, fetchProspeccaoBuscaGlobal, fetchProspeccaoEmpresas, createCliente } from '../services/api';
 import { buscarCNPJ } from '../services/brasilApi';
 import { useToast } from '../components/shared/Toast';
@@ -168,17 +168,18 @@ export default function Prospeccao() {
     const cnpj = empresa.cnpj || '';
     setAddingId(cnpj);
     try {
-      const end = empresa.endereco || {};
+      // Suporte para ambos formatos: local DB (endereco object) e Brasil API (campos diretos)
+      const end = (typeof empresa.endereco === 'object' && empresa.endereco !== null) ? empresa.endereco : {};
       await createCliente({
         nome_fantasia: empresa.nome_fantasia || empresa.fantasia || empresa.razao_social || empresa.nome || '',
         razao_social: empresa.razao_social || empresa.nome || '',
         cnpj: cnpj,
-        cnae: empresa.cnae_descricao ? `${empresa.cnae} - ${empresa.cnae_descricao}` : (empresa.atividade || empresa.cnae || ''),
-        rua: [end.tipo_logradouro, end.logradouro].filter(Boolean).join(' ') || (empresa.raw?.logradouro || ''),
-        numero: end.numero || empresa.raw?.numero || '',
-        bairro: end.bairro || empresa.bairro || '',
-        cidade: end.municipio || empresa.municipio || 'Divinopolis',
-        uf: end.uf || empresa.uf || 'MG',
+        cnae: empresa.cnae_descricao ? `${empresa.cnae_fiscal || empresa.cnae} - ${empresa.cnae_descricao}` : (empresa.atividade || empresa.cnae || ''),
+        rua: empresa.logradouro || [end.tipo_logradouro, end.logradouro].filter(Boolean).join(' ') || '',
+        numero: empresa.numero || end.numero || '',
+        bairro: empresa.bairro || end.bairro || '',
+        cidade: empresa.municipio || end.municipio || 'Divinopolis',
+        uf: empresa.uf || end.uf || 'MG',
         telefone: empresa.telefone || '',
       });
       setAddedIds(prev => new Set([...prev, cnpj]));
@@ -371,103 +372,188 @@ export default function Prospeccao() {
         )}
       </div>
 
-      {/* CNPJ Result Card */}
-      {searchMode === 'cnpj' && cnpjResult && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-brand-500 to-blue-600">
-            <h3 className="text-lg font-bold text-white">{cnpjResult.fantasia || cnpjResult.nome}</h3>
-            {cnpjResult.fantasia && cnpjResult.nome && cnpjResult.fantasia !== cnpjResult.nome && (
-              <p className="text-blue-100 text-sm">{cnpjResult.nome}</p>
-            )}
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Hash size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-slate-400 font-medium">CNPJ</p>
-                    <p className="text-sm font-mono text-slate-800 dark:text-slate-200">{cnpjResult.cnpj}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Building2 size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-slate-400 font-medium">Atividade (CNAE)</p>
-                    <p className="text-sm text-slate-800 dark:text-slate-200">{cnpjResult.atividade || '-'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <MapPin size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-slate-400 font-medium">Endereco</p>
-                    <p className="text-sm text-slate-800 dark:text-slate-200">{cnpjResult.endereco || '-'}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {cnpjResult.telefone && (
-                  <div className="flex items-start gap-3">
-                    <Phone size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-400 font-medium">Telefone</p>
-                      <p className="text-sm text-slate-800 dark:text-slate-200">{cnpjResult.telefone}</p>
-                    </div>
-                  </div>
-                )}
-                {cnpjResult.email && (
-                  <div className="flex items-start gap-3">
-                    <Mail size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-400 font-medium">Email</p>
-                      <p className="text-sm text-slate-800 dark:text-slate-200">{cnpjResult.email}</p>
-                    </div>
-                  </div>
-                )}
-                {cnpjResult.porte && (
-                  <div className="flex items-start gap-3">
-                    <Target size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-400 font-medium">Porte</p>
-                      <p className="text-sm text-slate-800 dark:text-slate-200">{cnpjResult.porte}</p>
-                    </div>
-                  </div>
-                )}
-                {cnpjResult.municipio && (
-                  <div className="flex items-start gap-3">
-                    <MapPin size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-400 font-medium">Municipio/UF</p>
-                      <p className="text-sm text-slate-800 dark:text-slate-200">{cnpjResult.municipio}/{cnpjResult.uf}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* CNPJ Result Card - Moderno e Completo */}
+      {searchMode === 'cnpj' && cnpjResult && (() => {
+        const r = cnpjResult;
+        const situacaoColor = (r.situacao_cadastral || '').toLowerCase().includes('ativa')
+          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800';
+        const capitalFormatado = r.capital_social
+          ? `R$ ${Number(r.capital_social).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          : '-';
+        const dataAbertura = r.data_inicio_atividade
+          ? r.data_inicio_atividade.split('-').reverse().join('/')
+          : '-';
 
-            {/* Actions */}
-            <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-              {addedIds.has(cnpjResult.cnpj) ? (
-                <>
-                  <span className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 size={18} /> Cliente adicionado!
+        return (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {/* Header com gradient */}
+            <div className="px-6 py-5 bg-gradient-to-r from-brand-500 via-blue-600 to-indigo-600 relative">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xl font-bold text-white leading-tight">
+                    {r.fantasia || r.nome}
+                  </h3>
+                  {r.fantasia && r.nome && r.fantasia !== r.nome && (
+                    <p className="text-blue-100 text-sm mt-1 opacity-90">{r.nome}</p>
+                  )}
+                </div>
+                {r.situacao_cadastral && (
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${situacaoColor} flex-shrink-0 ml-4`}>
+                    <BadgeCheck size={14} /> {r.situacao_cadastral}
                   </span>
-                  <button onClick={() => navigate('/documentos?tab=laudo')}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition">
-                    <FileText size={16} /> Gerar Documento
-                  </button>
-                </>
-              ) : (
-                <button onClick={addCnpjAsCliente} disabled={addingId === cnpjResult.cnpj}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition shadow-md">
-                  {addingId === cnpjResult.cnpj ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-                  Adicionar como Cliente
-                </button>
+                )}
+              </div>
+              {r.atividade && (
+                <p className="text-blue-200 text-xs mt-2 opacity-80">{r.atividade}</p>
               )}
             </div>
+
+            <div className="p-6 space-y-6">
+              {/* Grid de Informacoes Principais */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1.5">
+                    <Hash size={13} /> CNPJ
+                  </div>
+                  <p className="text-sm font-mono font-bold text-slate-800 dark:text-slate-200">{formatCnpj(r.cnpj)}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1.5">
+                    <Calendar size={13} /> Data de Abertura
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{dataAbertura}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1.5">
+                    <DollarSign size={13} /> Capital Social
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{capitalFormatado}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1.5">
+                    <Briefcase size={13} /> Natureza Juridica
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">{r.natureza_juridica || '-'}</p>
+                </div>
+              </div>
+
+              {/* Endereco + Contatos lado a lado */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Bloco Endereco */}
+                <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/30">
+                  <h4 className="flex items-center gap-2 text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-3">
+                    <MapPin size={14} /> Endereco
+                  </h4>
+                  <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                    {r.logradouro && (
+                      <p className="font-medium">{r.logradouro}{r.numero ? `, N° ${r.numero}` : ''}</p>
+                    )}
+                    {r.complemento && <p className="text-slate-500">{r.complemento}</p>}
+                    {r.bairro && <p>{r.bairro}</p>}
+                    <p className="font-medium">
+                      {[r.municipio, r.uf].filter(Boolean).join('/')}
+                      {r.cep && <span className="text-slate-400 ml-2">CEP {r.cep}</span>}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bloco Contatos */}
+                <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl p-4 border border-emerald-100 dark:border-emerald-900/30">
+                  <h4 className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-3">
+                    <Phone size={14} /> Contatos
+                  </h4>
+                  <div className="space-y-2.5">
+                    {r.telefone ? (
+                      <div className="flex items-center gap-2.5">
+                        <Phone size={15} className="text-emerald-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-400">Telefone Principal</p>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{r.telefone}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">Nenhum telefone registrado</p>
+                    )}
+                    {r.telefone2 && (
+                      <div className="flex items-center gap-2.5">
+                        <Phone size={15} className="text-emerald-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-400">Telefone Secundario</p>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{r.telefone2}</p>
+                        </div>
+                      </div>
+                    )}
+                    {r.email && (
+                      <div className="flex items-center gap-2.5">
+                        <Mail size={15} className="text-emerald-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-400">E-mail</p>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 break-all">{r.email}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Info extras: Porte + Socios */}
+              {(r.porte || (r.qsa && r.qsa.length > 0)) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {r.porte && (
+                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4 border border-slate-100 dark:border-slate-600">
+                      <Building2 size={18} className="text-purple-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">Porte da Empresa</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{r.porte}</p>
+                      </div>
+                    </div>
+                  )}
+                  {r.qsa && r.qsa.length > 0 && (
+                    <div className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4 border border-slate-100 dark:border-slate-600">
+                      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-2">
+                        <Users size={13} /> Quadro Societario ({r.qsa.length})
+                      </div>
+                      <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                        {r.qsa.slice(0, 5).map((socio, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{socio.nome_socio}</span>
+                            <span className="text-slate-400 text-[10px] flex-shrink-0 ml-2">{socio.qualificacao_socio}</span>
+                          </div>
+                        ))}
+                        {r.qsa.length > 5 && (
+                          <p className="text-[10px] text-slate-400 italic">+{r.qsa.length - 5} socios...</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Acoes */}
+              <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                {addedIds.has(r.cnpj) ? (
+                  <>
+                    <span className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                      <CheckCircle2 size={18} /> Cliente adicionado!
+                    </span>
+                    <button onClick={() => navigate('/documentos?tab=laudo')}
+                      className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition shadow-md">
+                      <FileText size={16} /> Gerar Documento
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={addCnpjAsCliente} disabled={addingId === r.cnpj}
+                    className="flex items-center gap-2 px-6 py-3 text-sm font-bold rounded-xl bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition shadow-lg shadow-brand-500/25">
+                    {addingId === r.cnpj ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                    Adicionar como Cliente
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Results Table (Nome search mode) */}
       {searchMode === 'nome' && !dbIndisponivel && (

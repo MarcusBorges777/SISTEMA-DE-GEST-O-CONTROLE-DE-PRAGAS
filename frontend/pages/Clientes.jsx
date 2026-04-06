@@ -235,8 +235,8 @@ export default function Clientes() {
             nome_fantasia: data.fantasia || data.nome || prev.nome_fantasia,
             razao_social: data.nome || prev.razao_social,
             cnae: data.atividade || prev.cnae,
-            rua: data.raw?.logradouro || prev.rua,
-            numero: data.raw?.numero || prev.numero,
+            rua: data.logradouro || prev.rua,
+            numero: data.numero || prev.numero,
             bairro: data.bairro || prev.bairro,
             cidade: data.municipio || prev.cidade,
             uf: data.uf || prev.uf,
@@ -417,18 +417,17 @@ export default function Clientes() {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-                {['Cliente', 'CNPJ', 'Cidade', 'Endereco', 'Acoes'].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {h}
-                  </th>
-                ))}
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[25%]">Cliente</th>
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[15%]">CNPJ</th>
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Endereco</th>
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[130px]">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {loading ? (
                 [1,2,3].map(i => (
                   <tr key={i}>
-                    {[1,2,3,4,5].map(j => (
+                    {[1,2,3,4].map(j => (
                       <td key={j} className="px-5 py-4">
                         <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-3/4" />
                       </td>
@@ -436,10 +435,13 @@ export default function Clientes() {
                   </tr>
                 ))
               ) : clientes.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Nenhum cliente encontrado</td></tr>
+                <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-slate-500">Nenhum cliente encontrado</td></tr>
               ) : (
                 clientes.map(c => {
-                  const endereco = c.endereco_completo || [c.rua, c.numero, c.bairro].filter(Boolean).join(', ') || '-';
+                  // Montar endereço completo legível
+                  const partes = [c.rua, c.numero ? `N° ${c.numero}` : '', c.bairro].filter(Boolean).join(', ');
+                  const cidadeUf = [c.cidade, c.uf].filter(Boolean).join('/');
+                  const endereco = c.endereco_completo || [partes, cidadeUf].filter(Boolean).join(' - ') || '-';
                   return (
                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                       <td className="px-5 py-3">
@@ -448,9 +450,8 @@ export default function Clientes() {
                           <p className="text-xs text-slate-400">{c.razao_social}</p>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">{c.cnpj || '-'}</td>
-                      <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">{c.cidade || '-'}</td>
-                      <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400 max-w-[200px] truncate" title={endereco}>{endereco}</td>
+                      <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400 font-mono text-xs">{c.cnpj || '-'}</td>
+                      <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400" title={endereco}>{endereco}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => handleGerar(c)} title="Gerar Documento"

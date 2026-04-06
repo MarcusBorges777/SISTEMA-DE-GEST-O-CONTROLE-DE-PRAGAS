@@ -28,11 +28,11 @@ def api_clientes():
         count_query = "SELECT COUNT(*) as total FROM clientes_web WHERE 1=1"
         params = []
 
-        nome = request.args.get('nome', '')
+        nome = request.args.get('nome', '').strip()
         if nome:
-            query += " AND nome_fantasia LIKE ?"
-            count_query += " AND nome_fantasia LIKE ?"
-            params.append(f'%{nome}%')
+            query += " AND (UPPER(nome_fantasia) LIKE UPPER(?) OR UPPER(razao_social) LIKE UPPER(?) OR UPPER(endereco_completo) LIKE UPPER(?))"
+            count_query += " AND (UPPER(nome_fantasia) LIKE UPPER(?) OR UPPER(razao_social) LIKE UPPER(?) OR UPPER(endereco_completo) LIKE UPPER(?))"
+            params.extend([f'%{nome}%', f'%{nome}%', f'%{nome}%'])
 
         cidade = request.args.get('cidade', '')
         if cidade:

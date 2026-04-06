@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, FolderOpen, Shield,
   ChevronLeft, ChevronRight, Bug, Target
 } from 'lucide-react';
+import { useSidebar } from '../../contexts/SidebarContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -15,7 +16,7 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggle } = useSidebar();
   const [logoPath, setLogoPath] = useState(null);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function Sidebar() {
         ${collapsed ? 'w-[68px]' : 'w-64'}`}
     >
       {/* Logo */}
-      <div className={`flex items-center justify-center h-20 px-3 border-b border-slate-200 dark:border-slate-700`}>
+      <div className="flex items-center justify-center h-20 px-3 border-b border-slate-200 dark:border-slate-700">
         {logoPath ? (
           <img src={logoPath} alt="Logo" className={`object-contain flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10 rounded-lg' : 'w-full h-16 rounded-xl'}`} />
         ) : (
@@ -72,7 +73,7 @@ export default function Sidebar() {
       {/* Collapse Button */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-700">
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggle}
           className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium
             text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all
             ${collapsed ? 'justify-center' : ''}`}

@@ -45,24 +45,44 @@ export async function buscarCNPJ(cnpj) {
   }
 
   const data = await response.json();
-  setSessionCache(cacheKey, data);
 
-  // Mapear para formato do sistema
-  return {
+  // Mapear para formato do sistema com todos os campos
+  const result = {
     raw: data,
     nome: data.razao_social || '',
     fantasia: data.nome_fantasia || '',
     cnpj: data.cnpj || cnpjLimpo,
+    // Endereco completo formatado
     endereco: montarEndereco(data),
-    atividade: montarAtividade(data),
-    email: data.email || '',
-    telefone: data.ddd_telefone_1 || '',
+    // Campos de endereco separados para preenchimento de formularios
+    logradouro: data.logradouro || '',
+    numero: data.numero || '',
+    complemento: data.complemento || '',
+    bairro: data.bairro || '',
+    municipio: data.municipio || '',
     uf: data.uf || '',
     cep: data.cep ? String(data.cep) : '',
-    municipio: data.municipio || '',
-    bairro: data.bairro || '',
-    porte: data.porte || ''
+    // Atividade / CNAE
+    atividade: montarAtividade(data),
+    cnae_fiscal: data.cnae_fiscal || '',
+    cnae_descricao: data.cnae_fiscal_descricao || '',
+    // Contato
+    email: data.email || '',
+    telefone: data.ddd_telefone_1 || '',
+    telefone2: data.ddd_telefone_2 || '',
+    // Info empresa
+    porte: data.porte || '',
+    natureza_juridica: data.natureza_juridica || '',
+    capital_social: data.capital_social || 0,
+    situacao_cadastral: data.descricao_situacao_cadastral || '',
+    data_situacao_cadastral: data.data_situacao_cadastral || '',
+    data_inicio_atividade: data.data_inicio_atividade || '',
+    // Socios
+    qsa: data.qsa || [],
   };
+
+  setSessionCache(cacheKey, result);
+  return result;
 }
 
 function montarEndereco(data) {
