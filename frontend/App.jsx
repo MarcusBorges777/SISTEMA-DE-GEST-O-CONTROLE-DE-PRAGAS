@@ -7,6 +7,7 @@ import Documentos from './pages/Documentos';
 import Clientes from './pages/Clientes';
 import Arquivos from './pages/Arquivos';
 import Admin from './pages/Admin';
+import Prospeccao from './pages/Prospeccao';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/documentos" element={<Documentos />} />
           <Route path="/arquivos" element={<Arquivos />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/prospeccao" element={<Prospeccao />} />
         </Route>
       </Routes>
     </ToastProvider>

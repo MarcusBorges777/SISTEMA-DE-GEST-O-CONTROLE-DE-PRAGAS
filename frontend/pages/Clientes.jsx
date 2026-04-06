@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, Search, Trash2, Edit3, Phone, MapPin, Building2, X, RefreshCw } from 'lucide-react';
-import { fetchClientes, createCliente, deleteCliente } from '../services/api';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Users, Plus, Search, Trash2, Edit3, Phone, MapPin, Building2, X, RefreshCw, Loader2, CheckCircle2, Database, BookmarkCheck } from 'lucide-react';
+import { fetchClientes, createCliente, deleteCliente, fetchCnpjAutocomplete } from '../services/api';
+import { searchClientes as searchCacheClientes } from '../services/clienteCache';
+import { buscarCNPJ } from '../services/brasilApi';
 import { useToast } from '../components/shared/Toast';
 
 export default function Clientes() {
@@ -13,6 +15,15 @@ export default function Clientes() {
     nome_fantasia: '', razao_social: '', cnpj: '', cnae: '',
     rua: '', numero: '', bairro: '', cidade: '', uf: 'MG', telefone: '',
   });
+
+  // Suggestions state
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjStatus, setCnpjStatus] = useState(null); // 'success' | 'error' | null
+  const suggestionsRef = useRef(null);
+  const nomeDebounceRef = useRef(null);
+  const cnpjDebounceRef = useRef(null);
 
   const loadClientes = useCallback(async () => {
     setLoading(true);
@@ -57,6 +68,147 @@ export default function Clientes() {
     }
   };
 
+  // === SUGGESTION SYSTEM ===
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Debounced search for nome_fantasia suggestions
+  const handleNomeChange = (value) => {
+    setFormData(prev => ({ ...prev, nome_fantasia: value }));
+    setCnpjStatus(null);
+
+    clearTimeout(nomeDebounceRef.current);
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    nomeDebounceRef.current = setTimeout(async () => {
+      try {
+        // Search both sources in parallel
+        const [cacheResults, dbResults] = await Promise.allSettled([
+          Promise.resolve(searchCacheClientes(value)),
+          fetchCnpjAutocomplete('nome_fantasia', value, 8),
+        ]);
+
+        const merged = [];
+        const seenCnpjs = new Set();
+
+        // Cache results first (faster, recent)
+        if (cacheResults.status === 'fulfilled' && cacheResults.value.length > 0) {
+          cacheResults.value.forEach(c => {
+            const cnpjClean = (c.cnpj || '').replace(/[^\d]/g, '');
+            if (cnpjClean) seenCnpjs.add(cnpjClean);
+            // Check if already a registered client
+            const jaCliente = clientes.some(cl =>
+              cl.cnpj && cl.cnpj.replace(/[^\d]/g, '') === cnpjClean
+            );
+            merged.push({ ...c, source: 'cache', jaCliente });
+          });
+        }
+
+        // CNPJ DB results
+        if (dbResults.status === 'fulfilled') {
+          const results = dbResults.value?.resultados || [];
+          results.forEach(r => {
+            const cnpjClean = (r.cnpj || '').replace(/[^\d]/g, '');
+            if (cnpjClean && seenCnpjs.has(cnpjClean)) return; // skip duplicates
+            seenCnpjs.add(cnpjClean);
+            const jaCliente = clientes.some(cl =>
+              cl.cnpj && cl.cnpj.replace(/[^\d]/g, '') === cnpjClean
+            );
+            merged.push({ ...r, source: 'cnpj_db', jaCliente });
+          });
+        }
+
+        setSuggestions(merged.slice(0, 10));
+        setShowSuggestions(merged.length > 0);
+      } catch (e) {
+        // Silently fail - suggestions are a nice-to-have
+      }
+    }, 300);
+  };
+
+  // Select a suggestion and populate form
+  const selectSuggestion = (sug) => {
+    if (sug.source === 'cache') {
+      setFormData({
+        nome_fantasia: sug.fantasia || sug.nome || '',
+        razao_social: sug.nome || '',
+        cnpj: sug.cnpj || '',
+        cnae: sug.atividade || '',
+        rua: sug.endereco || '',
+        numero: '',
+        bairro: '',
+        cidade: '',
+        uf: 'MG',
+        telefone: '',
+      });
+    } else {
+      // From CNPJ DB
+      setFormData({
+        nome_fantasia: sug.nome_fantasia || sug.razao_social || '',
+        razao_social: sug.razao_social || '',
+        cnpj: sug.cnpj || '',
+        cnae: sug.cnae_descricao ? `${sug.cnae_fiscal || ''} - ${sug.cnae_descricao}` : (sug.cnae_fiscal || ''),
+        rua: [sug.tipo_logradouro, sug.logradouro].filter(Boolean).join(' ') || '',
+        numero: sug.numero || '',
+        bairro: sug.bairro || '',
+        cidade: sug.municipio || '',
+        uf: sug.uf || 'MG',
+        telefone: sug.telefone || '',
+      });
+    }
+    setShowSuggestions(false);
+    setCnpjStatus(null);
+  };
+
+  // Auto-fill from CNPJ when 14 digits entered
+  const handleCnpjChange = (value) => {
+    setFormData(prev => ({ ...prev, cnpj: value }));
+    setCnpjStatus(null);
+
+    const digits = value.replace(/[^\d]/g, '');
+    clearTimeout(cnpjDebounceRef.current);
+
+    if (digits.length === 14) {
+      cnpjDebounceRef.current = setTimeout(async () => {
+        setCnpjLoading(true);
+        try {
+          const data = await buscarCNPJ(digits);
+          setFormData(prev => ({
+            ...prev,
+            nome_fantasia: data.fantasia || data.nome || prev.nome_fantasia,
+            razao_social: data.nome || prev.razao_social,
+            cnae: data.atividade || prev.cnae,
+            rua: data.raw?.logradouro || prev.rua,
+            numero: data.raw?.numero || prev.numero,
+            bairro: data.bairro || prev.bairro,
+            cidade: data.municipio || prev.cidade,
+            uf: data.uf || prev.uf,
+            telefone: data.telefone || prev.telefone,
+          }));
+          setCnpjStatus('success');
+          addToast('Dados do CNPJ preenchidos automaticamente!', 'success');
+        } catch (e) {
+          setCnpjStatus('error');
+        } finally {
+          setCnpjLoading(false);
+        }
+      }, 200);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -77,10 +229,90 @@ export default function Clientes() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Cadastrar Novo Cliente</h2>
           <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+            {/* Nome Fantasia - with autocomplete */}
+            <div className="relative" ref={suggestionsRef}>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nome Fantasia *</label>
+              <input
+                type="text"
+                value={formData.nome_fantasia}
+                onChange={e => handleNomeChange(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                required
+                placeholder="Digite para buscar sugestoes..."
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
+                  bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200
+                  focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+              />
+              {/* Suggestions dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-h-64 overflow-y-auto">
+                  {suggestions.map((sug, i) => {
+                    const nome = sug.source === 'cache'
+                      ? (sug.fantasia || sug.nome)
+                      : (sug.nome_fantasia || sug.razao_social);
+                    const cnpj = sug.cnpj || '';
+                    return (
+                      <button key={i} type="button" onClick={() => selectSuggestion(sug)}
+                        className={`w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition border-b border-slate-100 dark:border-slate-700 last:border-0
+                          ${sug.jaCliente ? 'opacity-60' : ''}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{nome}</p>
+                            <p className="text-xs text-slate-400 truncate">{cnpj}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {sug.jaCliente && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium">
+                                <BookmarkCheck size={10} /> Ja cadastrado
+                              </span>
+                            )}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium
+                              ${sug.source === 'cache'
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                              }`}>
+                              {sug.source === 'cache' ? 'Recente' : 'CNPJ DB'}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Razao Social */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Razao Social</label>
+              <input type="text" value={formData.razao_social}
+                onChange={e => setFormData(prev => ({ ...prev, razao_social: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
+                  bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200
+                  focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" />
+            </div>
+
+            {/* CNPJ - with auto-fill */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                CNPJ
+                {cnpjLoading && <Loader2 size={14} className="animate-spin text-brand-500" />}
+                {cnpjStatus === 'success' && <CheckCircle2 size={14} className="text-emerald-500" />}
+                {cnpjStatus === 'error' && <X size={14} className="text-red-400" />}
+              </label>
+              <input type="text" value={formData.cnpj}
+                onChange={e => handleCnpjChange(e.target.value)}
+                placeholder="Digite 14 digitos para busca automatica"
+                className={`w-full px-3 py-2 text-sm rounded-xl border transition
+                  bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200
+                  ${cnpjStatus === 'success' ? 'border-emerald-400 ring-1 ring-emerald-200' :
+                    cnpjStatus === 'error' ? 'border-red-400 ring-1 ring-red-200' :
+                    'border-slate-300 dark:border-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500'}`} />
+            </div>
+
+            {/* Remaining fields */}
             {[
-              { name: 'nome_fantasia', label: 'Nome Fantasia *', required: true },
-              { name: 'razao_social', label: 'Razao Social' },
-              { name: 'cnpj', label: 'CNPJ' },
               { name: 'cnae', label: 'CNAE' },
               { name: 'rua', label: 'Rua' },
               { name: 'numero', label: 'Numero' },
@@ -95,7 +327,6 @@ export default function Clientes() {
                   type="text"
                   value={formData[field.name]}
                   onChange={e => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
-                  required={field.required}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
                     bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200
                     focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"

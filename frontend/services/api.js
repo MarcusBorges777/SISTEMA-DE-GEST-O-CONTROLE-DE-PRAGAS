@@ -89,3 +89,42 @@ export async function fetchArquivos() {
 export async function fetchBoletosVencendo() {
   return api.get('/api/boletos/vencendo');
 }
+
+// === APIs de Prospeccao ===
+
+export async function fetchProspeccaoStats() {
+  return api.get('/api/prospeccao/estatisticas');
+}
+
+export async function fetchProspeccaoSegmentos() {
+  return api.get('/api/prospeccao/segmentos');
+}
+
+export async function fetchProspeccaoBuscaGlobal(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.termo) qs.set('termo', params.termo);
+  if (params.cnae) qs.set('cnae', params.cnae);
+  if (params.bairro) qs.set('bairro', params.bairro);
+  if (params.apenas_leads_frescos) qs.set('apenas_leads_frescos', '1');
+  if (params.limite) qs.set('limite', params.limite);
+  if (params.offset) qs.set('offset', params.offset);
+  if (params.ordenacao) qs.set('ordenacao', params.ordenacao);
+  const s = qs.toString();
+  return api.get(`/api/prospeccao/busca-global${s ? `?${s}` : ''}`);
+}
+
+export async function fetchProspeccaoEmpresas(segmentoId, params = {}) {
+  const qs = new URLSearchParams();
+  if (params.limite) qs.set('limite', params.limite);
+  if (params.offset) qs.set('offset', params.offset);
+  if (params.termo) qs.set('termo', params.termo);
+  const s = qs.toString();
+  return api.get(`/api/prospeccao/empresas/${segmentoId}${s ? `?${s}` : ''}`);
+}
+
+// === APIs de Autocomplete CNPJ ===
+
+export async function fetchCnpjAutocomplete(campo, termo, limit = 10) {
+  const qs = new URLSearchParams({ campo, termo, limit });
+  return api.get(`/api/cnpj/autocomplete?${qs.toString()}`);
+}
