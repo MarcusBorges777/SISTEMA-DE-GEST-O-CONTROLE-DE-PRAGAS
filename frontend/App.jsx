@@ -8,11 +8,16 @@ import Clientes from './pages/Clientes';
 import Arquivos from './pages/Arquivos';
 import Admin from './pages/Admin';
 import Prospeccao from './pages/Prospeccao';
+import Login from './pages/Login';
 
 export default function App() {
   return (
     <ToastProvider>
       <Routes>
+        {/* Login fora do MainLayout (sem sidebar) */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Rotas protegidas com layout principal */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />

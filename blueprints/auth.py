@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Authentication and User Management Blueprint."""
+import traceback
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session, redirect, url_for, flash, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,46 +10,98 @@ from services.auth import login_required, admin_required
 auth_bp = Blueprint('auth', __name__)
 
 
+def _is_json_request():
+    """Verifica se o request vem do React (JSON) ou de form tradicional."""
+    accept = request.headers.get('Accept', '')
+    content_type = request.headers.get('Content-Type', '')
+    return 'application/json' in accept or 'application/json' in content_type
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         if 'usuario_id' in session:
+            if _is_json_request():
+                return jsonify({'autenticado': True, 'redirect': '/'})
             return redirect(url_for('spa_app'))
-        return render_template('login.html')
+        # Serve o React SPA (Login.jsx renderiza via React Router)
+        return render_template('app.html')
 
     # POST - processar login
-    dados = request.form
-    email = dados.get('email', '').strip()
-    senha = dados.get('senha', '').strip()
+    try:
+        # Aceitar JSON (React) ou form data (fallback)
+        if _is_json_request() or request.is_json:
+            dados = request.get_json(silent=True) or {}
+        else:
+            dados = request.form
 
-    if not email or not senha:
-        flash('Preencha email e senha', 'erro')
-        return render_template('login.html')
+        email = dados.get('email', '').strip()
+        senha = dados.get('senha', '').strip()
 
-    conn = get_db()
-    usuario = conn.execute('SELECT * FROM usuarios WHERE email = ? AND ativo = 1', (email,)).fetchone()
+        if not email or not senha:
+            if _is_json_request():
+                return jsonify({'erro': 'Preencha email e senha'}), 400
+            flash('Preencha email e senha', 'erro')
+            return render_template('app.html')
 
-    if usuario and check_password_hash(usuario['senha_hash'], senha):
+        conn = get_db()
+        usuario = conn.execute('SELECT * FROM usuarios WHERE email = ? AND ativo = 1', (email,)).fetchone()
+
+        if not usuario:
+            if _is_json_request():
+                return jsonify({'erro': 'Email ou senha incorretos'}), 401
+            flash('Email ou senha incorretos', 'erro')
+            return render_template('app.html')
+
+        # Verificar senha (proteger contra senha_hash None)
+        senha_hash = usuario['senha_hash']
+        if not senha_hash or not check_password_hash(senha_hash, senha):
+            if _is_json_request():
+                return jsonify({'erro': 'Email ou senha incorretos'}), 401
+            flash('Email ou senha incorretos', 'erro')
+            return render_template('app.html')
+
+        # Login valido - configurar sessao
         session['usuario_id'] = usuario['id']
         session['usuario_nome'] = usuario['nome']
         session['usuario_email'] = usuario['email']
         session['usuario_perfil'] = usuario['perfil']
 
-        # Atualizar ultimo login
-        conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?',
-                     (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), usuario['id']))
-        conn.commit()
+        # Atualizar ultimo login (nao bloquear se falhar)
+        try:
+            conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?',
+                         (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), usuario['id']))
+            conn.commit()
+        except Exception:
+            pass
 
-        next_url = request.args.get('next') or url_for('spa_app')
+        next_url = request.args.get('next') or '/'
+        if _is_json_request():
+            return jsonify({
+                'sucesso': True,
+                'redirect': next_url,
+                'usuario': {
+                    'nome': usuario['nome'],
+                    'email': usuario['email'],
+                    'perfil': usuario['perfil'],
+                }
+            })
         return redirect(next_url)
-    else:
-        flash('Email ou senha incorretos', 'erro')
-        return render_template('login.html')
+
+    except Exception as e:
+        print(f'[ERRO LOGIN] {e}')
+        traceback.print_exc()
+        if _is_json_request():
+            return jsonify({'erro': 'Erro interno do servidor'}), 500
+        flash('Erro interno do servidor', 'erro')
+        return render_template('app.html'), 500
 
 
 @auth_bp.route('/logout')
 def logout():
     session.clear()
+    if _is_json_request():
+        return jsonify({'sucesso': True, 'redirect': '/login'})
     return redirect(url_for('.login'))
 
 

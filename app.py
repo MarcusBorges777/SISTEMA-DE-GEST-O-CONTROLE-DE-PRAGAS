@@ -194,7 +194,7 @@ def seguranca_global():
             if request.is_json or request.path.startswith('/api/'):
                 return jsonify({'erro': 'Muitas tentativas. Tente novamente mais tarde.'}), 429
             flash('Muitas tentativas. Aguarde antes de tentar novamente.', 'erro')
-            return render_template('login.html'), 429
+            return render_template('app.html'), 429
         rate_limiter.record(ip, func_name)
 
     # Rotas públicas - sem autenticação
@@ -216,7 +216,7 @@ def seguranca_global():
         if session.get('usuario_perfil') != 'admin':
             if request.is_json or request.path.startswith('/api/'):
                 return jsonify({'erro': 'Acesso negado. Apenas administradores.'}), 403
-            return redirect(url_for('index'))
+            return redirect(url_for('spa_app'))
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / 'gestao_documentos.db'
