@@ -5,12 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestao - Dedetizadora Borges</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+            colors: {
+              brand: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#254191', 600: '#1e3575', 700: '#172a5c', 800: '#111f44', 900: '#0b152e' },
+            },
+          },
+        },
+      }
+    </script>
     <style>
-        body { font-family: Inter, system-ui, -apple-system, sans-serif; margin: 0; }
-        #root { min-height: 100vh; }
+        body { font-family: Inter, system-ui, -apple-system, sans-serif; }
+        * { transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+        @page { size: A4; margin: 0; }
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                transition: none !important;
+            }
+            .no-print, .print\:hidden { display: none !important; }
+            .a4-page {
+                box-shadow: none !important; border: none !important; margin: 0 !important;
+                padding: 15mm !important; width: 210mm; min-height: 297mm; overflow: hidden;
+                page-break-inside: avoid;
+            }
+            .print-page-break { page-break-before: always; }
+            .print-bg-blue { background-color: #254191 !important; color: white !important; }
+            .print-bg-header { background-color: #1e3a8a !important; color: white !important; }
+            .print-bg-blue-line { background-color: #254191 !important; }
+            .print-bg-light-blue { background-color: #eff6ff !important; }
+            .print-bg-red { background-color: #fff5f5 !important; }
+            .print-avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
+        }
+        .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        textarea { overflow: hidden; }
+        input:focus, textarea:focus { outline: none; }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
     <div id="root"></div>
 
     {% if config.get('ENV') == 'development' or config.get('FLASK_ENV') == 'development' %}
