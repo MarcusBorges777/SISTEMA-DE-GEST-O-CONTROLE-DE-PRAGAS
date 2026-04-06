@@ -13,7 +13,7 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     if request.method == 'GET':
         if 'usuario_id' in session:
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('spa_app'))
         return render_template('login.html')
 
     # POST - processar login
@@ -39,7 +39,7 @@ def login():
                      (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), usuario['id']))
         conn.commit()
 
-        next_url = request.args.get('next') or url_for('dashboard')
+        next_url = request.args.get('next') or url_for('spa_app')
         return redirect(next_url)
     else:
         flash('Email ou senha incorretos', 'erro')
@@ -87,7 +87,7 @@ def reset_admin():
 @auth_bp.route('/admin/usuarios')
 @login_required
 def admin_usuarios():
-    return redirect(url_for('dashboard') + '?view=administracao')
+    return redirect(url_for('spa_app') + '?view=administracao')
 
 
 @auth_bp.route('/api/usuarios', methods=['GET'])
