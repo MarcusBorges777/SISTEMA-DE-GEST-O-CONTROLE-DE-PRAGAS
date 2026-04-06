@@ -1111,60 +1111,127 @@ ia_init_upload_helpers(extrair_dados_pdf, sugerir_tags_automaticas, adicionar_ta
 # login_required e admin_required importados de services/auth.py
 
 @app.route('/')
-@login_required
-def index():
-    # Buscar estatísticas para o dashboard bonito
-    stats = {
-        'clientes': 0,
-        'empresas': 0,
-        'documentos': 0
-    }
-
-    try:
-        db = get_db()
-
-        # Contar clientes
-        stats['clientes'] = db.execute('SELECT COUNT(*) FROM clientes_web').fetchone()[0]
-
-        # Contar empresas da Receita Federal
-        cnpj_db = sqlite3.connect(str(CNPJ_DB_PATH))
-        stats['empresas'] = cnpj_db.execute('SELECT COUNT(*) FROM empresas').fetchone()[0]
-        cnpj_db.close()
-
-        # Contar documentos gerados
-        stats['documentos'] = db.execute('SELECT COUNT(*) FROM documentos_gerados').fetchone()[0]
-    except Exception as e:
-        print(f"Erro ao buscar estatísticas: {e}")
-
-    return render_template('index.html', stats=stats)
-
 @app.route('/dashboard')
+@app.route('/clientes')
+@app.route('/documentos')
+@app.route('/arquivos')
+@app.route('/admin')
+@app.route('/prospeccao')
 @login_required
-def dashboard():
-    return render_template('dashboard_novo.html')
+def spa_app():
+    """Serve o React SPA para todas as rotas do frontend"""
+    return render_template('app.html')
+
+# Redirects de rotas antigas para o SPA
+@app.route('/gerador')
+@app.route('/gerador/')
+@login_required
+def gerador_redirect():
+    return redirect('/')
 
 @app.route('/gerador/recibo')
 @login_required
 def gerador_recibo():
-    return render_template('gerador_recibo.html')
+    return redirect('/documentos?tab=recibo')
 
 @app.route('/gerador/orcamento')
 @login_required
 def gerador_orcamento():
-    return render_template('gerador_orcamento.html')
+    return redirect('/documentos?tab=orcamento')
 
 @app.route('/gerador/laudo')
 @login_required
 def gerador_laudo():
-    return render_template('gerador_laudo.html')
+    return redirect('/documentos?tab=laudo')
 
-@app.route('/dashboard-antigo')
-def dashboard_antigo():
-    return render_template('dashboard.html')
+# === APIs DO DASHBOARD ===
 
-@app.route('/clientes')
-def clientes():
-    return render_template('clientes.html')
+@app.route('/api/dashboard/stats')
+@login_required
+def api_dashboard_stats():
+    """Retorna estatisticas consolidadas para o dashboard"""
+    try:
+        db = get_db()
+        from datetime import datetime, timedelta
+
+        # Total de clientes
+        total_clientes = db.execute('SELECT COUNT(*) FROM clientes_web').fetchone()[0]
+
+        # Documentos gerados este mes
+        primeiro_dia_mes = datetime.now().replace(day=1).strftime('%Y-%m-%d')
+        docs_mes = db.execute(
+            'SELECT COUNT(*) FROM documentos_gerados WHERE data_geracao >= ?',
+            (primeiro_dia_mes,)
+        ).fetchone()[0]
+
+        # Receita estimada este mes
+        receita_row = db.execute(
+            'SELECT COALESCE(SUM(valor_total), 0) FROM documentos_gerados WHERE data_geracao >= ?',
+            (primeiro_dia_mes,)
+        ).fetchone()
+        receita_valor = receita_row[0] if receita_row else 0
+        receita_mes = f"R$ {receita_valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+        # Clientes ativos (com garantia valida)
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        clientes_ativos = db.execute(
+            'SELECT COUNT(*) FROM clientes_web WHERE data_garantia >= ?',
+            (hoje,)
+        ).fetchone()[0]
+
+        return jsonify({
+            'total_clientes': total_clientes,
+            'docs_mes': docs_mes,
+            'receita_mes': receita_mes,
+            'clientes_ativos': clientes_ativos,
+        })
+    except Exception as e:
+        print(f"Erro em dashboard stats: {e}")
+        return jsonify({
+            'total_clientes': 0,
+            'docs_mes': 0,
+            'receita_mes': 'R$ 0,00',
+            'clientes_ativos': 0,
+        })
+
+@app.route('/api/dashboard/atividades-recentes')
+@login_required
+def api_dashboard_atividades_recentes():
+    """Retorna ultimas 10 atividades do sistema"""
+    try:
+        db = get_db()
+        atividades = []
+
+        # Ultimos documentos gerados
+        docs = db.execute(
+            'SELECT tipo_doc, nome_arquivo, cliente_nome, data_geracao FROM documentos_gerados ORDER BY data_geracao DESC LIMIT 8'
+        ).fetchall()
+        for doc in docs:
+            atividades.append({
+                'tipo': 'documento',
+                'descricao': f'{doc[0]} - {doc[2] or "sem cliente"}',
+                'arquivo': doc[1],
+                'data': doc[3],
+            })
+
+        # Ultimos clientes cadastrados
+        clientes = db.execute(
+            'SELECT nome_fantasia, razao_social, data_cadastro FROM clientes_web ORDER BY data_cadastro DESC LIMIT 4'
+        ).fetchall()
+        for c in clientes:
+            atividades.append({
+                'tipo': 'cliente',
+                'descricao': f'Cliente cadastrado: {c[0] or c[1]}',
+                'data': c[2],
+            })
+
+        # Ordenar por data (mais recente primeiro)
+        atividades.sort(key=lambda x: x.get('data') or '', reverse=True)
+
+        return jsonify({'atividades': atividades[:10]})
+    except Exception as e:
+        print(f"Erro em atividades recentes: {e}")
+        return jsonify({'atividades': []})
 
 @app.route('/empresas')
 def empresas():
@@ -2665,10 +2732,7 @@ def salvar_arquivo_duplo(conteudo, nome_arquivo, tipo_documento):
         except Exception as e2:
             raise Exception(f"Erro crítico ao salvar arquivo: {e2}")
 
-@app.route('/prospeccao')
-def prospeccao():
-    """Página de prospecção de clientes (estilo Econodata)"""
-    return render_template('prospeccao.html')
+# Rota /prospeccao agora servida pelo SPA React (spa_app)
 
 @app.route('/api/busca-global')
 def busca_global():

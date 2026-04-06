@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Documentos - Dedetizadora Borges</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @page { size: A4; margin: 0; }
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+            .no-print, .print-hidden { display: none !important; }
+        }
+        .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        textarea { overflow: hidden; }
+        input:focus, textarea:focus { outline: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    {% if config.get('ENV') == 'development' or config.get('FLASK_ENV') == 'development' %}
+    <!-- Dev mode: carrega do Vite dev server -->
+    <script>
+        // Tenta carregar do Vite dev server, fallback para build estatico
+        var script = document.createElement('script');
+        script.type = 'module';
+        script.onerror = function() {
+            // Fallback: carrega o build estatico
+            var fallback = document.createElement('script');
+            fallback.type = 'module';
+            fallback.src = '{{ url_for("static", filename="dist/assets/main.js") }}';
+            document.body.appendChild(fallback);
+        };
+        script.src = 'http://localhost:3000/main.jsx';
+        document.body.appendChild(script);
+    </script>
+    {% else %}
+    <!-- Production: carrega o bundle compilado -->
+    <script type="module" src="{{ url_for('static', filename='dist/assets/main.js') }}"></script>
+    {% endif %}
+</body>
+</html>

@@ -8,11 +8,10 @@
       "port": 5000
     },
     {
-      "name": "Java Spring Boot",
-      "runtimeExecutable": "mvn",
-      "runtimeArgs": ["spring-boot:run"],
-      "cwd": "backend",
-      "port": 8080
+      "name": "Vite React Dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:react"],
+      "port": 3000
     },
     {
       "name": "Tailwind CSS Watch",
@@ -21,10 +20,34 @@
       "port": 0
     },
     {
-      "name": "Docker Infrastructure",
+      "name": "Docker Stack",
       "runtimeExecutable": "docker",
       "runtimeArgs": ["compose", "up", "-d"],
       "port": 5432
+    },
+    {
+      "name": "PostgreSQL",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "-d", "postgres"],
+      "port": 5432
+    },
+    {
+      "name": "Redis",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "-d", "redis"],
+      "port": 6379
+    },
+    {
+      "name": "pgAdmin",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "-d", "pgadmin"],
+      "port": 5050
+    },
+    {
+      "name": "Redis Commander",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "-d", "redis-commander"],
+      "port": 8081
     }
   ]
 }

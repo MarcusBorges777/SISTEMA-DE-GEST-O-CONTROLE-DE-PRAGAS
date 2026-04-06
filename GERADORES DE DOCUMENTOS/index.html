@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Documentos - Dedetizadora Borges</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @page { size: A4; margin: 0; }
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+            .no-print, .print-hidden { display: none !important; }
+            .a4-page {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 15mm !important;
+                width: 210mm;
+                min-height: 297mm;
+                overflow: hidden;
+                page-break-inside: avoid;
+            }
+            .print-page-break { page-break-before: always; }
+            .print-bg-blue { background-color: #254191 !important; color: white !important; }
+            .print-bg-header { background-color: #1e3a8a !important; color: white !important; }
+            .print-bg-blue-line { background-color: #254191 !important; }
+            .print-bg-light-blue { background-color: #eff6ff !important; }
+            .print-bg-red { background-color: #fff5f5 !important; }
+            .print-avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
+        }
+        .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        textarea { overflow: hidden; }
+        input:focus, textarea:focus { outline: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+</body>
+</html>
