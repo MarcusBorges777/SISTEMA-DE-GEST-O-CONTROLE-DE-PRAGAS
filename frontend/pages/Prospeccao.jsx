@@ -4,6 +4,7 @@ import { fetchProspeccaoStats, fetchProspeccaoSegmentos, fetchProspeccaoBuscaGlo
 import { buscarCNPJ } from '../services/brasilApi';
 import { useToast } from '../components/shared/Toast';
 import { useNavigate } from 'react-router-dom';
+import { useEmpresa, normalizeCliente } from '../contexts/EmpresaContext';
 
 // Formata CNPJ enquanto digita
 function formatCnpj(value) {
@@ -18,6 +19,7 @@ function formatCnpj(value) {
 export default function Prospeccao() {
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const { setEmpresa } = useEmpresa();
 
   // Search mode: 'nome' (local DB) or 'cnpj' (Brasil API)
   const [searchMode, setSearchMode] = useState('nome');
@@ -537,7 +539,7 @@ export default function Prospeccao() {
                     <span className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
                       <CheckCircle2 size={18} /> Cliente adicionado!
                     </span>
-                    <button onClick={() => navigate('/documentos?tab=laudo')}
+                    <button onClick={() => { setEmpresa(normalizeCliente(r)); navigate('/documentos?tab=laudo'); }}
                       className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition shadow-md">
                       <FileText size={16} /> Gerar Documento
                     </button>
@@ -624,7 +626,7 @@ export default function Prospeccao() {
                               <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                                 <CheckCircle2 size={14} /> Adicionado
                               </span>
-                              <button onClick={() => navigate('/documentos?tab=laudo')} title="Gerar documento"
+                              <button onClick={() => { setEmpresa(normalizeCliente(emp)); navigate('/documentos?tab=laudo'); }} title="Gerar documento"
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
                                 <FileText size={15} />
                               </button>
