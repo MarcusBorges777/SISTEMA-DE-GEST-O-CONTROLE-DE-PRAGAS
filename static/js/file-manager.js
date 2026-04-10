@@ -588,10 +588,10 @@ class FileManager {
     }
 
     showToast(message, type = 'info') {
-        if (typeof showToast === 'function') {
-            showToast(message, type);
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
         } else {
-            alert(message);
+            console.warn('[FileManager]', type, message);
         }
     }
 }
