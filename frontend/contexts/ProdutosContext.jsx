@@ -1,18 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
 
 const ProdutosContext = createContext(null);
 
+// Usa fetch direto (sem api.get) para não acionar o auto-redirect em 401
+async function fetchJson(url, options = {}) {
+  const resp = await fetch(url, { credentials: 'same-origin', ...options });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
 export function ProdutosProvider({ children }) {
   const [produtos, setProdutos] = useState([]);
-  const [loading, setLoading] = useState(false);
 
   const loadProdutos = useCallback(async () => {
     try {
-      const data = await api.get('/api/produtos');
+      const data = await fetchJson('/api/produtos');
       setProdutos(Array.isArray(data) ? data : []);
     } catch (e) {
-      // Silencioso — banco pode estar vazio
+      // Silencioso — usuário pode não estar logado ainda
     }
   }, []);
 
@@ -20,7 +25,11 @@ export function ProdutosProvider({ children }) {
 
   const addProduto = async (produto) => {
     try {
-      await api.post('/api/produtos', produto);
+      await fetchJson('/api/produtos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(produto),
+      });
       await loadProdutos();
       return true;
     } catch (e) {
@@ -31,7 +40,11 @@ export function ProdutosProvider({ children }) {
 
   const updateProduto = async (id, produto) => {
     try {
-      await api.put(`/api/produtos/${id}`, produto);
+      await fetchJson(`/api/produtos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(produto),
+      });
       await loadProdutos();
       return true;
     } catch (e) {
@@ -42,7 +55,7 @@ export function ProdutosProvider({ children }) {
 
   const removeProduto = async (id) => {
     try {
-      await api.del(`/api/produtos/${id}`);
+      await fetchJson(`/api/produtos/${id}`, { method: 'DELETE' });
       await loadProdutos();
       return true;
     } catch (e) {
@@ -52,7 +65,7 @@ export function ProdutosProvider({ children }) {
   };
 
   return (
-    <ProdutosContext.Provider value={{ produtos, loading, loadProdutos, addProduto, updateProduto, removeProduto }}>
+    <ProdutosContext.Provider value={{ produtos, loadProdutos, addProduto, updateProduto, removeProduto }}>
       {children}
     </ProdutosContext.Provider>
   );
