@@ -157,6 +157,50 @@
     }
 }
 
+/* ============================
+   RESET GLOBAL DE IMPRESSÃO
+   Aplicado antes das classes Tailwind para garantir que nenhum
+   container pai retenha altura de viewport (100vh, h-screen, flex-1)
+   ============================ */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body,
+  #root,
+  #root > div,
+  .app-container {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove sidebar, topbar, drawers e botões flutuantes */
+  nav,
+  aside,
+  header,
+  .no-print,
+  [class*="fixed"],
+  [class*="sidebar"],
+  [class*="topbar"],
+  [class*="drawer"] {
+    display: none !important;
+  }
+
+  /* Garante que o container de layout não retenha margens do sidebar */
+  main,
+  [style*="margin-left"] {
+    margin-left: 0 !important;
+  }
+}
+
 /* Utilitarios customizados */
 @layer utilities {
     .text-balance {

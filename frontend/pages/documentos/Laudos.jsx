@@ -1527,35 +1527,50 @@ export default function Laudos() {
             size: A4;
             margin: 0;
           }
-          body { 
+
+          /* Reset absoluto — body, html, root não podem ter altura de viewport */
+          html, body, #root, #root > div {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
             background: white !important;
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          .min-h-screen {
+
+          /* Wrapper do componente Laudos */
+          #a4-document {
+            height: auto !important;
+            min-height: 0 !important;
             padding: 0 !important;
             margin: 0 !important;
             gap: 0 !important;
             display: block !important;
             background: white !important;
           }
+
           .no-print { display: none !important; }
+
           .a4-page {
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
             padding: 15mm !important;
-            width: 210mm;
-            height: 296mm !important; /* Ligeiramente menor que 297mm para evitar overflow de folha branca */
-            max-height: 296mm !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
             overflow: hidden !important;
             box-sizing: border-box !important;
             page-break-inside: avoid;
-            page-break-after: auto;
+            page-break-after: always;
           }
-          .a4-page:last-of-type {
+
+          /* Última página visível NÃO cria folha em branco */
+          .a4-page:last-of-type,
+          .a4-page:last-child {
             page-break-after: avoid !important;
           }
+
           .print\\:page-break {
             page-break-before: always !important;
           }
