@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
-import { ProdutosProvider } from './contexts/ProdutosContext';
 import App from './App';
 
 const container = document.getElementById('root');
@@ -15,9 +14,7 @@ root.render(
       <ThemeProvider>
         <SidebarProvider>
           <EmpresaProvider>
-            <ProdutosProvider>
-              <App />
-            </ProdutosProvider>
+            <App />
           </EmpresaProvider>
         </SidebarProvider>
       </ThemeProvider>
