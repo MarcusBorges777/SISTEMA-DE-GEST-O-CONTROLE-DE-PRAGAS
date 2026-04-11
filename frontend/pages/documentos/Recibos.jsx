@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, ClipboardCheck, Calendar, Minus } from 'lucide-react';
+import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, ClipboardCheck, Calendar, Minus, Save, Loader2 } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
+import { salvarDocumento } from '../../utils/salvarDocumento';
 
 export default function Recibos() {
   // --- ESTADOS DO PAINEL DE EDIÇÃO ---
@@ -209,14 +210,41 @@ export default function Recibos() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
+  const [salvandoPdf, setSalvandoPdf] = useState(false);
+
+  const handleSalvarPdf = async () => {
+    setSalvandoPdf(true);
+    try {
+      const nomeEmpresa = clientData.nome || clientData.fantasia || 'Empresa';
+      const result = await salvarDocumento({
+        elementId: 'a4-document',
+        tipo: 'recibo',
+        numeroDoc: quoteNumber || '00001',
+        nomeEmpresa,
+      });
+      if (result.sucesso) alert(`PDF salvo: ${result.nomeArquivo}`);
+      else alert(`Erro ao salvar: ${result.erro}`);
+    } finally {
+      setSalvandoPdf(false);
+    }
+  };
+
   const handlePrint = () => window.print();
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center font-sans text-slate-900 print:p-0 print:bg-white print:block">
       
-      {/* BOTÃO FLUTUANTE DE IMPRESSÃO */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden">
-        <button 
+      {/* BOTÃO FLUTUANTE DE IMPRESSÃO + SALVAR */}
+      <div className="fixed bottom-6 right-6 z-50 print:hidden flex flex-col gap-3 items-end">
+        <button
+          onClick={handleSalvarPdf}
+          disabled={salvandoPdf}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold disabled:opacity-60"
+        >
+          {salvandoPdf ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+          <span className="tracking-tight uppercase text-xs">Salvar PDF</span>
+        </button>
+        <button
          onClick={handlePrint}
          className="bg-[#254191] hover:bg-blue-800 text-white p-4 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold"
         >

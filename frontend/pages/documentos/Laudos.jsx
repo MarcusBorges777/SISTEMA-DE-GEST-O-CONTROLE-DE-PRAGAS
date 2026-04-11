@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive } from 'lucide-react';
+import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Loader2 } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
+import { useProdutos } from '../../contexts/ProdutosContext';
+import { salvarDocumento } from '../../utils/salvarDocumento';
 
 export default function Laudos() {
   const [logo, setLogo] = useState(null);
@@ -176,6 +178,23 @@ export default function Laudos() {
 
   const [productRows, setProductRows] = useState([]);
 
+  // --- PRODUTOS CONTEXT: sincronização global ---
+  const { produtos: produtosCtx, addProduto: addProdutoCtx } = useProdutos();
+
+  useEffect(() => {
+    if (!produtosCtx || produtosCtx.length === 0) return;
+    setProductsDb(prev => {
+      const merged = { ...prev };
+      produtosCtx.forEach(p => {
+        if (!merged[p.id]) merged[p.id] = p;
+      });
+      return merged;
+    });
+  }, [produtosCtx]);
+
+  // --- Estado para salvar PDF ---
+  const [salvandoPdf, setSalvandoPdf] = useState(false);
+
   // --- EMPRESA CONTEXT: auto-fill do cliente ---
   const { empresa: empresaCtx } = useEmpresa();
   useEffect(() => {
@@ -316,9 +335,10 @@ export default function Laudos() {
         targets: newProduct.targets
     };
     
-    // Salva na base de dados do sistema e adiciona direto na tabela
+    // Salva na base de dados local e também persiste via API (context global)
     setProductsDb(prev => ({ ...prev, [newId]: productToAdd }));
     setProductRows(prev => [...prev, newId]);
+    addProdutoCtx({ ...productToAdd }); // persiste no banco — async, sem bloquear UI
     setShowNewProductModal(false);
     setNewProduct({ nome: "", grupo: "", principio: "", registro: "", concentracao: "", diluente: "", equipamento: "", antidoto: "", targets: [] });
     setNewProductError("");
@@ -504,6 +524,30 @@ export default function Laudos() {
     }
 
     window.print();
+  };
+
+  const handleSalvarPdf = async () => {
+    if (!showPestControl && !showWaterTank && !showGreaseTrap) {
+      alert("Selecione pelo menos um documento para salvar.");
+      return;
+    }
+    setSalvandoPdf(true);
+    try {
+      const nomeEmpresa = formData.cliente?.nome || formData.cliente?.fantasia || 'Empresa';
+      const result = await salvarDocumento({
+        elementId: 'a4-document',
+        tipo: 'laudo',
+        numeroDoc: formData.laudoNumero || '0001',
+        nomeEmpresa,
+      });
+      if (result.sucesso) {
+        alert(`PDF salvo: ${result.nomeArquivo}`);
+      } else {
+        alert(`Erro ao salvar: ${result.erro}`);
+      }
+    } finally {
+      setSalvandoPdf(false);
+    }
   };
 
   const renderEditorPanel = () => (
@@ -924,8 +968,16 @@ export default function Laudos() {
       
       {renderEditorPanel()}
 
-      <div className="fixed bottom-6 right-6 z-50 no-print">
-        <button 
+      <div className="fixed bottom-6 right-6 z-50 no-print flex flex-col gap-3 items-end">
+        <button
+          onClick={handleSalvarPdf}
+          disabled={salvandoPdf || (!showPestControl && !showWaterTank && !showGreaseTrap)}
+          className={`${(!showPestControl && !showWaterTank && !showGreaseTrap) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold disabled:opacity-60`}
+        >
+          {salvandoPdf ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+          <span className="tracking-tight uppercase text-xs">Salvar PDF</span>
+        </button>
+        <button
           onClick={handlePrint}
           disabled={!showPestControl && !showWaterTank && !showGreaseTrap}
           className={`${(!showPestControl && !showWaterTank && !showGreaseTrap) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#254191] hover:bg-blue-800'} text-white p-4 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold`}
