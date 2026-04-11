@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, ClipboardCheck, Calendar, Minus, Save, Loader2 } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import ClienteBusca from '../../components/shared/ClienteBusca';
 
 export default function Recibos() {
   // --- ESTADOS DO PAINEL DE EDIÇÃO ---
@@ -333,6 +334,17 @@ export default function Recibos() {
                  {/* COLUNA 2: DADOS DO CLIENTE */}
                  <div className="space-y-4">
                      <h4 className="font-bold text-[11px] text-gray-500 uppercase tracking-widest border-b border-gray-200 pb-2">Dados do Cliente</h4>
+                     <ClienteBusca
+                       placeholder="Importar cliente cadastrado..."
+                       onSelect={(c) => setClientData(prev => ({
+                         ...prev,
+                         nome: c.razao_social || c.nome_fantasia || '',
+                         fantasia: c.nome_fantasia || '',
+                         cnpj: c.cnpj || '',
+                         endereco: c.endereco_completo || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
+                         atividade: c.cnae || '',
+                       }))}
+                     />
                      <div>
                          <label className="block text-xs font-bold text-gray-600 mb-1.5">Razão Social / Nome</label>
                          <input type="text" value={clientData.nome} onChange={(e) => handleClientChange('nome', e.target.value)} className="w-full p-2.5 bg-gray-200/60 border border-gray-300/50 rounded-md text-sm font-semibold text-gray-800 focus:bg-white focus:border-[#324577]/40 focus:ring-2 focus:ring-[#324577]/10 outline-none transition-all" />

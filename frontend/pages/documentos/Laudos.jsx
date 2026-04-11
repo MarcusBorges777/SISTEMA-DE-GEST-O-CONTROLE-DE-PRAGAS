@@ -3,6 +3,7 @@ import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, In
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import ClienteBusca from '../../components/shared/ClienteBusca';
 
 export default function Laudos() {
   const [logo, setLogo] = useState(null);
@@ -712,6 +713,20 @@ export default function Laudos() {
 
                 <div className="space-y-4">
                     <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider border-b pb-1">Dados do Cliente</h4>
+                    <ClienteBusca
+                      placeholder="Importar cliente cadastrado..."
+                      onSelect={(c) => setFormData(prev => ({
+                        ...prev,
+                        cliente: {
+                          ...prev.cliente,
+                          nome: c.razao_social || c.nome_fantasia || '',
+                          fantasia: c.nome_fantasia || '',
+                          cnpj: c.cnpj || '',
+                          endereco: c.endereco_completo || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
+                          atividadeEconomica: c.cnae || '',
+                        }
+                      }))}
+                    />
                     <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Razão Social / Nome</label>
                         <input type="text" name="cliente.nome" value={formData.cliente.nome} onChange={handleInputChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -964,7 +979,7 @@ export default function Laudos() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
+    <div id="a4-document" className="min-h-screen print:min-h-0 bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
       
       {renderEditorPanel()}
 
@@ -1531,11 +1546,15 @@ export default function Laudos() {
             margin: 0 !important;
             padding: 15mm !important;
             width: 210mm;
-            height: 296mm !important; /* Ligeiramente menor que 297mm para evitar o overflow de folha branca */
+            height: 296mm !important; /* Ligeiramente menor que 297mm para evitar overflow de folha branca */
             max-height: 296mm !important;
             overflow: hidden !important;
             box-sizing: border-box !important;
             page-break-inside: avoid;
+            page-break-after: auto;
+          }
+          .a4-page:last-of-type {
+            page-break-after: avoid !important;
           }
           .print\\:page-break {
             page-break-before: always !important;
