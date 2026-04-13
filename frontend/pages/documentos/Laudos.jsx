@@ -1543,6 +1543,16 @@ export default function Laudos() {
             padding: 0 !important;
           }
 
+          /* Zera margin-left do wrapper do sidebar (inline style tem precedência — precisa !important) */
+          div[style*="margin-left"],
+          div[style*="marginLeft"] {
+            margin-left: 0 !important;
+          }
+
+          /* Remove padding do main e topbar */
+          main { padding: 0 !important; }
+          header, nav, aside { display: none !important; }
+
           /* Wrapper do componente Laudos */
           #a4-document {
             height: auto !important;
