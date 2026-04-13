@@ -617,6 +617,69 @@ def criar_tabelas():
         data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Seed produtos padrão (apenas se tabela vazia)
+    _PRODUTOS_PADRAO = [
+        {'id': 'ratol', 'nome': 'Ratol Gs girassol', 'grupo': 'Hidroxicumarina',
+         'principio': 'Brodifacoum', 'registro': '3.2398.0019.001-1',
+         'concentracao': '50 grs por ponto', 'diluente': '_', 'equipamento': '_',
+         'antidoto': 'Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001',
+         'targets': ['ratos']},
+        {'id': 'maki', 'nome': 'Maki Bloco', 'grupo': 'Cumarianas',
+         'principio': 'Bromadiolone', 'registro': '3.2233.0073',
+         'concentracao': '1 Bloco por ponto', 'diluente': '-', 'equipamento': '_',
+         'antidoto': 'Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001',
+         'targets': ['ratos']},
+        {'id': 'triflurat', 'nome': 'Triflurat GS', 'grupo': 'Cumarínico',
+         'principio': 'Flocoumafen', 'registro': '3.0425.0158.001-1',
+         'concentracao': '1 Bloco por ponto', 'diluente': '-', 'equipamento': '-',
+         'antidoto': 'Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001',
+         'targets': ['ratos']},
+        {'id': 'termigama', 'nome': 'Termigama', 'grupo': 'Fenil Pirazol',
+         'principio': 'Fipronil', 'registro': '3.0425.0087.001-4',
+         'concentracao': '5/1(ml/l) de calda', 'diluente': 'Água',
+         'equipamento': 'Pulverizador costal de 20 litros',
+         'antidoto': 'Antídoto/Tratamento: Tratamento sintomático e de suporte. CEATOX: 0800 772 6001',
+         'targets': ['cupins']},
+        {'id': 'bifentol', 'nome': 'Bifentol 200 SC', 'grupo': 'Piretróides',
+         'principio': 'Bifentrina', 'registro': '32398.0027.001-5',
+         'concentracao': '3/1(ml/l) de calda', 'diluente': 'Água',
+         'equipamento': 'Pulverizador costal de 20 litros',
+         'antidoto': 'Antidoto / tratamento: Anti-histamínicos e tratamento sintomático. CEATOX: 0800 772 6001',
+         'targets': ['escorpioes']},
+        {'id': 'demand', 'nome': 'DEMAND 2,5CS', 'grupo': 'Piretróides',
+         'principio': 'Lambda-cialotrina', 'registro': '3.0119.6626.001-7',
+         'concentracao': '30/1(ml/l) de calda', 'diluente': 'Água',
+         'equipamento': 'Pulverizador costal de 20 litros',
+         'antidoto': 'Antidoto / tratamento: Anti-histamínicos e tratamento sintomático. CEATOX: 0800 772 6001',
+         'targets': ['escorpioes']},
+        {'id': 'fendona', 'nome': 'FENDONA 6 SC', 'grupo': 'Piretrinas e Piretróides',
+         'principio': 'Alfa-cipermetrina', 'registro': '3.0404.0031',
+         'concentracao': '5/1(ml/l) de calda', 'diluente': 'Água',
+         'equipamento': 'Pulverizador costal de 20 litros',
+         'antidoto': 'Antídoto/Tratamento: Não há antídoto específico. Tratamento sintomático. Telefone de emergência 24h: 0800 014 11 49.',
+         'targets': ['mosquitos', 'baratas', 'formigas', 'moscas', 'pulgas', 'barbeiros', 'tracas']},
+        {'id': 'formim', 'nome': 'FORMFIM GEL', 'grupo': 'Fenil Pirazol',
+         'principio': 'Fipronil', 'registro': '3.2398.0033.001-9',
+         'concentracao': '0,05%', 'diluente': '-', 'equipamento': 'Pistola Aplicadora',
+         'antidoto': 'Antídoto/Tratamento: Não há antídoto específico. Tratamento sintomático. CEATOX: 0800 772 6001',
+         'targets': ['formigas']},
+        {'id': 'cyperex', 'nome': 'CYPEREX® 250 CE', 'grupo': 'Piretróides',
+         'principio': 'Cipermetrina', 'registro': '3.0425.0046.001-0',
+         'concentracao': '5/1(ml/l) de calda', 'diluente': 'Água',
+         'equipamento': 'Pulverizador costal de 20 litros',
+         'antidoto': 'Antídoto/Tratamento: Não há antídoto específico. Tratamento sintomático. Telefone de emergência 24h: 0800 014 11 49.',
+         'targets': ['baratas', 'formigas', 'moscas', 'mosquitos', 'pulgas', 'escorpioes', 'aranhas', 'carrapatos', 'percevejos', 'tracas']},
+    ]
+    _count = db.execute('SELECT COUNT(*) FROM produtos').fetchone()[0]
+    if _count == 0:
+        for _p in _PRODUTOS_PADRAO:
+            db.execute(
+                'INSERT OR IGNORE INTO produtos (id, nome, grupo, principio, registro, concentracao, diluente, equipamento, antidoto, targets) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (_p['id'], _p['nome'], _p['grupo'], _p['principio'], _p['registro'],
+                 _p['concentracao'], _p['diluente'], _p['equipamento'], _p['antidoto'],
+                 json.dumps(_p['targets']))
+            )
+
     # Tabela de documentos salvos como PDF pelo frontend
     db.execute('''CREATE TABLE IF NOT EXISTS documentos_salvos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
