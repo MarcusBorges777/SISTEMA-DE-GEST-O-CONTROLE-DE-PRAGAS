@@ -1081,7 +1081,7 @@ export default function Laudos() {
       <div className="text-[10px] space-y-1 text-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <p className="font-black text-[#254191] uppercase text-[9px] leading-tight mb-1 whitespace-nowrap overflow-hidden text-ellipsis">{formData.cliente.nome}</p>
+            <p className="font-black text-[#254191] uppercase text-[9px] leading-tight mb-1">{formData.cliente.nome}</p>
             <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">NOME FANTASIA:</span> {formData.cliente.fantasia}</p>
             <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {formData.cliente.cnpj}</p>
           </div>
@@ -1406,7 +1406,7 @@ export default function Laudos() {
 
           <div className="bg-red-50 border border-red-200 py-1 px-2 rounded mb-4 flex items-center gap-2 shadow-sm">
               <AlertTriangle size={12} className="text-[#a02c2c] shrink-0" />
-              <p className="font-bold text-[#a02c2c] text-[6px] uppercase tracking-tight whitespace-nowrap leading-none">
+              <p className="font-bold text-[#a02c2c] text-[8px] uppercase tracking-tight whitespace-nowrap leading-none">
                   Nº DE TELEFONE NO CASO DE INTOXICAÇÃO: ANVISA – DISQUE INTOXICAÇÃO | SERVIÇO DE TOXICOLOGIA DE MG: 0800-722-6001 / (31) 3224-4000 / (31) 3239-9308
               </p>
           </div>
