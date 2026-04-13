@@ -170,6 +170,7 @@ export default function Laudos() {
         { quantidade: "01", tipo: "Caixa de Alvenaria", volume: "100 Litros", identificacao: "Cozinha Principal" }
     ],
     responsaveis: "PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES",
+    alvara: "Nº 164/2025 (Venc: 03/07/2028)",
     cliente: {
       nome: "COOPRAFAD - Cooperativa dos Produtores da Agricultura Familiar de Divinopolis/MG e Região",
       fantasia: "COOPRAFAD",
@@ -412,13 +413,13 @@ export default function Laudos() {
     nome: "Dedetizadora Borges",
     cnpj: "10.409.228/0001-93",
     endereco: "RUA YARA, 701 – B. CENTRO IND CEL JOVELINO RABELO DIVINÓPOLIS/ MG – CEP 35502-289",
-    contatos: "(37) 3214-7599 / 99964-4205",
+    contatos: "(37) 99964-4205",
     email: "dedetizadoraborges@yahoo.com.br",
     site: "dedetizadoraborges.com.br",
-    alvara: "Nº 164/2025 (Venc: 03/07/2028)",
+    alvara: formData.alvara, // vem do estado editável
     rt: "Maria Aparecida de Oliveira Borges",
     crq: "02404889 | ART 9.353",
-    licencaAmbiental: "Dispensa Protocolo: 59009480/2019"
+    licencaAmbiental: "Protocolo: 59009480/2019"
   };
 
   const procedimentos = [
@@ -959,24 +960,38 @@ export default function Laudos() {
                 </div>
             )}
 
-            {/* RESPONSÁVEIS */}
-            <div className="mt-4 border-t pt-4">
-                <label className="block text-xs font-bold text-gray-700 mb-1">Responsáveis pela Execução</label>
-                <input 
-                    type="text" 
-                    name="responsaveis" 
-                    value={formData.responsaveis} 
-                    onChange={handleInputChange} 
-                    list="responsaveis-suggestions"
-                    className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                    placeholder="Nome dos responsáveis..."
-                />
-                <datalist id="responsaveis-suggestions">
-                    <option value="MARIA APARECIDA DE OLIVEIRA BORGES" />
-                    <option value="PAULO BORGES DE CASTRO" />
-                    <option value="PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES" />
-                </datalist>
-                <p className="text-[10px] text-gray-400 italic mt-1">* Comece a digitar para ver as sugestões de responsáveis.</p>
+            {/* RESPONSÁVEIS & ALVARÁ SANITÁRIO */}
+            <div className="mt-4 border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Responsáveis pela Execução</label>
+                    <input
+                        type="text"
+                        name="responsaveis"
+                        value={formData.responsaveis}
+                        onChange={handleInputChange}
+                        list="responsaveis-suggestions"
+                        className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Nome dos responsáveis..."
+                    />
+                    <datalist id="responsaveis-suggestions">
+                        <option value="MARIA APARECIDA DE OLIVEIRA BORGES" />
+                        <option value="PAULO BORGES DE CASTRO" />
+                        <option value="PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES" />
+                    </datalist>
+                    <p className="text-[10px] text-gray-400 italic mt-1">* Comece a digitar para ver as sugestões.</p>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Alvará Sanitário (Cabeçalho)</label>
+                    <input
+                        type="text"
+                        name="alvara"
+                        value={formData.alvara}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Nº 164/2025 (Venc: 03/07/2028)"
+                    />
+                    <p className="text-[10px] text-gray-400 italic mt-1">* Editável para futuras atualizações.</p>
+                </div>
             </div>
 
             {/* OBSERVAÇÕES (Aparece apenas se Pest Control estiver ativo) */}
@@ -1039,6 +1054,7 @@ export default function Laudos() {
             <div className="flex justify-end gap-3 text-blue-700 font-bold pt-1">
                  <span className="flex items-center gap-1"><Phone size={9} /> {empresa.contatos}</span>
                  <span className="flex items-center gap-1"><Mail size={9} /> {empresa.email}</span>
+                 <span className="flex items-center gap-1"><Globe size={9} /> {empresa.site}</span>
             </div>
              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
                 <p>Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
