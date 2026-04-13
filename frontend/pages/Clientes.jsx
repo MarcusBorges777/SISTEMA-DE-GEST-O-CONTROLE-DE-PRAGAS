@@ -5,10 +5,12 @@ import { fetchClientes, createCliente, deleteCliente, fetchCnpjAutocomplete, upd
 import { searchClientes as searchCacheClientes } from '../services/clienteCache';
 import { buscarCNPJ } from '../services/brasilApi';
 import { useToast } from '../components/shared/Toast';
+import { useEmpresa, normalizeCliente } from '../contexts/EmpresaContext';
 
 export default function Clientes() {
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const { setEmpresa } = useEmpresa();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -108,8 +110,8 @@ export default function Clientes() {
   };
 
   const handleGerar = (cliente) => {
-    // Navegar para documentos passando dados do cliente via state
-    navigate('/documentos', { state: { cliente } });
+    setEmpresa(normalizeCliente(cliente));
+    navigate('/documentos');
   };
 
   // === SUGGESTION SYSTEM ===

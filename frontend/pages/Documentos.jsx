@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { Bug, Calculator, Receipt } from 'lucide-react';
 import { buscarFeriados } from '../services/brasilApi';
+import { useEmpresa, normalizeCliente } from '../contexts/EmpresaContext';
 import Laudos from './documentos/Laudos';
 import Orcamentos from './documentos/Orcamentos';
 import Recibos from './documentos/Recibos';
@@ -16,6 +17,15 @@ export default function Documentos() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'laudo');
   const [feriados, setFeriados] = useState([]);
+  const location = useLocation();
+  const { empresa, setEmpresa } = useEmpresa();
+
+  // Bridge: se chegou com location.state.cliente e nao ha empresa no context, preencher
+  useEffect(() => {
+    if (location.state?.cliente && !empresa) {
+      setEmpresa(normalizeCliente(location.state.cliente));
+    }
+  }, []);
 
   // Carregar feriados uma vez
   useEffect(() => {

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SidebarProvider } from './contexts/SidebarContext';
+import { EmpresaProvider } from './contexts/EmpresaContext';
 import App from './App';
 
 const container = document.getElementById('root');
@@ -12,7 +13,9 @@ root.render(
     <BrowserRouter>
       <ThemeProvider>
         <SidebarProvider>
-          <App />
+          <EmpresaProvider>
+            <App />
+          </EmpresaProvider>
         </SidebarProvider>
       </ThemeProvider>
     </BrowserRouter>

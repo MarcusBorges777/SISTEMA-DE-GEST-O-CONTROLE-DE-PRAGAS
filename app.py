@@ -602,6 +602,33 @@ def criar_tabelas():
     db.execute('CREATE INDEX IF NOT EXISTS idx_recibos_emissao ON recibos(data_emissao)')
     db.execute('CREATE INDEX IF NOT EXISTS idx_recibos_numero ON recibos(numero_recibo)')
 
+    # Tabela de produtos quimicos (sincronizada com Laudos)
+    db.execute('''CREATE TABLE IF NOT EXISTS produtos (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        grupo TEXT,
+        principio TEXT,
+        registro TEXT,
+        concentracao TEXT,
+        diluente TEXT,
+        equipamento TEXT,
+        antidoto TEXT,
+        targets TEXT DEFAULT '[]',
+        data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # Tabela de documentos salvos como PDF pelo frontend
+    db.execute('''CREATE TABLE IF NOT EXISTS documentos_salvos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome_arquivo TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        caminho TEXT NOT NULL,
+        numero_doc TEXT,
+        nome_empresa TEXT,
+        data_geracao DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'ativo'
+    )''')
+
     # Tabela de usuarios do sistema
     db.execute('''CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2820,6 +2847,211 @@ def abrir_arquivo():
     except Exception as e:
         print(f"Erro ao abrir arquivo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# ==================== PRODUTOS ====================
+
+@app.route('/api/produtos', methods=['GET'])
+def listar_produtos():
+    """Lista todos os produtos do banco"""
+    try:
+        db = get_db()
+        rows = db.execute('SELECT * FROM produtos ORDER BY nome').fetchall()
+        resultado = []
+        for r in rows:
+            p = dict(r)
+            try:
+                p['targets'] = json.loads(p['targets'] or '[]')
+            except Exception:
+                p['targets'] = []
+            resultado.append(p)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/produtos', methods=['POST'])
+def criar_produto():
+    """Cria ou atualiza produto"""
+    try:
+        data = request.json
+        if not data or not data.get('nome'):
+            return jsonify({'error': 'Nome obrigatório'}), 400
+        pid = data.get('id') or data['nome'].lower().replace(' ', '_').replace('/', '_')
+        targets_json = json.dumps(data.get('targets', []), ensure_ascii=False)
+        db = get_db()
+        db.execute('''INSERT OR REPLACE INTO produtos
+            (id, nome, grupo, principio, registro, concentracao, diluente, equipamento, antidoto, targets)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (pid, data.get('nome',''), data.get('grupo',''), data.get('principio',''),
+             data.get('registro',''), data.get('concentracao',''), data.get('diluente',''),
+             data.get('equipamento',''), data.get('antidoto',''), targets_json))
+        db.commit()
+        return jsonify({'success': True, 'id': pid})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/produtos/<produto_id>', methods=['PUT'])
+def atualizar_produto(produto_id):
+    """Atualiza produto existente"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'error': 'Dados inválidos'}), 400
+        targets_json = json.dumps(data.get('targets', []), ensure_ascii=False)
+        db = get_db()
+        db.execute('''UPDATE produtos SET nome=?, grupo=?, principio=?, registro=?,
+            concentracao=?, diluente=?, equipamento=?, antidoto=?, targets=?
+            WHERE id=?''',
+            (data.get('nome',''), data.get('grupo',''), data.get('principio',''),
+             data.get('registro',''), data.get('concentracao',''), data.get('diluente',''),
+             data.get('equipamento',''), data.get('antidoto',''), targets_json, produto_id))
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/produtos/<produto_id>', methods=['DELETE'])
+def deletar_produto(produto_id):
+    """Remove produto"""
+    try:
+        db = get_db()
+        db.execute('DELETE FROM produtos WHERE id=?', (produto_id,))
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== CONFIGURAÇÃO PASTA PRINCIPAL ====================
+
+@app.route('/api/config/pasta-principal', methods=['GET', 'POST'])
+def api_pasta_principal():
+    """Lê/salva o caminho da pasta principal (OneDrive ou similar)"""
+    config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+    if request.method == 'GET':
+        try:
+            if config_duplos.exists():
+                with open(config_duplos, 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+                pasta = cfg.get('principal', '')
+                existe = Path(pasta).exists() if pasta else False
+                return jsonify({'pasta': pasta, 'existe': existe})
+            return jsonify({'pasta': '', 'existe': False})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    else:
+        try:
+            data = request.json
+            pasta = (data or {}).get('pasta', '')
+            cfg = {}
+            if config_duplos.exists():
+                with open(config_duplos, 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+            cfg['principal'] = pasta
+            cfg['ativo'] = True
+            cfg['criar_pastas_auto'] = True
+            cfg['data_configuracao'] = datetime.now().isoformat()
+            with open(config_duplos, 'w', encoding='utf-8') as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            return jsonify({'success': True, 'pasta': pasta})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+
+# ==================== SALVAR DOCUMENTOS PDF ====================
+
+@app.route('/api/documentos/salvar-pdf', methods=['POST'])
+def salvar_pdf():
+    """Recebe PDF gerado pelo frontend e salva com nomenclatura correta"""
+    try:
+        arquivo = request.files.get('arquivo')
+        if not arquivo:
+            return jsonify({'error': 'Arquivo não enviado'}), 400
+
+        tipo = request.form.get('tipo', 'laudo').upper()
+        numero_doc = request.form.get('numero_doc', '0001').zfill(4)
+        nome_empresa = request.form.get('nome_empresa', 'Empresa').strip()
+        mes_ano = request.form.get('mes_ano', datetime.now().strftime('%m-%y'))
+
+        # Sanitizar nome da empresa para uso em nome de arquivo
+        import re as _re
+        nome_safe = _re.sub(r'[<>:"/\\|?*]', '', nome_empresa)[:60].strip()
+
+        nome_arquivo = f'#{numero_doc} {nome_safe} {mes_ano}.pdf'
+
+        # Determinar pasta de destino
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        pasta_principal = None
+        if config_duplos.exists():
+            with open(config_duplos, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            pasta_principal = cfg.get('principal', '').strip()
+
+        mapa_subpastas = {'LAUDO': 'Laudos', 'RECIBO': 'Recibos', 'ORCAMENTO': 'Orcamentos', 'ORÇAMENTO': 'Orcamentos'}
+        subpasta_nome = mapa_subpastas.get(tipo, 'Laudos')
+
+        if pasta_principal and Path(pasta_principal).exists():
+            destino = Path(pasta_principal) / subpasta_nome
+        else:
+            destino = OUTPUT_DIR / subpasta_nome
+
+        destino.mkdir(parents=True, exist_ok=True)
+        caminho_final = destino / nome_arquivo
+
+        # Se já existe arquivo com mesmo nome → mover para Lixeira
+        if caminho_final.exists():
+            if pasta_principal and Path(pasta_principal).exists():
+                lixeira = Path(pasta_principal) / 'Lixeira'
+            else:
+                lixeira = OUTPUT_DIR / 'Lixeira'
+            lixeira.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            nome_lixeira = f'{ts}_{nome_arquivo}'
+            shutil.move(str(caminho_final), str(lixeira / nome_lixeira))
+
+        arquivo.save(str(caminho_final))
+
+        # Registrar no banco
+        db = get_db()
+        db.execute('''INSERT INTO documentos_salvos (nome_arquivo, tipo, caminho, numero_doc, nome_empresa)
+            VALUES (?, ?, ?, ?, ?)''',
+            (nome_arquivo, tipo, str(caminho_final), numero_doc, nome_empresa))
+        db.commit()
+
+        return jsonify({'success': True, 'nome_arquivo': nome_arquivo, 'caminho': str(caminho_final)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/limpar-lixeira', methods=['POST'])
+def limpar_lixeira():
+    """Remove arquivos da Lixeira com mais de 90 dias"""
+    try:
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        pasta_principal = None
+        if config_duplos.exists():
+            with open(config_duplos, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            pasta_principal = cfg.get('principal', '').strip()
+
+        if pasta_principal and Path(pasta_principal).exists():
+            lixeira = Path(pasta_principal) / 'Lixeira'
+        else:
+            lixeira = OUTPUT_DIR / 'Lixeira'
+
+        removidos = 0
+        limite = datetime.now() - timedelta(days=90)
+        if lixeira.exists():
+            for arq in lixeira.iterdir():
+                if arq.is_file():
+                    mtime = datetime.fromtimestamp(arq.stat().st_mtime)
+                    if mtime < limite:
+                        arq.unlink()
+                        removidos += 1
+        return jsonify({'success': True, 'removidos': removidos})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     print("\n" + "="*70)
