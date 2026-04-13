@@ -979,7 +979,7 @@ export default function Laudos() {
   );
 
   return (
-    <div id="a4-document" className="min-h-screen print:min-h-0 bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
+    <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
       
       {renderEditorPanel()}
 
@@ -1359,23 +1359,23 @@ export default function Laudos() {
         </div>
       )}
 
-      {/* PÁGINA 4: ALVARÁ SANITÁRIO (ANEXO OPCIONAL) */}
-      <div className={`a4-page relative bg-white shadow-2xl flex flex-col items-center justify-center print:shadow-none print:m-0 overflow-hidden ${!alvaraImage ? 'print:hidden' : ((showPestControl || showWaterTank || showGreaseTrap) ? 'print:page-break' : '')}`}>
-        {!alvaraImage ? (
-          <div 
+      {/* PÁGINA 4A: PROMPT DE UPLOAD — só na tela, nunca imprime */}
+      {!alvaraImage && (
+        <div className="a4-page relative bg-white shadow-2xl flex flex-col items-center justify-center overflow-hidden no-print">
+          <div
             onClick={() => alvaraInputRef.current.click()}
-            className="w-full h-full flex flex-col items-center justify-center border-4 border-dashed border-gray-200 m-[15mm] rounded-2xl cursor-pointer hover:bg-blue-50/50 transition-colors no-print group p-10 text-center"
+            className="w-full h-full flex flex-col items-center justify-center border-4 border-dashed border-gray-200 m-[15mm] rounded-2xl cursor-pointer hover:bg-blue-50/50 transition-colors group p-10 text-center"
             style={{ width: 'calc(100% - 30mm)', height: 'calc(100% - 30mm)' }}
           >
-            <input 
-              type="file" 
-              ref={alvaraInputRef} 
-              onChange={handleAlvaraUpload} 
-              accept="image/*" 
-              className="hidden" 
+            <input
+              type="file"
+              ref={alvaraInputRef}
+              onChange={handleAlvaraUpload}
+              accept="image/*"
+              className="hidden"
             />
             <div className="bg-white p-6 rounded-full shadow-sm mb-6 group-hover:scale-110 transition-transform">
-                <Upload size={64} className="text-blue-300 group-hover:text-blue-600 transition-colors" />
+              <Upload size={64} className="text-blue-300 group-hover:text-blue-600 transition-colors" />
             </div>
             <h2 className="text-3xl font-black text-gray-400 group-hover:text-blue-800 uppercase tracking-tight transition-colors">Anexar Alvará Sanitário</h2>
             <p className="text-gray-400 mt-4 text-base max-w-md">
@@ -1385,14 +1385,19 @@ export default function Laudos() {
               * Esta página não será impressa se estiver vazia.
             </p>
           </div>
-        ) : (
+        </div>
+      )}
+
+      {/* PÁGINA 4B: ALVARÁ COM IMAGEM — só existe no DOM quando há imagem, sempre imprime */}
+      {alvaraImage && (
+        <div className={`a4-page relative bg-white shadow-2xl flex flex-col items-center justify-center print:shadow-none print:m-0 overflow-hidden ${(showPestControl || showWaterTank || showGreaseTrap) ? 'print:page-break' : ''}`}>
           <div className="absolute inset-0 w-full h-full group p-2 print:p-0 bg-white">
-            <img 
-              src={alvaraImage} 
-              alt="Alvará Sanitário Anexado" 
+            <img
+              src={alvaraImage}
+              alt="Alvará Sanitário Anexado"
               className="w-full h-full object-contain object-center"
             />
-            <button 
+            <button
               onClick={() => setAlvaraImage(null)}
               className="absolute top-6 right-6 z-10 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all no-print flex items-center gap-2 font-bold text-sm transform hover:scale-105"
               title="Remover Alvará"
@@ -1400,8 +1405,8 @@ export default function Laudos() {
               <Trash2 size={16} /> Remover Anexo
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* MODAL CONFIRMAÇÃO NOVO PRODUTO */}
       {showConfirmModal && (
