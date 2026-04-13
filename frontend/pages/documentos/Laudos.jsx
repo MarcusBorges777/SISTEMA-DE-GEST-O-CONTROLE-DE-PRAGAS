@@ -1057,10 +1057,10 @@ export default function Laudos() {
                  <span className="flex items-center gap-1"><Globe size={9} /> {empresa.site}</span>
             </div>
              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
-                <p>Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
-                <p>Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licencaAmbiental}</span></p>
-                <p>Responsável Técnico: <span className="text-[#254191] font-bold">{empresa.rt}</span></p>
-                <p>CRQ / ART: <span className="text-[#254191] font-bold">{empresa.crq}</span></p>
+                <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
+                <p className="whitespace-nowrap">Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licencaAmbiental}</span></p>
+                <p className="whitespace-nowrap">Responsável Técnico: <span className="text-[#254191] font-bold">{empresa.rt}</span></p>
+                <p className="whitespace-nowrap">CRQ / ART: <span className="text-[#254191] font-bold">{empresa.crq}</span></p>
             </div>
         </div>
       </div>
@@ -1081,7 +1081,7 @@ export default function Laudos() {
       <div className="text-[10px] space-y-1 text-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <p className="font-black text-[#254191] uppercase text-xs leading-tight mb-1">{formData.cliente.nome}</p>
+            <p className="font-black text-[#254191] uppercase text-[9px] leading-tight mb-1 whitespace-nowrap overflow-hidden text-ellipsis">{formData.cliente.nome}</p>
             <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">NOME FANTASIA:</span> {formData.cliente.fantasia}</p>
             <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {formData.cliente.cnpj}</p>
           </div>
@@ -1125,8 +1125,8 @@ export default function Laudos() {
   const renderSignatureSection = () => (
     <div className="grid grid-cols-2 gap-12 mt-auto pb-4 pt-4 border-t border-dashed border-gray-200">
       <div className="text-center space-y-1">
-        <p className="text-[8px] font-bold uppercase text-zinc-400 italic">Responsável Contratada</p>
-        <p className="text-[10px] font-black uppercase text-[#254191] italic tracking-tight leading-none">Dedetizadora Borges</p>
+        <p className="text-[8px] font-bold uppercase text-zinc-400 italic">Responsável Técnica</p>
+        <p className="text-[10px] font-black uppercase text-[#254191] italic tracking-tight leading-none">CRQ 02404889</p>
       </div>
       <div className="text-center space-y-1">
         <p className="text-[8px] font-bold uppercase text-zinc-400 italic">Responsável Contratante</p>
@@ -1404,17 +1404,11 @@ export default function Laudos() {
             </div>
           </section>
 
-          <div className="bg-red-50 border border-red-200 py-3 px-3 rounded-lg mb-4 flex items-center justify-start gap-3 shadow-sm">
-              <AlertTriangle size={16} className="text-[#a02c2c] shrink-0" />
-              <div className="flex items-center gap-2 flex-wrap leading-none">
-                  <span className="font-bold text-[#a02c2c] text-[8px] uppercase tracking-tight whitespace-nowrap">
-                      Nº DE TELEFONE NO CASO DE INTOXICAÇÃO: ANVISA – DISQUE INTOXICAÇÃO
-                  </span>
-                  <span className="text-red-300 font-light hidden md:inline">|</span>
-                  <span className="font-black text-[#a02c2c] text-[8px] uppercase tracking-tight">
-                      SERVIÇO DE TOXICOLOGIA DE MG: 0800-722-6001 / (31) 3224-4000 / (31) 3239-9308
-                  </span>
-              </div>
+          <div className="bg-red-50 border border-red-200 py-1 px-2 rounded mb-4 flex items-center gap-2 shadow-sm">
+              <AlertTriangle size={12} className="text-[#a02c2c] shrink-0" />
+              <p className="font-bold text-[#a02c2c] text-[6px] uppercase tracking-tight whitespace-nowrap leading-none">
+                  Nº DE TELEFONE NO CASO DE INTOXICAÇÃO: ANVISA – DISQUE INTOXICAÇÃO | SERVIÇO DE TOXICOLOGIA DE MG: 0800-722-6001 / (31) 3224-4000 / (31) 3239-9308
+              </p>
           </div>
 
           {/* Garantia fixada em 6 meses para caixa d'água */}
