@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Loader2 } from 'lucide-react';
+import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Loader2, Search } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import ClienteBusca from '../../components/shared/ClienteBusca';
+import { buscarCNPJ } from '../../services/brasilApi';
+import { getClientes, saveCliente } from '../../services/clienteCache';
 
 export default function Laudos() {
   const [logo, setLogo] = useState(null);
@@ -195,6 +197,16 @@ export default function Laudos() {
 
   // --- Estado para salvar PDF ---
   const [salvandoPdf, setSalvandoPdf] = useState(false);
+
+  // --- Gestão de clientes (localStorage) ---
+  const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
+  const [cnpjError, setCnpjError] = useState('');
+  const [clientesSalvos, setClientesSalvos] = useState([]);
+
+  // Carrega clientes salvos do localStorage na montagem
+  useEffect(() => {
+    setClientesSalvos(getClientes());
+  }, []);
 
   // --- EMPRESA CONTEXT: auto-fill do cliente ---
   const { empresa: empresaCtx } = useEmpresa();
@@ -467,6 +479,18 @@ export default function Laudos() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'cliente.cnpj') {
+      // Máscara automática: 00.000.000/0000-00
+      const digits = value.replace(/\D/g, '').slice(0, 14);
+      const masked = digits
+        .replace(/^(\d{2})(\d)/, '$1.$2')
+        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+      setCnpjError('');
+      setFormData(prev => ({ ...prev, cliente: { ...prev.cliente, cnpj: masked } }));
+      return;
+    }
     if (name.startsWith('cliente.')) {
         const field = name.split('.')[1];
         setFormData(prev => ({
@@ -476,6 +500,52 @@ export default function Laudos() {
     } else {
         setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  // Busca dados da empresa pela Brasil API usando o CNPJ digitado
+  const handleBuscarCNPJ = async () => {
+    const raw = formData.cliente.cnpj.replace(/\D/g, '');
+    if (raw.length !== 14) {
+      setCnpjError('Digite um CNPJ completo (14 dígitos).');
+      return;
+    }
+    setCnpjError('');
+    setIsLoadingCnpj(true);
+    try {
+      const dados = await buscarCNPJ(raw);
+      setFormData(prev => ({
+        ...prev,
+        cliente: {
+          nome: dados.nome || '',
+          fantasia: dados.fantasia || '',
+          cnpj: dados.cnpj || formData.cliente.cnpj,
+          endereco: dados.endereco || '',
+          atividadeEconomica: dados.atividade || '',
+        }
+      }));
+    } catch (err) {
+      setCnpjError(err.message || 'CNPJ não encontrado na Receita Federal.');
+    } finally {
+      setIsLoadingCnpj(false);
+    }
+  };
+
+  // Salva o cliente atual no localStorage (cache local)
+  const handleSalvarCliente = () => {
+    const { nome, cnpj } = formData.cliente;
+    if (!nome.trim() || !cnpj.trim()) {
+      setCnpjError('Preencha ao menos Nome e CNPJ antes de salvar.');
+      return;
+    }
+    saveCliente({
+      nome: formData.cliente.nome,
+      fantasia: formData.cliente.fantasia,
+      cnpj: formData.cliente.cnpj,
+      endereco: formData.cliente.endereco,
+      atividade: formData.cliente.atividadeEconomica,
+    });
+    setClientesSalvos(getClientes());
+    setCnpjError('');
   };
 
   const togglePest = (pestId) => {
@@ -713,20 +783,67 @@ export default function Laudos() {
 
                 <div className="space-y-4">
                     <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider border-b pb-1">Dados do Cliente</h4>
+
+                    {/* Importar cliente do sistema (backend) */}
                     <ClienteBusca
-                      placeholder="Importar cliente cadastrado..."
-                      onSelect={(c) => setFormData(prev => ({
-                        ...prev,
-                        cliente: {
-                          ...prev.cliente,
-                          nome: c.razao_social || c.nome_fantasia || '',
-                          fantasia: c.nome_fantasia || '',
-                          cnpj: c.cnpj || '',
-                          endereco: c.endereco_completo || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
-                          atividadeEconomica: c.cnae || '',
-                        }
-                      }))}
+                      placeholder="Buscar cliente no sistema..."
+                      onSelect={(c) => {
+                        setCnpjError('');
+                        setFormData(prev => ({
+                          ...prev,
+                          cliente: {
+                            nome: c.razao_social || c.nome_fantasia || c.nome || '',
+                            fantasia: c.nome_fantasia || c.fantasia || '',
+                            cnpj: c.cnpj || '',
+                            endereco: c.endereco_completo || c.endereco || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
+                            atividadeEconomica: c.cnae || c.atividade || '',
+                          }
+                        }));
+                      }}
                     />
+
+                    {/* Carregar cliente salvo localmente + botão salvar */}
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Carregar Cliente Salvo</label>
+                        <select
+                          className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                          value=""
+                          onChange={(e) => {
+                            const c = clientesSalvos.find(x => x.cnpj === e.target.value);
+                            if (c) {
+                              setCnpjError('');
+                              setFormData(prev => ({
+                                ...prev,
+                                cliente: {
+                                  nome: c.nome,
+                                  fantasia: c.fantasia,
+                                  cnpj: c.cnpj,
+                                  endereco: c.endereco,
+                                  atividadeEconomica: c.atividade,
+                                }
+                              }));
+                            }
+                          }}
+                        >
+                          <option value="">-- selecione um cliente salvo --</option>
+                          {clientesSalvos.map(c => (
+                            <option key={c.cnpj} value={c.cnpj}>
+                              {c.fantasia || c.nome} — {c.cnpj}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        onClick={handleSalvarCliente}
+                        className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors flex items-center gap-1 shrink-0"
+                        title="Salvar cliente atual no navegador"
+                      >
+                        <Plus size={14}/> Salvar Cliente
+                      </button>
+                    </div>
+
+                    {/* Campos manuais */}
                     <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Razão Social / Nome</label>
                         <input type="text" name="cliente.nome" value={formData.cliente.nome} onChange={handleInputChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -738,7 +855,31 @@ export default function Laudos() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ</label>
-                            <input type="text" name="cliente.cnpj" value={formData.cliente.cnpj} onChange={handleInputChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                            <div className="flex gap-1">
+                              <input
+                                type="text"
+                                name="cliente.cnpj"
+                                value={formData.cliente.cnpj}
+                                onChange={handleInputChange}
+                                maxLength={18}
+                                placeholder="00.000.000/0000-00"
+                                className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                              <button
+                                onClick={handleBuscarCNPJ}
+                                disabled={isLoadingCnpj}
+                                className="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors shrink-0 disabled:opacity-60 flex items-center gap-1"
+                                title="Buscar dados do CNPJ na Receita Federal"
+                              >
+                                {isLoadingCnpj ? <Loader2 size={14} className="animate-spin"/> : <Search size={14}/>}
+                                {isLoadingCnpj ? 'Buscando...' : 'Buscar'}
+                              </button>
+                            </div>
+                            {cnpjError && (
+                              <p className="text-red-500 text-[10px] mt-1 font-bold flex items-center gap-1">
+                                <AlertTriangle size={12}/> {cnpjError}
+                              </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1">Cód. / Atividade Econômica</label>
