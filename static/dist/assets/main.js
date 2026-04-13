@@ -497,9 +497,20 @@ Please change the parent <Route path="${q}"> to <Route path="${q==="/"?"*":`${q}
             margin-left: 0 !important;
           }
 
-          /* Remove padding do main e topbar */
+          /* Remove padding do main */
           main { padding: 0 !important; }
-          header, nav, aside { display: none !important; }
+
+          /* Esconde sidebar e drawer — NÃO esconde header pois o documento usa <header> internamente */
+          nav, aside { display: none !important; }
+
+          /* Garante que o header do documento A4 seja exibido na impressão */
+          #a4-document header {
+            display: flex !important;
+          }
+
+          /* Logo: esconde o botão de upload (no-print) e exibe a versão de impressão */
+          #a4-document .no-print { display: none !important; }
+          #a4-document .print\\:flex { display: flex !important; }
 
           /* Wrapper do componente Laudos */
           #a4-document {

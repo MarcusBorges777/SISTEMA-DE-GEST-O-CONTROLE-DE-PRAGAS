@@ -183,11 +183,10 @@
   }
 
   /* Remove sidebar, topbar, drawers e botões flutuantes */
+  /* NÃO inclui "header" pois documentos usam <header> internamente */
   nav,
   aside,
-  header,
   .no-print,
-  [class*="fixed"],
   [class*="sidebar"],
   [class*="topbar"],
   [class*="drawer"] {
