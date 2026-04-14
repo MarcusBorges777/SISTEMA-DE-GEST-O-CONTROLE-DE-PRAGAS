@@ -1,119 +1,335 @@
-import React, { useState, useEffect } from 'react';
-import { FolderOpen, Download, Eye, Trash2, Search, File, FileText, Image as ImageIcon, RefreshCw, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  FolderOpen, Download, Eye, Trash2, Search, File, FileText,
+  Image as ImageIcon, RefreshCw, Pencil, X, FolderInput,
+  CheckCircle2, AlertTriangle, FileArchive, Layers
+} from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
 import { useToast } from '../components/shared/Toast';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
 
-const TIPO_LABELS = {
-  all: 'Todos',
-  download_laudo: 'Laudos',
-  download_recibo: 'Recibos',
-  download_orcamento: 'Orçamentos',
-  upload_laudo: 'Laudos',
-  upload_recibo: 'Recibos',
-  upload_orcamento: 'Orçamentos',
-  documentos: 'Documentos',
-  output: 'Outros',
-};
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 const FILTER_TABS = [
-  { id: 'all', label: 'Todos' },
-  { id: 'laudo', label: 'Laudos' },
-  { id: 'recibo', label: 'Recibos' },
-  { id: 'orcamento', label: 'Orçamentos' },
-  { id: 'lixeira', label: 'Lixeira' },
+  { id: 'all',       label: 'Todos'       },
+  { id: 'laudo',     label: 'Laudos'      },
+  { id: 'recibo',    label: 'Recibos'     },
+  { id: 'orcamento', label: 'Orçamentos'  },
+  { id: 'lixeira',   label: 'Lixeira'     },
 ];
 
 function matchesTipo(arquivo, filtro) {
   if (filtro === 'all') return true;
   if (filtro === 'lixeira') {
-    return (arquivo.status === 'lixeira') || (arquivo.caminho || arquivo.origem || '').toLowerCase().includes('lixeira');
+    return arquivo.status === 'lixeira' ||
+      (arquivo.caminho || arquivo.origem || '').toLowerCase().includes('lixeira');
   }
-  const tipo = (arquivo.tipo || '').toLowerCase();
-  const origem = (arquivo.origem || '').toLowerCase();
+  const tipo    = (arquivo.tipo    || '').toLowerCase();
+  const origem  = (arquivo.origem  || '').toLowerCase();
   const caminho = (arquivo.caminho || arquivo.nome || '').toLowerCase();
   return tipo.includes(filtro) || origem.includes(filtro) || caminho.includes(filtro);
 }
 
+function isLixeira(arquivo) {
+  return arquivo.status === 'lixeira' ||
+    (arquivo.caminho || arquivo.origem || '').toLowerCase().includes('lixeira');
+}
+
+function getTipoBadge(arquivo) {
+  const tipo = (arquivo.tipo || arquivo.origem || '').toLowerCase();
+  if (tipo.includes('laudo'))     return { label: 'Laudo',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
+  if (tipo.includes('recibo'))    return { label: 'Recibo',    color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' };
+  if (tipo.includes('orcamento')) return { label: 'Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
+  return null;
+}
+
+function getFileIcon(filename) {
+  if (!filename) return File;
+  const ext = filename.split('.').pop().toLowerCase();
+  if (ext === 'pdf')                              return FileText;
+  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return ImageIcon;
+  if (['zip','rar','7z'].includes(ext))           return FileArchive;
+  return File;
+}
+
+function formatSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024)    return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return iso; }
+}
+
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+function Skeleton() {
+  return (
+    <div className="divide-y divide-slate-100 dark:divide-slate-700">
+      {[1,2,3,4,5].map(i => (
+        <div key={i} className="flex items-center gap-4 px-5 py-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 animate-pulse flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-2/3" />
+            <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-1/3" />
+          </div>
+          <div className="flex gap-2">
+            {[1,2,3].map(j => <div key={j} className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse" />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Modal de confirmação de exclusão ────────────────────────────────────────
+function ModalConfirmar({ filename, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={20} className="text-red-500" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white">Excluir arquivo?</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Esta ação não pode ser desfeita.</p>
+          </div>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 rounded-xl px-3 py-2 font-mono truncate">
+          {filename}
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Cancelar
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition">
+            Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal de edição / mover ─────────────────────────────────────────────────
+function ModalEditar({ arquivo, diretorios, onSalvar, onCancel }) {
+  const filename = arquivo.nome || arquivo.filename || '';
+  const [novoNome, setNovoNome] = useState(filename);
+  const [dirSelecionado, setDirSelecionado] = useState('');
+  const [customDir, setCustomDir] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  const dirOptions = [
+    { label: 'Laudos',     path: diretorios.laudos     },
+    { label: 'Recibos',    path: diretorios.recibos    },
+    { label: 'Orçamentos', path: diretorios.orcamentos },
+  ].filter(d => d.path);
+
+  const handleSalvar = async () => {
+    const destino = dirSelecionado === 'custom' ? customDir.trim() : dirSelecionado;
+    if (!destino) return;
+    setSalvando(true);
+    await onSalvar({ novoNome: novoNome.trim(), novoDir: destino });
+    setSalvando(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+              <Pencil size={18} className="text-blue-500" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white">Editar arquivo</h3>
+              <p className="text-xs text-slate-500">Renomear e escolher destino</p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Nome */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Novo nome</label>
+          <input
+            type="text"
+            value={novoNome}
+            onChange={e => setNovoNome(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Diretório destino */}
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+            <FolderInput size={12} /> Salvar em
+          </label>
+          <div className="space-y-2">
+            {dirOptions.map(d => (
+              <label key={d.path} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                dirSelecionado === d.path
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+              }`}>
+                <input type="radio" name="dir" value={d.path} checked={dirSelecionado === d.path}
+                  onChange={() => setDirSelecionado(d.path)} className="sr-only" />
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                  dirSelecionado === d.path ? 'border-blue-500' : 'border-slate-300 dark:border-slate-500'
+                }`}>
+                  {dirSelecionado === d.path && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{d.label}</p>
+                  <p className="text-[10px] text-slate-400 truncate font-mono">{d.path}</p>
+                </div>
+              </label>
+            ))}
+            {/* Diretório personalizado */}
+            <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+              dirSelecionado === 'custom'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+            }`}>
+              <input type="radio" name="dir" value="custom" checked={dirSelecionado === 'custom'}
+                onChange={() => setDirSelecionado('custom')} className="sr-only" />
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                dirSelecionado === 'custom' ? 'border-blue-500' : 'border-slate-300 dark:border-slate-500'
+              }`}>
+                {dirSelecionado === 'custom' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Outro diretório</p>
+                {dirSelecionado === 'custom' && (
+                  <input
+                    type="text"
+                    value={customDir}
+                    onChange={e => setCustomDir(e.target.value)}
+                    placeholder="C:\caminho\absoluto\do\diretório"
+                    className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onClick={e => e.stopPropagation()}
+                  />
+                )}
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSalvar}
+            disabled={salvando || !dirSelecionado || (dirSelecionado === 'custom' && !customDir.trim()) || !novoNome.trim()}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition flex items-center justify-center gap-2">
+            {salvando ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Componente principal ────────────────────────────────────────────────────
 export default function Arquivos() {
   const { addToast } = useToast();
-  const [arquivos, setArquivos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('all');
+  const [arquivos, setArquivos]       = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [searchTerm, setSearchTerm]   = useState('');
+  const [filtroTipo, setFiltroTipo]   = useState('all');
   const [previewFile, setPreviewFile] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [editModal, setEditModal]     = useState(null);
+  const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
 
-  const loadArquivos = async () => {
+  const loadArquivos = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchArquivos();
       setArquivos(Array.isArray(data) ? data : data.arquivos || []);
-    } catch (e) {
+    } catch {
       addToast('Erro ao carregar arquivos', 'error');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadDiretorios = useCallback(async () => {
+    try {
+      const resp = await api.get('/api/config/diretorios');
+      const cfg  = resp.data || {};
+      const dl   = cfg.download || {};
+      setDiretorios({
+        laudos:     dl.laudos     || '',
+        recibos:    dl.recibos    || '',
+        orcamentos: dl.orcamentos || '',
+      });
+    } catch { /* sem configuração, sem problema */ }
+  }, []);
+
+  useEffect(() => {
+    loadArquivos();
+    loadDiretorios();
+  }, []);
+
+  // Filtros
+  const filteredFiles = arquivos.filter(f => {
+    const name = (f.nome || f.filename || '').toLowerCase();
+    return name.includes(searchTerm.toLowerCase()) && matchesTipo(f, filtroTipo);
+  });
+
+  const counts = {
+    all:       arquivos.length,
+    laudo:     arquivos.filter(f => matchesTipo(f, 'laudo')).length,
+    recibo:    arquivos.filter(f => matchesTipo(f, 'recibo')).length,
+    orcamento: arquivos.filter(f => matchesTipo(f, 'orcamento')).length,
+    lixeira:   arquivos.filter(f => matchesTipo(f, 'lixeira')).length,
   };
 
-  useEffect(() => { loadArquivos(); }, []);
-
-  const handleDelete = async (filename) => {
-    if (!confirm(`Excluir "${filename}"?`)) return;
+  // Ações
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    const filename = deleteModal.nome || deleteModal.filename;
+    const caminho  = deleteModal.caminho;
     try {
-      await api.post('/api/arquivo/excluir', { arquivo: filename });
-      addToast('Arquivo excluido', 'success');
+      await api.post('/api/arquivo/excluir', { arquivo: filename, caminho });
+      addToast('Arquivo excluído', 'success');
       loadArquivos();
-    } catch (e) {
+    } catch {
       addToast('Erro ao excluir arquivo', 'error');
+    } finally {
+      setDeleteModal(null);
     }
   };
 
-  const filteredFiles = arquivos.filter(f => {
-    const name = (f.nome || f.filename || '').toLowerCase();
-    const matchSearch = name.includes(searchTerm.toLowerCase());
-    return matchSearch && matchesTipo(f, filtroTipo);
-  });
-
-  // Contagens por tipo para badges
-  const counts = {
-    all: arquivos.length,
-    laudo: arquivos.filter(f => matchesTipo(f, 'laudo')).length,
-    recibo: arquivos.filter(f => matchesTipo(f, 'recibo')).length,
-    orcamento: arquivos.filter(f => matchesTipo(f, 'orcamento')).length,
-    lixeira: arquivos.filter(f => matchesTipo(f, 'lixeira')).length,
+  const handleMover = async ({ novoNome, novoDir }) => {
+    if (!editModal) return;
+    try {
+      await api.post('/api/arquivo/mover', {
+        caminho:  editModal.caminho,
+        novo_nome: novoNome,
+        novo_dir:  novoDir,
+      });
+      addToast('Arquivo salvo com sucesso!', 'success');
+      loadArquivos();
+    } catch {
+      addToast('Erro ao mover arquivo', 'error');
+    } finally {
+      setEditModal(null);
+    }
   };
 
-  const getFileIcon = (filename) => {
-    if (!filename) return File;
-    const ext = filename.split('.').pop().toLowerCase();
-    if (['pdf'].includes(ext)) return FileText;
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return ImageIcon;
-    return File;
-  };
-
-  const getTipoBadge = (arquivo) => {
-    const tipo = arquivo.tipo || arquivo.origem || '';
-    if (tipo.includes('laudo')) return { label: 'Laudo', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
-    if (tipo.includes('recibo')) return { label: 'Recibo', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' };
-    if (tipo.includes('orcamento')) return { label: 'Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
-    return null;
-  };
-
-  const isLixeira = (arquivo) =>
-    (arquivo.status === 'lixeira') || (arquivo.caminho || arquivo.origem || '').toLowerCase().includes('lixeira');
-
-  const formatSize = (bytes) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1048576).toFixed(1)} MB`;
-  };
-
-  const formatDate = (iso) => {
-    if (!iso) return '';
-    try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return iso; }
-  };
-
+  // ── render ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -128,51 +344,59 @@ export default function Arquivos() {
         </button>
       </div>
 
-      {/* Filtros por tipo */}
-      <div className="flex gap-2 flex-wrap">
-        {FILTER_TABS.map(tab => (
-          <button key={tab.id} onClick={() => setFiltroTipo(tab.id)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition ${
-              filtroTipo === tab.id
-                ? tab.id === 'lixeira'
-                  ? 'bg-red-500 text-white shadow-md'
-                  : 'bg-brand-500 text-white shadow-md'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}>
-            {tab.label}
-            {counts[tab.id] > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                filtroTipo === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
-              }`}>{counts[tab.id]}</span>
-            )}
-          </button>
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total',      count: counts.all,       icon: Layers,    color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-700'            },
+          { label: 'Laudos',     count: counts.laudo,     icon: FileText,  color: 'text-blue-600',    bg: 'bg-blue-100 dark:bg-blue-900/30'            },
+          { label: 'Recibos',    count: counts.recibo,    icon: FileText,  color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30'      },
+          { label: 'Orçamentos', count: counts.orcamento, icon: FileText,  color: 'text-amber-600',   bg: 'bg-amber-100 dark:bg-amber-900/30'          },
+        ].map(({ label, count, icon: Icon, color, bg }) => (
+          <div key={label} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
+              <Icon size={18} className={color} />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{count}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          placeholder="Filtrar arquivos..."
-          className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600
-            bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400"
-        />
+      {/* Filtros + busca */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex gap-2 flex-wrap flex-1">
+          {FILTER_TABS.map(tab => (
+            <button key={tab.id} onClick={() => setFiltroTipo(tab.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition ${
+                filtroTipo === tab.id
+                  ? tab.id === 'lixeira'
+                    ? 'bg-red-500 text-white shadow-md'
+                    : 'bg-brand-500 text-white shadow-md'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}>
+              {tab.label}
+              {counts[tab.id] > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  filtroTipo === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
+                }`}>{counts[tab.id]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="relative max-w-sm w-full">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Filtrar arquivos..."
+            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
       </div>
 
-      {/* File List */}
+      {/* Lista */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         {loading ? (
-          <div className="p-8 space-y-3">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse" />
-                <div className="flex-1 h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
+          <Skeleton />
         ) : filteredFiles.length === 0 ? (
           <div className="p-12 text-center">
             <FolderOpen size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
@@ -187,19 +411,23 @@ export default function Arquivos() {
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {filteredFiles.map((arquivo, i) => {
               const filename = arquivo.nome || arquivo.filename || `arquivo_${i}`;
-              const Icon = getFileIcon(filename);
-              const badge = getTipoBadge(arquivo);
-              const lixeira = isLixeira(arquivo);
+              const Icon     = getFileIcon(filename);
+              const badge    = getTipoBadge(arquivo);
+              const lixeira  = isLixeira(arquivo);
+
               return (
-                <div key={i} className={`flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition group ${lixeira ? 'opacity-70' : ''}`}>
+                <div key={i} className={`flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${lixeira ? 'opacity-70' : ''}`}>
+                  {/* Ícone */}
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     lixeira ? 'bg-red-100 dark:bg-red-900/30' : 'bg-blue-100 dark:bg-blue-900/30'
                   }`}>
                     <Icon size={18} className={lixeira ? 'text-red-400' : 'text-blue-500'} />
                   </div>
+
+                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{filename}</p>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate max-w-xs">{filename}</p>
                       {badge && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${badge.color}`}>{badge.label}</span>
                       )}
@@ -207,22 +435,31 @@ export default function Arquivos() {
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">Lixeira</span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400">
-                      {formatSize(arquivo.tamanho)}{arquivo.data_modificacao ? ` · ${formatDate(arquivo.data_modificacao)}` : arquivo.data ? ` · ${arquivo.data}` : ''}
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {formatSize(arquivo.tamanho)}
+                      {(arquivo.data_modificacao || arquivo.data) && ` · ${formatDate(arquivo.data_modificacao || arquivo.data)}`}
                     </p>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+
+                  {/* Ações — sempre visíveis */}
+                  <div className="flex gap-1 flex-shrink-0">
                     <button onClick={() => setPreviewFile(filename)} title="Visualizar"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
-                      <Eye size={16} />
+                      <Eye size={15} />
                     </button>
                     <a href={`/api/download/${encodeURIComponent(filename)}`} title="Baixar"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition">
-                      <Download size={16} />
+                      <Download size={15} />
                     </a>
-                    <button onClick={() => handleDelete(filename)} title="Excluir"
+                    {!lixeira && (
+                      <button onClick={() => setEditModal(arquivo)} title="Editar / mover"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
+                        <Pencil size={15} />
+                      </button>
+                    )}
+                    <button onClick={() => setDeleteModal(arquivo)} title="Excluir"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition">
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
@@ -232,7 +469,25 @@ export default function Arquivos() {
         )}
       </div>
 
+      {/* Modais */}
       <DocumentPreview isOpen={!!previewFile} onClose={() => setPreviewFile(null)} filename={previewFile} />
+
+      {deleteModal && (
+        <ModalConfirmar
+          filename={deleteModal.nome || deleteModal.filename}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteModal(null)}
+        />
+      )}
+
+      {editModal && (
+        <ModalEditar
+          arquivo={editModal}
+          diretorios={diretorios}
+          onSalvar={handleMover}
+          onCancel={() => setEditModal(null)}
+        />
+      )}
     </div>
   );
 }

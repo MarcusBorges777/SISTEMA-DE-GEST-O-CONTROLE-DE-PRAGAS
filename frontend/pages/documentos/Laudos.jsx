@@ -1503,8 +1503,6 @@ export default function Laudos() {
             </div>
           </section>
 
-          {renderWarrantySection("mb-4", 6)}
-
           {renderSignatureSection()}
           {renderFooterInfo()}
         </div>

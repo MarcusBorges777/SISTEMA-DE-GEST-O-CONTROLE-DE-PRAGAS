@@ -468,6 +468,12 @@ def adicionar_coluna_segura(db, tabela: str, coluna: str, tipo: str, default: st
             print(f"[AVISO] Erro ao adicionar coluna {coluna}: {e}")
 
 def criar_tabelas():
+    # Remover pasta output/documentos obsoleta
+    _docs_dir = OUTPUT_DIR / 'documentos'
+    if _docs_dir.exists():
+        shutil.rmtree(str(_docs_dir), ignore_errors=True)
+        print('[INFO] Pasta output/documentos removida (obsoleta)')
+
     db = get_db()
     db.execute('''CREATE TABLE IF NOT EXISTS clientes_web (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1709,13 +1715,8 @@ def api_arquivos():
         page = max(1, page)  # Mínimo página 1
         per_page = min(max(1, per_page), 200)  # Entre 1 e 200 itens por página
 
-        # Listar arquivos do output padrão e da pasta documentos
+        # Listar arquivos do output padrão
         arquivos = []
-
-        # Listar da pasta documentos (onde ficam os documentos gerados)
-        documentos_dir = OUTPUT_DIR / 'documentos'
-        if documentos_dir.exists():
-            arquivos.extend(listar_arquivos_diretorio(documentos_dir, 'documentos', 'Sistema'))
 
         # Também listar diretamente do OUTPUT_DIR (para compatibilidade)
         arquivos.extend(listar_arquivos_diretorio(OUTPUT_DIR, 'output', 'Sistema'))
@@ -1934,6 +1935,39 @@ def api_excluir_arquivo():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": f"Erro ao excluir arquivo: {str(e)}"}), 500
+
+@app.route('/api/arquivo/mover', methods=['POST'])
+def api_mover_arquivo():
+    """Move/renomeia um arquivo para um diretório escolhido pelo usuário"""
+    try:
+        dados = request.json
+        caminho_atual = dados.get('caminho')
+        novo_nome = dados.get('novo_nome', '').strip()
+        novo_dir = dados.get('novo_dir', '').strip()
+
+        if not caminho_atual or not novo_dir:
+            return jsonify({'error': 'Parâmetros obrigatórios: caminho e novo_dir'}), 400
+
+        origem = Path(caminho_atual)
+        if not origem.exists():
+            return jsonify({'error': 'Arquivo não encontrado'}), 404
+
+        destino_dir = Path(novo_dir)
+        destino_dir.mkdir(parents=True, exist_ok=True)
+
+        nome_final = novo_nome if novo_nome else origem.name
+        # Garantir extensão preservada
+        if origem.suffix and not nome_final.lower().endswith(origem.suffix.lower()):
+            nome_final += origem.suffix
+
+        destino = destino_dir / nome_final
+        shutil.move(str(origem), str(destino))
+
+        return jsonify({'success': True, 'caminho': str(destino), 'nome': nome_final})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 
 def encontrar_arquivo_em_diretorios(filename):
     """Procura arquivo em todos os diretórios configurados"""

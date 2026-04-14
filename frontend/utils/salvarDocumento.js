@@ -1,6 +1,6 @@
 /**
  * salvarDocumento.js
- * Captura um elemento HTML como PDF e envia para o backend salvar com nomenclatura correta.
+ * Captura um elemento HTML como PDF com paginação A4 automática e envia para o backend.
  * Padrão de nome: "#0001 Razão Social 03-26.pdf"
  */
 
@@ -15,7 +15,6 @@
  */
 export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa, mesAno }) {
   try {
-    // Import dinâmico para não afetar o bundle inicial se não usado
     const html2canvas = (await import('html2canvas')).default;
     const { jsPDF } = await import('jspdf');
 
@@ -24,7 +23,7 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       return { sucesso: false, erro: `Elemento #${elementId} não encontrado` };
     }
 
-    // Capturar o elemento como canvas
+    // Capturar o elemento inteiro em alta resolução
     const canvas = await html2canvas(elemento, {
       scale: 2,
       useCORS: true,
@@ -33,14 +32,29 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       logging: false,
     });
 
-    // Converter para PDF A4
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
+    const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
 
-    // Converter para Blob
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+
+    // Altura total da imagem em mm mantendo a proporção da largura A4
+    const imgHeightMM = (canvas.height / canvas.width) * pdfWidth;
+
+    // Paginação: desloca a imagem para cima a cada página, revelando a próxima fatia
+    let heightLeft = imgHeightMM;
+    let position = 0;
+
+    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0.5) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
+      heightLeft -= pdfHeight;
+    }
+
     const pdfBlob = pdf.output('blob');
 
     // Gerar mes-ano padrão se não informado
