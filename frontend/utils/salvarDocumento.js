@@ -1,18 +1,11 @@
 /**
  * salvarDocumento.js
  * Captura cada página .a4-page individualmente e gera PDF A4 multipágina.
+ * Cada página é forçada a ocupar exatamente 210×297mm (A4 retrato),
+ * garantindo alinhamento perfeito e sem deslocamento de conteúdo.
  * Padrão de nome: "#0001 Razão Social 03-26.pdf"
  */
 
-/**
- * @param {Object} opts
- * @param {string} opts.elementId - ID do container (ex: 'a4-document')
- * @param {string} opts.tipo - 'laudo' | 'orcamento' | 'recibo'
- * @param {string} opts.numeroDoc - número do documento (ex: '0001')
- * @param {string} opts.nomeEmpresa - razão social ou nome fantasia
- * @param {string} [opts.mesAno] - 'MM-AA', default: mês/ano atual
- * @returns {Promise<{sucesso: boolean, nomeArquivo?: string, erro?: string}>}
- */
 export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa, mesAno }) {
   try {
     const html2canvas = (await import('html2canvas')).default;
@@ -23,60 +16,52 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       return { sucesso: false, erro: `Elemento #${elementId} não encontrado` };
     }
 
-    // Selecionar apenas as páginas A4 reais (excluindo editor, botões etc.)
+    // Selecionar apenas as páginas A4 reais
     const paginas = Array.from(container.querySelectorAll('.a4-page'));
     if (paginas.length === 0) {
       return { sucesso: false, erro: 'Nenhuma página A4 encontrada para gerar PDF' };
     }
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pdfWidth  = pdf.internal.pageSize.getWidth();   // 210mm
-    const pdfHeight = pdf.internal.pageSize.getHeight();  // 297mm
+    const A4_W = pdf.internal.pageSize.getWidth();  // 210mm
+    const A4_H = pdf.internal.pageSize.getHeight(); // 297mm
 
     for (let i = 0; i < paginas.length; i++) {
       const pagina = paginas[i];
 
-      // Capturar a página individualmente
+      // Garantir que o elemento está completamente renderizado antes de capturar
+      const elW = pagina.offsetWidth  || pagina.scrollWidth;
+      const elH = pagina.offsetHeight || pagina.scrollHeight;
+
       const canvas = await html2canvas(pagina, {
-        scale: 2,
+        scale: 3,                   // Alta resolução (3× = ~225dpi para A4)
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
+        width: elW,
+        height: elH,
+        windowWidth: elW,
+        windowHeight: elH,
+        scrollX: 0,
+        scrollY: -window.scrollY,   // Evita deslocamento pelo scroll da página
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-      // Calcular altura proporcional mantendo largura A4
-      const imgHeightMM = (canvas.height / canvas.width) * pdfWidth;
+      // Usar PNG para qualidade máxima (sem artefatos de compressão JPEG)
+      const imgData = canvas.toDataURL('image/png');
 
       if (i > 0) pdf.addPage();
 
-      // Se a página cabe em A4, insere diretamente; senão, pagina com deslocamento
-      if (imgHeightMM <= pdfHeight + 1) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeightMM);
-      } else {
-        // Página muito longa: pagina por fatias
-        let heightLeft = imgHeightMM;
-        let position   = 0;
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
-        heightLeft -= pdfHeight;
-        while (heightLeft > 0.5) {
-          position -= pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
-          heightLeft -= pdfHeight;
-        }
-      }
+      // Forçar cada página a ocupar EXATAMENTE A4 (210×297mm)
+      // Isso elimina qualquer deslocamento por diferença de proporção
+      pdf.addImage(imgData, 'PNG', 0, 0, A4_W, A4_H);
     }
 
     const pdfBlob = pdf.output('blob');
 
-    // Gerar mes-ano padrão se não informado
     const agora = new Date();
     const mesAnoFinal = mesAno || `${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getFullYear()).slice(-2)}`;
 
-    // Enviar para o backend
     const formData = new FormData();
     formData.append('arquivo', pdfBlob, 'documento.pdf');
     formData.append('tipo', tipo);
