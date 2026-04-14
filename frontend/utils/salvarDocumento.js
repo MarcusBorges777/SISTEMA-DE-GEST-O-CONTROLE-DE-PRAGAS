@@ -33,19 +33,35 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       const elW = pagina.offsetWidth  || pagina.scrollWidth;
       const elH = pagina.offsetHeight || pagina.scrollHeight;
 
-      const canvas = await html2canvas(pagina, {
-        scale: 3,                   // Alta resolução (3× = ~225dpi para A4)
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: elW,
-        height: elH,
-        windowWidth: elW,
-        windowHeight: elH,
-        scrollX: 0,
-        scrollY: -window.scrollY,   // Evita deslocamento pelo scroll da página
+      // Ocultar elementos no-print dentro desta página antes de capturar
+      const noPrintEls = pagina.querySelectorAll('.no-print');
+      noPrintEls.forEach(el => {
+        el.dataset._origDisplay = el.style.display;
+        el.style.display = 'none';
       });
+
+      let canvas;
+      try {
+        canvas = await html2canvas(pagina, {
+          scale: 3,                   // Alta resolução (3× = ~225dpi para A4)
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: elW,
+          height: elH,
+          windowWidth: elW,
+          windowHeight: elH,
+          scrollX: 0,
+          scrollY: -window.scrollY,   // Evita deslocamento pelo scroll da página
+        });
+      } finally {
+        // Restaurar sempre, mesmo se der erro
+        noPrintEls.forEach(el => {
+          el.style.display = el.dataset._origDisplay || '';
+          delete el.dataset._origDisplay;
+        });
+      }
 
       // Usar PNG para qualidade máxima (sem artefatos de compressão JPEG)
       const imgData = canvas.toDataURL('image/png');

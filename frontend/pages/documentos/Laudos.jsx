@@ -1051,10 +1051,10 @@ export default function Laudos() {
         <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
-            <div className="flex justify-end gap-3 text-blue-700 font-bold pt-1">
-                 <span className="flex items-center gap-1"><Phone size={9} /> {empresa.contatos}</span>
-                 <span className="flex items-center gap-1"><Mail size={9} /> {empresa.email}</span>
-                 <span className="flex items-center gap-1"><Globe size={9} /> {empresa.site}</span>
+            <div className="flex flex-col items-end gap-0.5 text-blue-700 font-bold pt-1">
+                 <span className="flex items-center gap-1 whitespace-nowrap"><Phone size={9} /> {empresa.contatos}</span>
+                 <span className="flex items-center gap-1 whitespace-nowrap"><Mail size={9} /> {empresa.email}</span>
+                 <span className="flex items-center gap-1 whitespace-nowrap"><Globe size={9} /> {empresa.site}</span>
             </div>
              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
                 <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
