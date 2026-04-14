@@ -1051,13 +1051,13 @@ export default function Laudos() {
         <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
-            <div className="flex items-center justify-end gap-2 text-blue-700 font-bold pt-1 flex-wrap">
-                 <span className="flex items-center gap-1 whitespace-nowrap bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"><Phone size={9} /> {empresa.contatos}</span>
-                 <span className="text-blue-300 font-light select-none">|</span>
-                 <span className="flex items-center gap-1 whitespace-nowrap bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"><Mail size={9} /> {empresa.email}</span>
-                 <span className="text-blue-300 font-light select-none">|</span>
-                 <span className="flex items-center gap-1 whitespace-nowrap bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"><Globe size={9} /> {empresa.site}</span>
-            </div>
+            <p className="flex items-center justify-end gap-3 text-blue-700 font-bold pt-0.5 whitespace-nowrap">
+                 <span className="flex items-center gap-0.5"><Phone size={8} /> {empresa.contatos}</span>
+                 <span className="text-blue-300 select-none">·</span>
+                 <span className="flex items-center gap-0.5"><Mail size={8} /> {empresa.email}</span>
+                 <span className="text-blue-300 select-none">·</span>
+                 <span className="flex items-center gap-0.5"><Globe size={8} /> {empresa.site}</span>
+            </p>
              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
                 <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
                 <p className="whitespace-nowrap">Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licencaAmbiental}</span></p>
