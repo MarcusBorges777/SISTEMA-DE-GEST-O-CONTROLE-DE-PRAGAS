@@ -1016,33 +1016,33 @@ export default function Laudos() {
   const renderHeader = () => (
     <header className="flex justify-between items-start mb-6 border-b-2 border-[#254191] pb-4">
       <div className="flex items-center gap-4">
-        <div 
-          onClick={() => fileInputRef.current.click()}
-          className={`w-60 h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer transition-all hover:bg-gray-50 group no-print ${logo ? 'border-transparent' : 'border-blue-200 bg-blue-50/30'}`}
-        >
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleLogoUpload} 
-            accept="image/*" 
-            className="hidden" 
+        {/* Container da logo — sempre visível para captura do PDF */}
+        <div className="w-60 h-24 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleLogoUpload}
+            accept="image/*"
+            className="hidden"
           />
           {logo ? (
-            <img 
-              src={logo} 
-              alt="Logo da Empresa" 
-              className="max-w-full max-h-full object-contain"
+            <img
+              src={logo}
+              alt="Logo da Empresa"
+              className="max-w-full max-h-full object-contain cursor-pointer"
+              onClick={() => fileInputRef.current.click()}
+              title="Clique para trocar a logo"
             />
           ) : (
-            <div className="text-center p-2">
+            /* Prompt de upload — oculto no PDF (no-print) */
+            <div
+              onClick={() => fileInputRef.current.click()}
+              className="no-print w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-lg cursor-pointer hover:bg-gray-50 transition-all group"
+            >
               <Upload size={24} className="mx-auto text-blue-400 group-hover:text-blue-600 mb-1" />
-              <p className="text-[10px] font-bold text-blue-500 uppercase leading-tight italic text-shadow-sm">Clique para carregar<br/>Sua Logo</p>
+              <p className="text-[10px] font-bold text-blue-500 uppercase leading-tight italic">Clique para carregar<br/>Sua Logo</p>
             </div>
           )}
-        </div>
-        
-        <div className="hidden print:flex w-60 h-24 items-center justify-start overflow-hidden">
-            {logo && <img src={logo} className="max-w-full max-h-full object-contain" alt="Logo Impressa" />}
         </div>
       </div>
       
@@ -1051,10 +1051,12 @@ export default function Laudos() {
         <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
-            <div className="flex flex-col items-end gap-0.5 text-blue-700 font-bold pt-1">
-                 <span className="flex items-center gap-1 whitespace-nowrap"><Phone size={9} /> {empresa.contatos}</span>
-                 <span className="flex items-center gap-1 whitespace-nowrap"><Mail size={9} /> {empresa.email}</span>
-                 <span className="flex items-center gap-1 whitespace-nowrap"><Globe size={9} /> {empresa.site}</span>
+            <div className="flex items-center justify-end gap-2 text-blue-700 font-bold pt-1 flex-wrap">
+                 <span className="flex items-center gap-1 whitespace-nowrap bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"><Phone size={9} /> {empresa.contatos}</span>
+                 <span className="text-blue-300 font-light select-none">|</span>
+                 <span className="flex items-center gap-1 whitespace-nowrap bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"><Mail size={9} /> {empresa.email}</span>
+                 <span className="text-blue-300 font-light select-none">|</span>
+                 <span className="flex items-center gap-1 whitespace-nowrap bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"><Globe size={9} /> {empresa.site}</span>
             </div>
              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
                 <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
