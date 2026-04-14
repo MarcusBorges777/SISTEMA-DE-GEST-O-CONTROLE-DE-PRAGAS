@@ -1014,7 +1014,7 @@ export default function Laudos() {
   );
 
   const renderHeader = () => (
-    <header className="flex justify-between items-start mb-6 border-b-2 border-[#254191] pb-[21px]">
+    <header className="flex justify-between items-start mb-6 border-b-2 border-[#254191] pb-4">
       <div className="flex items-center gap-4">
         {/* Container da logo — sempre visível para captura do PDF */}
         <div className="w-60 h-24 flex items-center justify-center overflow-hidden flex-shrink-0">
