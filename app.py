@@ -1987,17 +1987,40 @@ def api_mover_arquivo():
 
 def encontrar_arquivo_em_diretorios(filename):
     """Procura arquivo em todos os diretórios configurados"""
-    # Primeiro tenta no OUTPUT_DIR padrão
+    # Se for caminho absoluto e existir, retorna diretamente
+    try:
+        p = Path(filename)
+        if p.is_absolute() and p.exists():
+            return p
+    except Exception:
+        pass
+
+    # Tenta no OUTPUT_DIR padrão
     caminho = OUTPUT_DIR / filename
     if caminho.exists():
         return caminho
 
-    # Tenta em output/documentos (geração inteligente)
-    caminho_docs = OUTPUT_DIR / 'documentos' / filename
-    if caminho_docs.exists():
-        return caminho_docs
+    # Buscar na pasta_principal (config_diretorios_duplos.json)
+    config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+    if config_duplos.exists():
+        try:
+            with open(config_duplos, 'r', encoding='utf-8') as f:
+                cfg_d = json.load(f)
+            pasta_principal = cfg_d.get('principal', '').strip()
+            if pasta_principal and Path(pasta_principal).exists():
+                pp = Path(pasta_principal)
+                for sub in ['Laudos', 'Recibos', 'Orcamentos', 'Lixeira']:
+                    c = pp / sub / filename
+                    if c.exists():
+                        return c
+                # Também tenta diretamente na pasta_principal
+                c = pp / filename
+                if c.exists():
+                    return c
+        except Exception:
+            pass
 
-    # Buscar em todos os diretórios configurados
+    # Buscar em diretórios configurados no config antigo
     config = carregar_config_diretorios()
     download_config = config.get('download', {})
     upload_config = config.get('upload', {})
@@ -2009,7 +2032,6 @@ def encontrar_arquivo_em_diretorios(filename):
             if dir_config:
                 todos_diretorios.append(Path(dir_config))
 
-    # Procurar em cada diretório
     for diretorio in todos_diretorios:
         if diretorio.exists():
             caminho = diretorio / filename
@@ -2021,28 +2043,37 @@ def encontrar_arquivo_em_diretorios(filename):
 @app.route('/download/<path:filename>')
 @app.route('/api/download/<path:filename>')
 def download_arquivo(filename):
-    """Permite download de arquivo de qualquer diretório configurado"""
+    """Permite download de arquivo — aceita ?caminho= para path absoluto"""
     try:
-        caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+        caminho_query = request.args.get('caminho', '').strip()
+        if caminho_query:
+            caminho_arquivo = Path(caminho_query)
+            if not caminho_arquivo.exists():
+                return jsonify({"error": "Arquivo não encontrado"}), 404
+        else:
+            caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+            if not caminho_arquivo:
+                return jsonify({"error": "Arquivo não encontrado"}), 404
 
-        if not caminho_arquivo:
-            return jsonify({"error": "Arquivo não encontrado"}), 404
-
-        return send_file(str(caminho_arquivo), as_attachment=True, download_name=filename)
+        return send_file(str(caminho_arquivo), as_attachment=True, download_name=caminho_arquivo.name)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/visualizar/<path:filename>')
 def visualizar_arquivo(filename):
-    """Permite visualizar arquivo no navegador (sem forçar download)"""
+    """Permite visualizar arquivo — aceita ?caminho= para path absoluto"""
     try:
-        caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+        caminho_query = request.args.get('caminho', '').strip()
+        if caminho_query:
+            caminho_arquivo = Path(caminho_query)
+            if not caminho_arquivo.exists():
+                return jsonify({"error": "Arquivo não encontrado"}), 404
+        else:
+            caminho_arquivo = encontrar_arquivo_em_diretorios(filename)
+            if not caminho_arquivo:
+                return jsonify({"error": "Arquivo não encontrado"}), 404
 
-        if not caminho_arquivo:
-            return jsonify({"error": "Arquivo não encontrado"}), 404
-
-        # Enviar arquivo sem forçar download (as_attachment=False)
         return send_file(str(caminho_arquivo), as_attachment=False)
 
     except Exception as e:

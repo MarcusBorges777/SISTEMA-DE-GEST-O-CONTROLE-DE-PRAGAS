@@ -2,11 +2,12 @@ import React from 'react';
 import { ExternalLink, Download, X } from 'lucide-react';
 import Modal from '../shared/Modal';
 
-export default function DocumentPreview({ isOpen, onClose, filename }) {
+export default function DocumentPreview({ isOpen, onClose, filename, caminho }) {
   if (!filename) return null;
 
-  const viewUrl = `/api/visualizar/${encodeURIComponent(filename)}`;
-  const downloadUrl = `/api/download/${encodeURIComponent(filename)}`;
+  const caminhoParam = caminho ? `?caminho=${encodeURIComponent(caminho)}` : '';
+  const viewUrl     = `/api/visualizar/${encodeURIComponent(filename)}${caminhoParam}`;
+  const downloadUrl = `/api/download/${encodeURIComponent(filename)}${caminhoParam}`;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Preview do Documento" maxWidth="max-w-4xl">

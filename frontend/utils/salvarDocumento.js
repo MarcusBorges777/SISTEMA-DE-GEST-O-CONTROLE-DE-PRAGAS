@@ -1,12 +1,12 @@
 /**
  * salvarDocumento.js
- * Captura um elemento HTML como PDF com paginação A4 automática e envia para o backend.
+ * Captura cada página .a4-page individualmente e gera PDF A4 multipágina.
  * Padrão de nome: "#0001 Razão Social 03-26.pdf"
  */
 
 /**
  * @param {Object} opts
- * @param {string} opts.elementId - ID do elemento HTML a capturar (ex: 'a4-document')
+ * @param {string} opts.elementId - ID do container (ex: 'a4-document')
  * @param {string} opts.tipo - 'laudo' | 'orcamento' | 'recibo'
  * @param {string} opts.numeroDoc - número do documento (ex: '0001')
  * @param {string} opts.nomeEmpresa - razão social ou nome fantasia
@@ -18,51 +18,56 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
     const html2canvas = (await import('html2canvas')).default;
     const { jsPDF } = await import('jspdf');
 
-    const elemento = document.getElementById(elementId);
-    if (!elemento) {
+    const container = document.getElementById(elementId);
+    if (!container) {
       return { sucesso: false, erro: `Elemento #${elementId} não encontrado` };
     }
 
-    // Ocultar elementos que não devem aparecer no PDF (painel editor, botões)
-    const noPrintEls = elemento.querySelectorAll('.no-print');
-    noPrintEls.forEach(el => { el.style.visibility = 'hidden'; el.style.position = 'absolute'; });
+    // Selecionar apenas as páginas A4 reais (excluindo editor, botões etc.)
+    const paginas = Array.from(container.querySelectorAll('.a4-page'));
+    if (paginas.length === 0) {
+      return { sucesso: false, erro: 'Nenhuma página A4 encontrada para gerar PDF' };
+    }
 
-    // Capturar o elemento inteiro em alta resolução
-    let canvas;
-    try {
-      canvas = await html2canvas(elemento, {
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pdfWidth  = pdf.internal.pageSize.getWidth();   // 210mm
+    const pdfHeight = pdf.internal.pageSize.getHeight();  // 297mm
+
+    for (let i = 0; i < paginas.length; i++) {
+      const pagina = paginas[i];
+
+      // Capturar a página individualmente
+      const canvas = await html2canvas(pagina, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
       });
-    } finally {
-      // Restaurar elementos ocultos independente de erro
-      noPrintEls.forEach(el => { el.style.visibility = ''; el.style.position = ''; });
-    }
 
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
-    const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      // Calcular altura proporcional mantendo largura A4
+      const imgHeightMM = (canvas.height / canvas.width) * pdfWidth;
 
-    // Altura total da imagem em mm mantendo a proporção da largura A4
-    const imgHeightMM = (canvas.height / canvas.width) * pdfWidth;
+      if (i > 0) pdf.addPage();
 
-    // Paginação: desloca a imagem para cima a cada página, revelando a próxima fatia
-    let heightLeft = imgHeightMM;
-    let position = 0;
-
-    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
-    heightLeft -= pdfHeight;
-
-    while (heightLeft > 0.5) {
-      position -= pdfHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
-      heightLeft -= pdfHeight;
+      // Se a página cabe em A4, insere diretamente; senão, pagina com deslocamento
+      if (imgHeightMM <= pdfHeight + 1) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeightMM);
+      } else {
+        // Página muito longa: pagina por fatias
+        let heightLeft = imgHeightMM;
+        let position   = 0;
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
+        heightLeft -= pdfHeight;
+        while (heightLeft > 0.5) {
+          position -= pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeightMM);
+          heightLeft -= pdfHeight;
+        }
+      }
     }
 
     const pdfBlob = pdf.output('blob');

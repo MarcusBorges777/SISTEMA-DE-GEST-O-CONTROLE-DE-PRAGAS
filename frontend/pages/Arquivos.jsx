@@ -247,7 +247,7 @@ export default function Arquivos() {
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
   const [filtroTipo, setFiltroTipo]   = useState('all');
-  const [previewFile, setPreviewFile] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null); // { nome, caminho }
   const [deleteModal, setDeleteModal] = useState(null);
   const [editModal, setEditModal]     = useState(null);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
@@ -302,7 +302,8 @@ export default function Arquivos() {
     const filename = deleteModal.nome || deleteModal.filename;
     const caminho  = deleteModal.caminho;
     try {
-      await api.post('/api/arquivo/excluir', { arquivo: filename, caminho });
+      // Envia o caminho completo para exclusão direta sem busca
+      await api.post('/api/arquivo/excluir', { caminho: caminho || filename });
       addToast('Arquivo excluído', 'success');
       loadArquivos();
     } catch {
@@ -443,11 +444,11 @@ export default function Arquivos() {
 
                   {/* Ações — sempre visíveis */}
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => setPreviewFile(filename)} title="Visualizar"
+                    <button onClick={() => setPreviewFile({ nome: filename, caminho: arquivo.caminho })} title="Visualizar"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
                       <Eye size={15} />
                     </button>
-                    <a href={`/api/download/${encodeURIComponent(filename)}`} title="Baixar"
+                    <a href={`/api/download/${encodeURIComponent(filename)}${arquivo.caminho ? '?caminho=' + encodeURIComponent(arquivo.caminho) : ''}`} title="Baixar"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition">
                       <Download size={15} />
                     </a>
@@ -470,7 +471,12 @@ export default function Arquivos() {
       </div>
 
       {/* Modais */}
-      <DocumentPreview isOpen={!!previewFile} onClose={() => setPreviewFile(null)} filename={previewFile} />
+      <DocumentPreview
+        isOpen={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        filename={previewFile?.nome}
+        caminho={previewFile?.caminho}
+      />
 
       {deleteModal && (
         <ModalConfirmar
