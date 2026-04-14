@@ -23,14 +23,24 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       return { sucesso: false, erro: `Elemento #${elementId} não encontrado` };
     }
 
+    // Ocultar elementos que não devem aparecer no PDF (painel editor, botões)
+    const noPrintEls = elemento.querySelectorAll('.no-print');
+    noPrintEls.forEach(el => { el.style.visibility = 'hidden'; el.style.position = 'absolute'; });
+
     // Capturar o elemento inteiro em alta resolução
-    const canvas = await html2canvas(elemento, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
+    let canvas;
+    try {
+      canvas = await html2canvas(elemento, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+    } finally {
+      // Restaurar elementos ocultos independente de erro
+      noPrintEls.forEach(el => { el.style.visibility = ''; el.style.position = ''; });
+    }
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm

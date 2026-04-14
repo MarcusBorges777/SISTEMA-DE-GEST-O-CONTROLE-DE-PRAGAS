@@ -1721,6 +1721,22 @@ def api_arquivos():
         # Também listar diretamente do OUTPUT_DIR (para compatibilidade)
         arquivos.extend(listar_arquivos_diretorio(OUTPUT_DIR, 'output', 'Sistema'))
 
+        # Listar da Pasta Principal configurada em config_diretorios_duplos.json
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        if config_duplos.exists():
+            try:
+                with open(config_duplos, 'r', encoding='utf-8') as _f:
+                    _cfg = json.load(_f)
+                pasta_principal = _cfg.get('principal', '').strip()
+                if pasta_principal and Path(pasta_principal).exists():
+                    _pp = Path(pasta_principal)
+                    for subpasta, tipo in [('Laudos', 'download_laudo'), ('Recibos', 'download_recibo'), ('Orcamentos', 'download_orcamento'), ('Lixeira', 'lixeira')]:
+                        _dir = _pp / subpasta
+                        if _dir.exists():
+                            arquivos.extend(listar_arquivos_diretorio(_dir, tipo, subpasta))
+            except Exception:
+                pass
+
         # Diretórios personalizados (novo formato: download/upload)
         config = carregar_config_diretorios()
         download_config = config.get('download', {})
