@@ -1058,8 +1058,7 @@ export default function Laudos() {
                  <span className="text-blue-300 select-none">·</span>
                  <span className="flex items-center gap-0.5"><Globe size={8} /> {empresa.site}</span>
             </p>
-             <div className="border-t border-blue-200 mt-[8px] mb-[6px]" />
-             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 justify-items-end">
+             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 justify-items-end">
                 <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
                 <p className="whitespace-nowrap">Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licencaAmbiental}</span></p>
                 <p className="whitespace-nowrap">Responsável Técnico: <span className="text-[#254191] font-bold">{empresa.rt}</span></p>
