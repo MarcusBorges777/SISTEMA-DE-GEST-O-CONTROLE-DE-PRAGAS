@@ -1051,12 +1051,10 @@ export default function Laudos() {
         <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
-            <p className="flex items-center justify-end gap-3 text-blue-700 font-bold pt-0.5 whitespace-nowrap">
-                 <span style={{display:'inline-flex',alignItems:'center',gap:'2px'}}><Phone size={9} style={{position:'relative',top:'0.5px',flexShrink:0}} /> {empresa.contatos}</span>
-                 <span className="text-blue-300 select-none">·</span>
-                 <span style={{display:'inline-flex',alignItems:'center',gap:'2px'}}><Mail size={9} style={{position:'relative',top:'0.5px',flexShrink:0}} /> {empresa.email}</span>
-                 <span className="text-blue-300 select-none">·</span>
-                 <span style={{display:'inline-flex',alignItems:'center',gap:'2px'}}><Globe size={9} style={{position:'relative',top:'0.5px',flexShrink:0}} /> {empresa.site}</span>
+            <p className="flex items-center justify-end gap-0 text-[8px] text-blue-700 font-semibold pt-1 whitespace-nowrap tracking-tight divide-x divide-blue-200">
+                 <span className="px-2">{empresa.contatos}</span>
+                 <span className="px-2">{empresa.email}</span>
+                 <span className="px-2">{empresa.site}</span>
             </p>
              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 justify-items-end">
                 <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
