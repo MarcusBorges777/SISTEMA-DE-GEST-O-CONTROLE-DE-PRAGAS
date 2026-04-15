@@ -1051,7 +1051,7 @@ export default function Laudos() {
         <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
-            <p className="flex items-center justify-end gap-0 text-[8px] text-blue-700 font-semibold pt-1 whitespace-nowrap tracking-tight divide-x divide-blue-200">
+            <p className="flex items-center justify-end gap-0 text-[9px] text-blue-700 font-semibold pt-1 whitespace-nowrap tracking-tight divide-x divide-blue-200">
                  <span className="px-2">{empresa.contatos}</span>
                  <span className="px-2">{empresa.email}</span>
                  <span className="px-2">{empresa.site}</span>
