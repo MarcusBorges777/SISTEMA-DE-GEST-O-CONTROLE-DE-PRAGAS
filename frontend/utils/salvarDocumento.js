@@ -16,10 +16,11 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       return { sucesso: false, erro: `Elemento #${elementId} não encontrado` };
     }
 
-    // Selecionar apenas as páginas A4 reais
-    const paginas = Array.from(container.querySelectorAll('.a4-page'));
+    // Selecionar páginas A4: prioriza .a4-page filhos, senão usa o próprio container
+    let paginas = Array.from(container.querySelectorAll('.a4-page'));
     if (paginas.length === 0) {
-      return { sucesso: false, erro: 'Nenhuma página A4 encontrada para gerar PDF' };
+      // Fallback: Recibos e Orçamentos usam o container inteiro como página única
+      paginas = [container];
     }
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });

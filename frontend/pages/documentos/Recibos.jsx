@@ -233,7 +233,7 @@ export default function Recibos() {
   const handlePrint = () => window.print();
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center font-sans text-slate-900 print:p-0 print:bg-white print:block">
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center font-sans text-slate-900 print:p-0 print:bg-white print:flex print:items-start print:justify-center">
       
       {/* BOTÃO FLUTUANTE DE IMPRESSÃO + SALVAR */}
       <div className="fixed bottom-6 right-6 z-50 print:hidden flex flex-col gap-3 items-end">
@@ -388,7 +388,7 @@ export default function Recibos() {
       </div>
 
       {/* DOCUMENTO A4 */}
-      <div id="a4-document" className="bg-white w-[210mm] min-h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col p-[15mm] text-slate-800">
+      <div id="a4-document" className="bg-white w-[210mm] min-h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col p-[15mm] text-slate-800 print:shadow-none print:mx-auto print:w-[210mm]">
         
         {/* DATALISTS PARA SUGESTÕES DE PREENCHIMENTO */}
         <datalist id="lista-servicos">
