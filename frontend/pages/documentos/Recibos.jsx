@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, ClipboardCheck, Calendar, Minus, Save, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, ClipboardCheck, Calendar, Minus, Save, Loader2, Search, AlertTriangle } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import ClienteBusca from '../../components/shared/ClienteBusca';
+import { buscarCNPJ } from '../../services/brasilApi';
+import { getClientes, saveCliente } from '../../services/clienteCache';
 
 export default function Recibos() {
   // --- ESTADOS DO PAINEL DE EDIÇÃO ---
@@ -213,6 +215,51 @@ export default function Recibos() {
 
   const [salvandoPdf, setSalvandoPdf] = useState(false);
 
+  // --- BRASIL API / CACHE DE CLIENTES ---
+  const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
+  const [cnpjError, setCnpjError]         = useState('');
+  const [clientesSalvos, setClientesSalvos] = useState([]);
+
+  useEffect(() => { setClientesSalvos(getClientes()); }, []);
+
+  const handleBuscarCNPJ = async () => {
+    const raw = clientData.cnpj.replace(/\D/g, '');
+    if (raw.length !== 14) { setCnpjError('Digite um CNPJ completo (14 dígitos).'); return; }
+    setCnpjError('');
+    setIsLoadingCnpj(true);
+    try {
+      const dados = await buscarCNPJ(raw);
+      setClientData(prev => ({
+        ...prev,
+        nome:     dados.nome     || '',
+        fantasia: dados.fantasia || '',
+        cnpj:     dados.cnpj     || prev.cnpj,
+        endereco: dados.endereco || '',
+        atividade: dados.atividade || '',
+      }));
+    } catch (err) {
+      setCnpjError(err.message || 'CNPJ não encontrado na Receita Federal.');
+    } finally {
+      setIsLoadingCnpj(false);
+    }
+  };
+
+  const handleSalvarCliente = () => {
+    if (!clientData.nome.trim() || !clientData.cnpj.trim()) {
+      setCnpjError('Preencha ao menos Nome e CNPJ antes de salvar.');
+      return;
+    }
+    saveCliente({
+      nome:     clientData.nome,
+      fantasia: clientData.fantasia,
+      cnpj:     clientData.cnpj,
+      endereco: clientData.endereco,
+      atividade: clientData.atividade,
+    });
+    setClientesSalvos(getClientes());
+    setCnpjError('');
+  };
+
   const handleSalvarPdf = async () => {
     setSalvandoPdf(true);
     try {
@@ -257,21 +304,21 @@ export default function Recibos() {
       <input type="file" ref={fileInputLogo} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setLogo)} />
 
       {/* PAINEL "EDITAR INFORMAÇÕES DO DOCUMENTO" */}
-      <div className="bg-[#f4f5f8] p-6 md:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full max-w-[210mm] border border-gray-200/60 mb-8 print:hidden">
-        
+      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-4xl border border-blue-200 mb-8 print:hidden">
+
         {/* Cabeçalho do Painel */}
-        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 cursor-pointer" onClick={() => setShowEditor(!showEditor)}>
-          <h3 className="font-extrabold text-lg text-[#324577] flex items-center gap-2">
-            <Edit3 size={20} className="text-[#324577]" /> Editar Informações do Documento
+        <div className="flex justify-between items-center mb-6 border-b pb-2">
+          <h3 className="font-bold text-lg text-blue-900 flex items-center gap-2">
+            <Edit3 size={20} /> Editar Informações do Documento
           </h3>
-          <button className="text-gray-500 hover:text-[#254191] transition-colors bg-gray-200/80 p-1.5 rounded-full">
+          <button onClick={() => setShowEditor(!showEditor)} className="text-gray-500 hover:text-blue-700">
             {showEditor ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </button>
         </div>
-        
+
         {/* Conteúdo do Painel */}
         {showEditor && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="space-y-6">
              
              {/* BLOCO DE DADOS GERAIS E CLIENTE */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
@@ -333,41 +380,84 @@ export default function Recibos() {
 
                  {/* COLUNA 2: DADOS DO CLIENTE */}
                  <div className="space-y-4">
-                     <h4 className="font-bold text-[11px] text-gray-500 uppercase tracking-widest border-b border-gray-200 pb-2">Dados do Cliente</h4>
+                     <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider border-b pb-1">Dados do Cliente</h4>
+
                      <ClienteBusca
-                       placeholder="Importar cliente cadastrado..."
-                       onSelect={(c) => setClientData(prev => ({
-                         ...prev,
-                         nome: c.razao_social || c.nome_fantasia || '',
-                         fantasia: c.nome_fantasia || '',
-                         cnpj: c.cnpj || '',
-                         endereco: c.endereco_completo || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
-                         atividade: c.cnae || '',
-                       }))}
+                       placeholder="Buscar cliente no sistema..."
+                       onSelect={(c) => {
+                         setCnpjError('');
+                         setClientData(prev => ({
+                           ...prev,
+                           nome:     c.razao_social || c.nome_fantasia || c.nome || '',
+                           fantasia: c.nome_fantasia || c.fantasia || '',
+                           cnpj:     c.cnpj || '',
+                           endereco: c.endereco_completo || c.endereco || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
+                           atividade: c.cnae || c.atividade || '',
+                         }));
+                       }}
                      />
+
+                     <div className="flex gap-2 items-end">
+                       <div className="flex-1">
+                         <label className="block text-xs font-bold text-gray-700 mb-1">Carregar Cliente Salvo</label>
+                         <select
+                           className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                           value=""
+                           onChange={(e) => {
+                             const c = clientesSalvos.find(x => x.cnpj === e.target.value);
+                             if (c) {
+                               setCnpjError('');
+                               setClientData(prev => ({ ...prev, nome: c.nome, fantasia: c.fantasia, cnpj: c.cnpj, endereco: c.endereco, atividade: c.atividade }));
+                             }
+                           }}
+                         >
+                           <option value="">-- selecione um cliente salvo --</option>
+                           {clientesSalvos.map(c => (
+                             <option key={c.cnpj} value={c.cnpj}>{c.fantasia || c.nome} — {c.cnpj}</option>
+                           ))}
+                         </select>
+                       </div>
+                       <button onClick={handleSalvarCliente}
+                         className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors flex items-center gap-1 shrink-0">
+                         <Plus size={14}/> Salvar Cliente
+                       </button>
+                     </div>
+
                      <div>
-                         <label className="block text-xs font-bold text-gray-600 mb-1.5">Razão Social / Nome</label>
-                         <input type="text" value={clientData.nome} onChange={(e) => handleClientChange('nome', e.target.value)} className="w-full p-2.5 bg-gray-200/60 border border-gray-300/50 rounded-md text-sm font-semibold text-gray-800 focus:bg-white focus:border-[#324577]/40 focus:ring-2 focus:ring-[#324577]/10 outline-none transition-all" />
+                         <label className="block text-xs font-bold text-gray-700 mb-1">Razão Social / Nome</label>
+                         <input type="text" value={clientData.nome} onChange={(e) => handleClientChange('nome', e.target.value)} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                     </div>
+                     <div>
+                         <label className="block text-xs font-bold text-gray-700 mb-1">Nome Fantasia</label>
+                         <input type="text" value={clientData.fantasia} onChange={(e) => handleClientChange('fantasia', e.target.value)} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                      </div>
                      <div className="grid grid-cols-2 gap-4">
                          <div>
-                             <label className="block text-xs font-bold text-gray-600 mb-1.5">Nome Fantasia</label>
-                             <input type="text" value={clientData.fantasia} onChange={(e) => handleClientChange('fantasia', e.target.value)} className="w-full p-2.5 bg-gray-200/60 border border-gray-300/50 rounded-md text-sm font-semibold text-gray-800 focus:bg-white focus:border-[#324577]/40 focus:ring-2 focus:ring-[#324577]/10 outline-none transition-all" />
+                             <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ / CPF</label>
+                             <div className="flex gap-1">
+                               <input type="text" value={clientData.cnpj} onChange={(e) => handleClientChange('cnpj', e.target.value)}
+                                 maxLength={18} placeholder="00.000.000/0000-00"
+                                 className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                               <button onClick={handleBuscarCNPJ} disabled={isLoadingCnpj}
+                                 className="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors shrink-0 disabled:opacity-60 flex items-center gap-1">
+                                 {isLoadingCnpj ? <Loader2 size={14} className="animate-spin"/> : <Search size={14}/>}
+                                 {isLoadingCnpj ? 'Buscando...' : 'Buscar'}
+                               </button>
+                             </div>
+                             {cnpjError && (
+                               <p className="text-red-500 text-[10px] mt-1 font-bold flex items-center gap-1">
+                                 <AlertTriangle size={12}/> {cnpjError}
+                               </p>
+                             )}
                          </div>
                          <div>
-                             <label className="block text-xs font-bold text-gray-600 mb-1.5">CNPJ / CPF</label>
-                             <input type="text" value={clientData.cnpj} onChange={(e) => handleClientChange('cnpj', e.target.value)} className="w-full p-2.5 bg-gray-200/60 border border-gray-300/50 rounded-md text-sm font-semibold text-gray-800 focus:bg-white focus:border-[#324577]/40 focus:ring-2 focus:ring-[#324577]/10 outline-none transition-all" />
+                             <label className="block text-xs font-bold text-gray-700 mb-1">Cód. / Atividade Econômica</label>
+                             <input type="text" value={clientData.atividade} onChange={(e) => handleClientChange('atividade', e.target.value)} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                          </div>
                      </div>
-                     <div className="grid grid-cols-1 gap-4">
-                         <div>
-                             <label className="block text-xs font-bold text-gray-600 mb-1.5">Atividade Econômica</label>
-                             <input type="text" value={clientData.atividade} onChange={(e) => handleClientChange('atividade', e.target.value)} className="w-full p-2.5 bg-gray-200/60 border border-gray-300/50 rounded-md text-sm font-semibold text-gray-800 focus:bg-white focus:border-[#324577]/40 focus:ring-2 focus:ring-[#324577]/10 outline-none transition-all" />
-                         </div>
-                         <div>
-                             <label className="block text-xs font-bold text-gray-600 mb-1.5">Endereço Completo</label>
-                             <input type="text" value={clientData.endereco} onChange={(e) => handleClientChange('endereco', e.target.value)} className="w-full p-2.5 bg-gray-200/60 border border-gray-300/50 rounded-md text-sm font-semibold text-gray-800 focus:bg-white focus:border-[#324577]/40 focus:ring-2 focus:ring-[#324577]/10 outline-none transition-all" />
-                         </div>
+                     <div>
+                         <label className="block text-xs font-bold text-gray-700 mb-1">Endereço</label>
+                         <input type="text" value={clientData.endereco} onChange={(e) => handleClientChange('endereco', e.target.value)} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                      </div>
                  </div>
 
@@ -388,7 +478,7 @@ export default function Recibos() {
       </div>
 
       {/* DOCUMENTO A4 */}
-      <div id="a4-document" className="bg-white w-[210mm] min-h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col p-[15mm] text-slate-800 print:shadow-none print:mx-auto print:w-[210mm]">
+      <div id="a4-document" className="bg-white w-[210mm] h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col p-[15mm] text-slate-800 print:shadow-none print:mx-auto print:w-[210mm]">
         
         {/* DATALISTS PARA SUGESTÕES DE PREENCHIMENTO */}
         <datalist id="lista-servicos">
@@ -396,17 +486,17 @@ export default function Recibos() {
         </datalist>
 
         {/* --- CABEÇALHO UNIFORME --- */}
-        <header className="flex justify-between items-start mb-8 relative z-50 h-28">
+        <header className="flex justify-between items-start mb-3 relative z-50 h-28">
           <div className="flex items-center h-full">
             {/* Logo Area */}
             <div 
               onClick={() => fileInputLogo.current.click()}
-              className={`w-64 h-28 flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all group ${!logo ? 'border-2 border-dashed border-blue-200 bg-blue-50/30 print:hidden' : ''}`}
+              className={`w-64 h-28 flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all group ${!logo ? 'border-2 border-dashed border-blue-200 bg-blue-50/30 no-print' : ''}`}
             >
               {logo ? (
                 <img src={logo} alt="Logo" className="max-w-full max-h-full object-contain" />
               ) : (
-                <div className="text-center p-2 print:hidden">
+                <div className="text-center p-2 no-print">
                   <ImageIcon size={24} className="mx-auto text-blue-400 mb-1" />
                   <p className="text-[10px] font-bold text-blue-500 uppercase">Sua Logo</p>
                 </div>
@@ -454,10 +544,10 @@ export default function Recibos() {
         </header>
 
         {/* --- LINHA DIVISÓRIA --- */}
-        <div className="w-full h-0.5 bg-[#254191] mb-8 relative z-10 print:bg-[#254191]"></div>
+        <div className="w-full h-0.5 bg-[#254191] mb-3 relative z-10 print:bg-[#254191]"></div>
 
         {/* --- TÍTULO DO DOCUMENTO --- */}
-        <div className="flex justify-between items-end mb-10 relative z-10 print-color-exact">
+        <div className="flex justify-between items-end mb-4 relative z-10 print-color-exact">
           <div>
             <h2 className="text-3xl font-black text-[#254191] uppercase leading-none tracking-wide mb-1" style={{ color: '#254191' }}>
               RECIBO
@@ -487,7 +577,7 @@ export default function Recibos() {
         </div>
 
         {/* --- SEÇÃO CLIENTE --- */}
-        <section className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm mb-10 relative z-10 print:bg-blue-50 print:border-blue-100 print:mb-10">
+        <section className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm mb-4 relative z-10 print:bg-blue-50 print:border-blue-100">
           <h3 className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic print:border-blue-200">
             <Shield size={12} /> Cliente / Contratante
           </h3>
@@ -544,7 +634,7 @@ export default function Recibos() {
         </section>
 
         {/* --- TABELA DE SERVIÇOS --- */}
-        <section className="mb-10 relative z-10">
+        <section className="mb-4 relative z-10">
             <table className="w-full text-left border-collapse border border-blue-200 text-[10px] shadow-sm rounded-lg overflow-visible print:border-blue-200">
                 <thead className="bg-[#254191] text-white uppercase font-black text-[9px] print:bg-[#254191] print:text-white">
                     <tr>
@@ -614,7 +704,7 @@ export default function Recibos() {
         {/* --- RODAPÉ E TOTAIS --- */}
         <div className="mt-auto relative z-10 print-avoid-break">
             {/* Barra de Total */}
-            <section className="bg-[#254191] text-white py-3 px-5 rounded-lg flex justify-between items-center shadow-md border-b-4 border-blue-900/50 mb-10 print:bg-[#254191] print:text-white print:border-blue-900">
+            <section className="bg-[#254191] text-white py-3 px-5 rounded-lg flex justify-between items-center shadow-md border-b-4 border-blue-900/50 mb-3 print:bg-[#254191] print:text-white print:border-blue-900">
                 <div className="flex items-center gap-2 opacity-90">
                     <div className="bg-white/10 p-1.5 rounded border border-white/20">
                         <Hash size={16} />
@@ -647,7 +737,7 @@ export default function Recibos() {
             </div>
 
             {/* INFO DA EMPRESA CENTRALIZADA (COM PROTEÇÃO CONTRA QUEBRA DE PÁGINA) */}
-            <div className="text-center mb-10 print:mb-10 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
+            <div className="text-center mb-2 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
                 <h3 className="text-[#1e3a8a] font-black uppercase text-sm">{empresa.razao}</h3>
                 <p className="text-[#1e3a8a] font-bold text-[10px]">Dedetizadora Borges | CNPJ: {empresa.cnpj}</p>
                 <p className="text-gray-500 italic text-[9px] mt-1">{empresa.endereco}</p>
@@ -693,13 +783,12 @@ export default function Recibos() {
             color-adjust: exact !important;
           }
           .print\\:hidden { display: none !important; }
-          #a4-document { 
-            box-shadow: none !important; 
-            width: 210mm !important; 
-            height: 297mm !important; 
-            min-height: 297mm !important;
-            padding: 15mm !important; 
-            margin: 0 !important; 
+          #a4-document {
+            box-shadow: none !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: 15mm !important;
+            margin: 0 !important;
             border-radius: 0;
             overflow: hidden;
             position: absolute !important;
