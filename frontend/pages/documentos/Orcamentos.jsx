@@ -224,10 +224,10 @@ export default function Orcamentos() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center font-sans text-slate-900 print:p-0 print:bg-white print:flex print:items-start print:justify-center">
-      
+    <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
+
       {/* BOTÃO FLUTUANTE DE IMPRESSÃO + SALVAR */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden flex flex-col gap-3 items-end">
+      <div className="fixed bottom-6 right-6 z-50 no-print flex flex-col gap-3 items-end">
         <button
           onClick={handleSalvarPdf}
           disabled={salvandoPdf}
@@ -248,7 +248,7 @@ export default function Orcamentos() {
       <input type="file" ref={fileInputLogo} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setLogo)} />
 
       {/* PAINEL "EDITAR INFORMAÇÕES DO DOCUMENTO" */}
-      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-4xl border border-blue-200 mb-8 print:hidden">
+      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-4xl border border-blue-200 mb-8 no-print">
 
         {/* Cabeçalho do Painel */}
         <div className="flex justify-between items-center mb-6 border-b pb-2">
@@ -406,7 +406,6 @@ export default function Orcamentos() {
       </div>
 
       {/* DOCUMENTO A4 */}
-      <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
         <div className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
         
         {/* DATALISTS PARA SUGESTÕES DE PREENCHIMENTO */}
@@ -681,7 +680,6 @@ export default function Orcamentos() {
         </div>
 
       </div>{/* fim .a4-page */}
-    </div>{/* fim #a4-document */}
 
       <style>{`
         .a4-page { width: 210mm; height: 297mm; min-height: 297mm; position: relative; }
