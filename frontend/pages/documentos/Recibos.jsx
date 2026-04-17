@@ -478,7 +478,8 @@ export default function Recibos() {
       </div>
 
       {/* DOCUMENTO A4 */}
-      <div id="a4-document" className="bg-white w-[210mm] h-[297mm] shadow-[0_0_60px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col p-[15mm] text-slate-800 print:shadow-none print:mx-auto print:w-[210mm]">
+      <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
+        <div className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
         
         {/* DATALISTS PARA SUGESTÕES DE PREENCHIMENTO */}
         <datalist id="lista-servicos">
@@ -755,59 +756,68 @@ export default function Recibos() {
         </div>
 
         {/* --- RODAPÉ MINIMALISTA (FIXO EM BAIXO) --- */}
-        <div className="absolute bottom-6 left-0 w-full text-center print:bottom-6">
+        <div className="absolute bottom-6 left-0 w-full text-center">
              <p className="text-[9px] text-gray-300 font-bold italic uppercase tracking-widest">
                 DEDETIZADORA BORGES • CNPJ: 10.409.228/0001-93
              </p>
         </div>
 
-      </div>
+        </div>{/* fim .a4-page */}
+      </div>{/* fim #a4-document */}
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        @page { size: A4; margin: 0; }
+      <style>{`
+        .a4-page {
+          width: 210mm;
+          height: 297mm;
+          min-height: 297mm;
+          position: relative;
+        }
         @media print {
-          html, body {
-            width: 210mm;
-            height: 297mm;
+          @page { size: A4; margin: 0; }
+          html, body, #root, #root > div {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            background: white !important;
             margin: 0 !important;
             padding: 0 !important;
+          }
+          div[style*="margin-left"], div[style*="marginLeft"] { margin-left: 0 !important; }
+          main { padding: 0 !important; }
+          nav, aside { display: none !important; }
+          #a4-document header { display: flex !important; }
+          #a4-document .no-print { display: none !important; }
+          .no-print { display: none !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          #a4-document {
+            height: auto !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            gap: 0 !important;
+            display: block !important;
             background: white !important;
           }
-          body { 
-            -webkit-print-color-adjust: exact; 
-            print-color-adjust: exact; 
-          }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          .print\\:hidden { display: none !important; }
-          #a4-document {
+          .a4-page {
             box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 15mm !important;
             width: 210mm !important;
             height: 297mm !important;
-            padding: 15mm !important;
-            margin: 0 !important;
-            border-radius: 0;
-            overflow: hidden;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            page-break-after: avoid;
-            page-break-before: avoid;
-          }
-          .print\\:border-blue-200 { border-color: #bfdbfe !important; }
-          .print\\:bg-blue-50 { background-color: #eff6ff !important; }
-          .print\\:bg-blue-50\\/30 { background-color: #eff6ff !important; }
-          .break-inside-avoid {
+            max-height: 297mm !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
             page-break-inside: avoid;
-            break-inside: avoid;
+            page-break-after: always;
+          }
+          .a4-page:last-of-type, .a4-page:last-child {
+            page-break-after: avoid !important;
           }
         }
         .no-spinner::-webkit-inner-spin-button, .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         textarea { overflow: hidden; }
-      `}} />
+      `}</style>
     </div>
   );
 }
