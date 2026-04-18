@@ -4,6 +4,7 @@ import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import ClienteBusca from '../../components/shared/ClienteBusca';
+import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes, saveCliente } from '../../services/clienteCache';
 
@@ -1140,24 +1141,13 @@ export default function Laudos() {
       
       {renderEditorPanel()}
 
-      <div className="fixed bottom-6 right-6 z-50 no-print flex flex-col gap-3 items-end">
-        <button
-          onClick={handleSalvarPdf}
-          disabled={salvandoPdf || (!showPestControl && !showWaterTank && !showGreaseTrap)}
-          className={`${(!showPestControl && !showWaterTank && !showGreaseTrap) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold disabled:opacity-60`}
-        >
-          {salvandoPdf ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-          <span className="tracking-tight uppercase text-xs">Salvar PDF</span>
-        </button>
-        <button
-          onClick={handlePrint}
-          disabled={!showPestControl && !showWaterTank && !showGreaseTrap}
-          className={`${(!showPestControl && !showWaterTank && !showGreaseTrap) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#254191] hover:bg-blue-800'} text-white p-4 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold`}
-        >
-          <ClipboardCheck size={24} />
-          <span className="pr-2 tracking-tight uppercase text-xs">Imprimir Documentos A4</span>
-        </button>
-      </div>
+      {/* BOTÕES FLUTUANTES */}
+      <BotoesDocumento
+        onSalvarPdf={handleSalvarPdf}
+        onImprimir={handlePrint}
+        salvandoPdf={salvandoPdf}
+        disabled={!showPestControl && !showWaterTank && !showGreaseTrap}
+      />
 
       {/* PÁGINA 1: LAUDO TÉCNICO PRAGAS */}
       {showPestControl && (

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, ClipboardCheck, Calendar, Minus, Save, Loader2, Search, AlertTriangle } from 'lucide-react';
+import { Trash2, Plus, Printer, Image as ImageIcon, X, Globe, Mail, Phone, Shield, User, MapPin, Briefcase, Hash, Edit3, ChevronDown, ChevronUp, Calendar, Minus, Loader2, Search, AlertTriangle } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
-import { salvarDocumento } from '../../utils/salvarDocumento';
 import ClienteBusca from '../../components/shared/ClienteBusca';
 import { buscarCNPJ } from '../../services/brasilApi';
-import { getClientes, saveCliente } from '../../services/clienteCache';
+import { getClientes } from '../../services/clienteCache';
+import { useDocumentoActions } from '../../hooks/useDocumentoActions';
+import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 
 export default function Recibos() {
   // --- ESTADOS DO PAINEL DE EDIÇÃO ---
@@ -213,8 +214,6 @@ export default function Recibos() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const [salvandoPdf, setSalvandoPdf] = useState(false);
-
   // --- BRASIL API / CACHE DE CLIENTES ---
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
   const [cnpjError, setCnpjError]         = useState('');
@@ -244,37 +243,16 @@ export default function Recibos() {
     }
   };
 
-  const handleSalvarCliente = () => {
-    if (!clientData.nome.trim() || !clientData.cnpj.trim()) {
-      setCnpjError('Preencha ao menos Nome e CNPJ antes de salvar.');
-      return;
-    }
-    saveCliente({
-      nome:     clientData.nome,
-      fantasia: clientData.fantasia,
-      cnpj:     clientData.cnpj,
-      endereco: clientData.endereco,
-      atividade: clientData.atividade,
-    });
-    setClientesSalvos(getClientes());
-    setCnpjError('');
-  };
+  // --- AÇÕES DE DOCUMENTO (PDF + SALVAR CLIENTE) via hook compartilhado ---
+  const { salvandoPdf, handleSalvarPdf, handleSalvarCliente: salvarClienteHook } = useDocumentoActions({
+    tipo: 'recibo',
+    getNumeroDoc:   () => quoteNumber || '00001',
+    getNomeEmpresa: () => clientData.nome || clientData.fantasia || 'Empresa',
+  });
 
-  const handleSalvarPdf = async () => {
-    setSalvandoPdf(true);
-    try {
-      const nomeEmpresa = clientData.nome || clientData.fantasia || 'Empresa';
-      const result = await salvarDocumento({
-        elementId: 'a4-document',
-        tipo: 'recibo',
-        numeroDoc: quoteNumber || '00001',
-        nomeEmpresa,
-      });
-      if (result.sucesso) alert(`PDF salvo: ${result.nomeArquivo}`);
-      else alert(`Erro ao salvar: ${result.erro}`);
-    } finally {
-      setSalvandoPdf(false);
-    }
+  const handleSalvarCliente = () => {
+    const atualizado = salvarClienteHook(clientData, setCnpjError);
+    if (atualizado) setClientesSalvos(atualizado);
   };
 
   const handlePrint = () => window.print();
@@ -282,24 +260,12 @@ export default function Recibos() {
   return (
     <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
 
-      {/* BOTÃO FLUTUANTE DE IMPRESSÃO + SALVAR */}
-      <div className="fixed bottom-6 right-6 z-50 no-print flex flex-col gap-3 items-end">
-        <button
-          onClick={handleSalvarPdf}
-          disabled={salvandoPdf}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold disabled:opacity-60"
-        >
-          {salvandoPdf ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-          <span className="tracking-tight uppercase text-xs">Salvar PDF</span>
-        </button>
-        <button
-         onClick={handlePrint}
-         className="bg-[#254191] hover:bg-blue-800 text-white p-4 rounded-full shadow-2xl flex items-center gap-3 transition-all transform hover:scale-105 font-bold"
-        >
-          <ClipboardCheck size={24} />
-          <span className="pr-2 tracking-tight uppercase text-xs">Imprimir Documento A4</span>
-        </button>
-      </div>
+      {/* BOTÕES FLUTUANTES */}
+      <BotoesDocumento
+        onSalvarPdf={handleSalvarPdf}
+        onImprimir={handlePrint}
+        salvandoPdf={salvandoPdf}
+      />
 
       <input type="file" ref={fileInputLogo} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setLogo)} />
 
