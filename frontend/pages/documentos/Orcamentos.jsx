@@ -451,12 +451,12 @@ export default function Orcamentos() {
 
         {/* --- TÍTULO DO DOCUMENTO --- */}
         <div className="flex justify-between items-end mb-4 relative z-10">
-          <div>
+          <div className="min-w-0 flex-1 mr-3">
             <h2 className="text-2xl font-black text-[#254191] uppercase leading-none tracking-tight">
               ORÇAMENTO DE PRESTAÇÃO DE SERVIÇOS
             </h2>
           </div>
-          <div className="text-right border-l-4 border-[#254191] pl-3 print:border-[#254191]">
+          <div className="text-right border-l-4 border-[#254191] pl-3 flex-shrink-0 print:border-[#254191]">
              <div className="flex items-center justify-end text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">
                 Nº <input 
                   type="text" 
@@ -657,15 +657,21 @@ export default function Orcamentos() {
         .a4-page { width: 210mm; height: 297mm; min-height: 297mm; position: relative; }
         @media print {
           @page { size: A4; margin: 0; }
-          html, body, #root, #root > div { height: auto !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
+          /* Força todo o layout a 210mm — elimina qualquer offset do sidebar */
+          html { margin: 0 !important; padding: 0 !important; }
+          body { margin: 0 !important; padding: 0 !important; width: 210mm !important; height: auto !important; overflow: visible !important; background: white !important; }
+          #root, #root > div { margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; width: 210mm !important; }
+          /* Zera margin-left do wrapper do sidebar (inline style) */
           div[style*="margin-left"], div[style*="marginLeft"] { margin-left: 0 !important; }
-          main { padding: 0 !important; }
+          /* Zera pelo seletor de classe do MainLayout wrapper */
+          .transition-all { margin-left: 0 !important; width: 210mm !important; }
+          main { padding: 0 !important; margin: 0 !important; width: 210mm !important; }
           nav, aside { display: none !important; }
           #a4-document header { display: flex !important; }
           #a4-document .no-print { display: none !important; }
           .no-print { display: none !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          #a4-document { height: auto !important; padding: 0 !important; margin: 0 !important; gap: 0 !important; display: block !important; background: white !important; }
+          #a4-document { height: auto !important; padding: 0 !important; margin: 0 !important; gap: 0 !important; display: block !important; background: white !important; width: 210mm !important; }
           .a4-page { box-shadow: none !important; margin: 0 !important; padding: 15mm !important; width: 210mm !important; height: 297mm !important; max-height: 297mm !important; overflow: hidden !important; box-sizing: border-box !important; page-break-inside: avoid; page-break-after: always; }
           .a4-page:last-of-type, .a4-page:last-child { page-break-after: avoid !important; }
         }

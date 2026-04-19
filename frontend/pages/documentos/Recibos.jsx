@@ -514,7 +514,7 @@ export default function Recibos() {
 
         {/* --- TÍTULO DO DOCUMENTO --- */}
         <div className="flex justify-between items-end mb-4 relative z-10 print-color-exact">
-          <div>
+          <div className="min-w-0 flex-1 mr-3">
             <h2 className="text-3xl font-black text-[#254191] uppercase leading-none tracking-wide mb-1" style={{ color: '#254191' }}>
               RECIBO
             </h2>
@@ -522,7 +522,7 @@ export default function Recibos() {
               COMPROVANTE DE EXECUÇÃO DE SERVIÇOS
             </p>
           </div>
-          <div className="text-right border-l-4 border-[#254191] pl-3 print:border-[#254191]">
+          <div className="text-right border-l-4 border-[#254191] pl-3 flex-shrink-0 print:border-[#254191]">
              <div className="flex items-center justify-end text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">
                 Nº <input 
                   type="text" 
@@ -738,16 +738,15 @@ export default function Recibos() {
         }
         @media print {
           @page { size: A4; margin: 0; }
-          html, body, #root, #root > div {
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
+          /* Força todo o layout a 210mm — elimina qualquer offset do sidebar */
+          html { margin: 0 !important; padding: 0 !important; }
+          body { margin: 0 !important; padding: 0 !important; width: 210mm !important; height: auto !important; overflow: visible !important; background: white !important; }
+          #root, #root > div { margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; width: 210mm !important; }
+          /* Zera margin-left do wrapper do sidebar (inline style) */
           div[style*="margin-left"], div[style*="marginLeft"] { margin-left: 0 !important; }
-          main { padding: 0 !important; }
+          /* Zera pelo seletor de classe do MainLayout wrapper */
+          .transition-all { margin-left: 0 !important; width: 210mm !important; }
+          main { padding: 0 !important; margin: 0 !important; width: 210mm !important; }
           nav, aside { display: none !important; }
           #a4-document header { display: flex !important; }
           #a4-document .no-print { display: none !important; }
@@ -761,6 +760,7 @@ export default function Recibos() {
             gap: 0 !important;
             display: block !important;
             background: white !important;
+            width: 210mm !important;
           }
           .a4-page {
             box-shadow: none !important;
