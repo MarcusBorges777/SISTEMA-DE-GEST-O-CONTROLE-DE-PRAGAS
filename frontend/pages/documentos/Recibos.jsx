@@ -55,6 +55,14 @@ export default function Recibos() {
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { setClientesSalvos(getClientes()); }, []);
 
+  // Carrega logo do servidor (igual ao Laudos)
+  useEffect(() => {
+    fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.logo) setLogo(data.logo); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     try { localStorage.setItem('receiptNumber', reciboNumero); } catch {}
   }, [reciboNumero]);
