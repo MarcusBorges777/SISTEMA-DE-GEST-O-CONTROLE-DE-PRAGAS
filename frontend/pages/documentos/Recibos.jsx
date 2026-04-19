@@ -4,7 +4,6 @@ import {
   Plus, Minus, Trash2, Loader2, Search, AlertTriangle, Hash,
   Image as ImageIcon, Upload, Calendar,
 } from 'lucide-react';
-import { useEmpresa } from '../../contexts/EmpresaContext';
 import ClienteBusca from '../../components/shared/ClienteBusca';
 import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes } from '../../services/clienteCache';
@@ -12,10 +11,21 @@ import { useDocumentoActions } from '../../hooks/useDocumentoActions';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 
 export default function Recibos() {
-  const { empresa } = useEmpresa();
   const fileInputRef = useRef(null);
 
-  if (!empresa) return null;
+  const empresa = {
+    razao: "MARIA APARECIDA DE OLIVEIRA BORGES",
+    nome: "Dedetizadora Borges",
+    cnpj: "10.409.228/0001-93",
+    endereco: "RUA YARA, 701 – B. CENTRO IND CEL JOVELINO RABELO DIVINÓPOLIS/ MG – CEP 35502-289",
+    contatos: "(37) 99964-4205",
+    email: "dedetizadoraborges@yahoo.com.br",
+    site: "dedetizadoraborges.com.br",
+    alvara: "Nº 164/2025 (Venc: 03/07/2028)",
+    rt: "Maria Aparecida de Oliveira Borges",
+    crq: "02404889 | ART 9.353",
+    licencaAmbiental: "Protocolo: 59009480/2019"
+  };
 
   // ─── ESTADOS DO EDITOR ──────────────────────────────────────────────────────
   const [showEditor, setShowEditor] = useState(true);
