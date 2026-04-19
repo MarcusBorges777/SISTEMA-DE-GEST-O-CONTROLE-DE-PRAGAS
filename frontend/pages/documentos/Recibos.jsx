@@ -15,6 +15,8 @@ export default function Recibos() {
   const { empresa } = useEmpresa();
   const fileInputRef = useRef(null);
 
+  if (!empresa) return null;
+
   // ─── ESTADOS DO EDITOR ──────────────────────────────────────────────────────
   const [showEditor, setShowEditor] = useState(true);
   const [logo, setLogo] = useState(null);
