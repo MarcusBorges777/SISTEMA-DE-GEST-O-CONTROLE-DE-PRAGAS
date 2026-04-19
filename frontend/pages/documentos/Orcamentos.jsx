@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Mail, Phone, Globe, Shield, Edit3, ChevronDown, ChevronUp,
+  Shield, Edit3, ChevronDown, ChevronUp,
   Plus, Minus, Trash2, Loader2, Search, AlertTriangle, Hash,
-  Image as ImageIcon, Upload, Calendar,
+  Image as ImageIcon, Upload,
 } from 'lucide-react';
 import ClienteBusca from '../../components/shared/ClienteBusca';
 import { buscarCNPJ } from '../../services/brasilApi';
-import { getClientes } from '../../services/clienteCache';
-import { useDocumentoActions } from '../../hooks/useDocumentoActions';
+import { getClientes, saveCliente } from '../../services/clienteCache';
+import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 
 export default function Orcamentos() {
@@ -27,16 +27,14 @@ export default function Orcamentos() {
     licencaAmbiental: "Protocolo: 59009480/2019"
   };
 
-  // ─── ESTADOS DO EDITOR ──────────────────────────────────────────────────────
+  // ─── ESTADOS ────────────────────────────────────────────────────────────────
   const [showEditor, setShowEditor] = useState(true);
   const [logo, setLogo] = useState(null);
+  const [salvandoPdf, setSalvandoPdf] = useState(false);
 
-  // Numeração do orçamento
   const [orcamentoNumero, setOrcamentoNumero] = useState(() => {
     try { return localStorage.getItem('lastQuoteNumber_orcamento') || '00001'; } catch { return '00001'; }
   });
-
-  // Dados do documento
   const [dataOrcamento, setDataOrcamento] = useState(() => {
     const d = new Date();
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -44,12 +42,10 @@ export default function Orcamentos() {
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro, Pix, Cartão de crédito (contém juros)');
   const [terms, setTerms] = useState('Este orçamento é válido por 15 dias.');
 
-  // Itens de serviço
   const [items, setItems] = useState([
     { id: 1, service: 'DEDETIZAÇÃO', description: 'Aplicação de gel e pulverização líquida', quantity: '1', value: 0 },
   ]);
 
-  // Cliente
   const [clientData, setClientData] = useState({ nome: '', fantasia: '', cnpj: '', endereco: '', atividade: '' });
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
   const [cnpjError, setCnpjError] = useState('');
@@ -62,7 +58,6 @@ export default function Orcamentos() {
     try { localStorage.setItem('lastQuoteNumber_orcamento', orcamentoNumero); } catch {}
   }, [orcamentoNumero]);
 
-  // Auto-incrementa APÓS o diálogo de impressão fechar
   useEffect(() => {
     const onAfterPrint = () => {
       setOrcamentoNumero(prev => {
@@ -93,21 +88,39 @@ export default function Orcamentos() {
     finally { setIsLoadingCnpj(false); }
   };
 
-  // Hook compartilhado de ações (PDF + salvar cliente)
-  const { salvandoPdf, handleSalvarPdf, handleSalvarCliente: salvarClienteHook } = useDocumentoActions({
-    tipo: 'orcamento',
-    getNumeroDoc:   () => orcamentoNumero || '00001',
-    getNomeEmpresa: () => clientData.nome || clientData.fantasia || 'Empresa',
-  });
+  // Idêntico ao Laudos
+  const handleSalvarPdf = async () => {
+    setSalvandoPdf(true);
+    try {
+      const nomeEmpresa = clientData.nome || clientData.fantasia || 'Empresa';
+      const result = await salvarDocumento({
+        elementId: 'a4-document',
+        tipo: 'orcamento',
+        numeroDoc: orcamentoNumero || '00001',
+        nomeEmpresa,
+      });
+      if (result.sucesso) alert(`PDF salvo: ${result.nomeArquivo}`);
+      else alert(`Erro ao salvar: ${result.erro}`);
+    } finally {
+      setSalvandoPdf(false);
+    }
+  };
 
   const handleSalvarCliente = () => {
-    const atualizado = salvarClienteHook(clientData, setCnpjError);
-    if (atualizado) setClientesSalvos(atualizado);
+    if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) {
+      setCnpjError('Preencha ao menos Nome e CNPJ antes de salvar.');
+      return;
+    }
+    saveCliente({
+      nome: clientData.nome, fantasia: clientData.fantasia,
+      cnpj: clientData.cnpj, endereco: clientData.endereco, atividade: clientData.atividade,
+    });
+    setCnpjError('');
+    setClientesSalvos(getClientes());
   };
 
   const handlePrint = () => window.print();
 
-  // Itens helpers
   const addItem    = () => setItems(prev => [...prev, { id: Date.now(), service: '', description: '', quantity: '1', value: 0 }]);
   const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
   const updateItem = (id, field, value) => setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
@@ -122,10 +135,9 @@ export default function Orcamentos() {
   const incrementNumero = () => setOrcamentoNumero(p => String((parseInt(p, 10) || 0) + 1).padStart(5, '0'));
   const decrementNumero = () => setOrcamentoNumero(p => { const n = parseInt(p, 10) || 0; return n > 1 ? String(n - 1).padStart(5, '0') : p; });
 
-  // ─── RENDER: CABEÇALHO DO DOCUMENTO (idêntico ao Laudos) ────────────────────
+  // ─── RENDER: CABEÇALHO (idêntico ao Laudos) ─────────────────────────────────
   const renderHeader = () => (
     <header className="flex justify-between items-start mb-4 border-b-2 border-[#254191] pb-4 print:flex">
-      {/* Logo */}
       <div className="w-48 h-20 flex items-center justify-center overflow-hidden flex-shrink-0">
         <input type="file" ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
         {logo ? (
@@ -139,8 +151,6 @@ export default function Orcamentos() {
           </div>
         )}
       </div>
-
-      {/* Info empresa */}
       <div className="flex-1 text-right space-y-0.5 pl-4">
         <h1 className="text-sm font-black text-[#254191] uppercase leading-none tracking-tight">{empresa.razao}</h1>
         <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
@@ -162,6 +172,33 @@ export default function Orcamentos() {
         </div>
       </div>
     </header>
+  );
+
+  // ─── RENDER: SEÇÃO CLIENTE — texto estático (idêntico ao Laudos) ─────────────
+  const renderClientSection = () => (
+    <section className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm mb-4 print:bg-blue-50 print:border-blue-100">
+      <h3 className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
+        <Shield size={12} /> Cliente / Contratante
+      </h3>
+      <div className="text-[10px] space-y-1 text-gray-700">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <p className="font-black text-[#254191] uppercase text-[9px] leading-tight mb-1">{clientData.nome}</p>
+            <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">NOME FANTASIA:</span> {clientData.fantasia}</p>
+            <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {clientData.cnpj}</p>
+          </div>
+          <div className="border-l border-blue-200 pl-4 space-y-2">
+            <div>
+              <p className="font-bold uppercase text-[9px] tracking-tighter text-blue-800">Código / Atividade Econômica Principal:</p>
+              <p className="italic font-medium leading-tight">{clientData.atividade}</p>
+            </div>
+            <div className="pt-1 border-t border-blue-200">
+              <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">Endereço:</span> {clientData.endereco}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 
   // ─── RENDER: PAINEL DO EDITOR (no-print) ────────────────────────────────────
@@ -215,7 +252,7 @@ export default function Orcamentos() {
               </div>
             </div>
 
-            {/* COLUNA 2 — Dados do Cliente (idêntico ao Laudos) */}
+            {/* COLUNA 2 — Dados do Cliente */}
             <div className="space-y-4">
               <h4 className="font-bold text-[11px] text-gray-500 uppercase tracking-widest border-b border-gray-200 pb-2">Dados do Cliente</h4>
 
@@ -318,60 +355,20 @@ export default function Orcamentos() {
 
         {renderHeader()}
 
-        {/* Título */}
-        <div className="flex justify-between items-end mb-3">
-          <div className="min-w-0 flex-1 mr-4">
-            <h2 className="text-2xl font-black text-[#254191] uppercase leading-none tracking-wide">ORÇAMENTO</h2>
-            <p className="text-[#4285f4] text-[12px] font-extrabold italic uppercase tracking-widest mt-0.5">
-              PRESTAÇÃO DE SERVIÇOS
-            </p>
-          </div>
-          <div className="flex-shrink-0 text-right border-l-4 border-[#254191] pl-3">
-            <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none flex items-center justify-end gap-1">
-              Nº
-              <input type="text" value={orcamentoNumero} onChange={e => setOrcamentoNumero(e.target.value)}
-                className="bg-transparent border-none text-right w-12 p-0 focus:ring-0 text-gray-400 font-bold text-[9px]" />
-            </div>
-            <input type="text" value={dataOrcamento} onChange={e => setDataOrcamento(e.target.value)}
-              className="text-sm font-black text-gray-800 italic leading-tight text-right bg-transparent border-none p-0 w-28 focus:ring-0 block mt-1" />
+        {/* Título + Número/Data — idêntico ao Laudos */}
+        <div className="flex justify-between items-end mb-6">
+          <h2 className="text-xl font-black text-[#254191] uppercase leading-none tracking-tight">
+            ORÇAMENTO<br/>
+            <span className="text-blue-500 text-sm font-bold tracking-widest uppercase italic">Prestação de Serviços</span>
+          </h2>
+          <div className="text-right border-l-4 border-[#254191] pl-3">
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">Nº {orcamentoNumero}</p>
+            <p className="text-sm font-black text-gray-800 italic leading-tight">{dataOrcamento}</p>
           </div>
         </div>
 
-        {/* Seção Cliente */}
-        <section className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm mb-3 print:bg-blue-50 print:border-blue-100">
-          <h3 className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
-            <Shield size={11} /> Cliente / Contratante
-          </h3>
-          <div className="grid grid-cols-2 gap-3 text-[10px]">
-            <div className="space-y-1">
-              <input type="text" value={clientData.nome} onChange={e => handleClientChange('nome', e.target.value)}
-                className="font-black text-[#254191] uppercase text-xs leading-tight w-full bg-transparent border-none p-0 focus:ring-0 placeholder-blue-300"
-                placeholder="NOME DO CLIENTE" />
-              <div className="flex items-center gap-1">
-                <span className="font-bold uppercase text-[9px] tracking-tight text-blue-800 whitespace-nowrap">NOME FANTASIA:</span>
-                <input type="text" value={clientData.fantasia} onChange={e => handleClientChange('fantasia', e.target.value)}
-                  className="w-full bg-transparent border-b border-blue-100 p-0 text-[10px] focus:ring-0" placeholder="..." />
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="font-bold uppercase text-[9px] tracking-tight text-blue-800 whitespace-nowrap">CNPJ:</span>
-                <input type="text" value={clientData.cnpj} onChange={e => handleClientChange('cnpj', e.target.value)}
-                  className="w-full bg-transparent border-b border-blue-100 p-0 text-[10px] focus:ring-0" placeholder="..." />
-              </div>
-            </div>
-            <div className="border-l border-blue-200 pl-3 space-y-1">
-              <div className="flex items-start gap-1">
-                <span className="font-bold uppercase text-[9px] tracking-tight text-blue-800 whitespace-nowrap">CÓD./ATIVIDADE:</span>
-                <input type="text" value={clientData.atividade} onChange={e => handleClientChange('atividade', e.target.value)}
-                  className="w-full bg-transparent border-b border-blue-100 p-0 text-[10px] focus:ring-0" placeholder="..." />
-              </div>
-              <div className="flex items-start gap-1">
-                <span className="font-bold uppercase text-[9px] tracking-tight text-blue-800 whitespace-nowrap">ENDEREÇO:</span>
-                <input type="text" value={clientData.endereco} onChange={e => handleClientChange('endereco', e.target.value)}
-                  className="w-full bg-transparent border-b border-blue-100 p-0 text-[10px] focus:ring-0" placeholder="Endereço, nº - Cidade/MG" />
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Seção Cliente — texto estático idêntico ao Laudos */}
+        {renderClientSection()}
 
         {/* Tabela de Serviços */}
         <section className="mb-3">
@@ -422,7 +419,6 @@ export default function Orcamentos() {
 
         {/* Rodapé do documento */}
         <div className="mt-auto">
-          {/* Barra de total */}
           <section className="bg-[#254191] text-white py-3 px-5 rounded-lg flex justify-between items-center shadow-md border-b-4 border-blue-900/50 mb-3 print:bg-[#254191] print:text-white">
             <div className="flex items-center gap-2 opacity-90">
               <div className="bg-white/10 p-1.5 rounded border border-white/20"><Hash size={15} /></div>
@@ -431,7 +427,6 @@ export default function Orcamentos() {
             <div className="text-2xl font-black italic tracking-tight">{formatCurrency(total)}</div>
           </section>
 
-          {/* Pagamento + Validade */}
           <div className="grid grid-cols-2 gap-6 mb-3 text-[10px]">
             <div>
               <h4 className="font-bold text-[#254191] uppercase border-b border-blue-100 pb-1 mb-1.5 text-[9px]">Forma de Pagamento</h4>
@@ -443,7 +438,6 @@ export default function Orcamentos() {
             </div>
           </div>
 
-          {/* Info empresa */}
           <div className="text-center mb-1">
             <h3 className="text-[#1e3a8a] font-black uppercase text-[11px]">{empresa.razao}</h3>
             <p className="text-[#1e3a8a] font-bold text-[9px]">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
@@ -452,33 +446,20 @@ export default function Orcamentos() {
           </div>
         </div>
 
-        {/* Rodapé mínimo fixo */}
         <div className="absolute bottom-4 left-0 w-full text-center">
           <p className="text-[8px] text-gray-300 font-bold italic uppercase tracking-widest">
-            {empresa.nome || 'DEDETIZADORA BORGES'} • CNPJ: {empresa.cnpj}
+            {empresa.nome} • CNPJ: {empresa.cnpj}
           </p>
         </div>
-      </div>{/* fim .a4-page */}
+      </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          CSS — IDÊNTICO AO LAUDOS
-      ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
-        .a4-page {
-          width: 210mm;
-          height: 297mm;
-          min-height: 297mm;
-          position: relative;
-        }
+        .a4-page { width: 210mm; height: 297mm; min-height: 297mm; position: relative; }
         @media print {
           @page { size: A4; margin: 0; }
           html, body, #root, #root > div {
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            height: auto !important; min-height: 0 !important; overflow: visible !important;
+            background: white !important; margin: 0 !important; padding: 0 !important;
           }
           div[style*="margin-left"], div[style*="marginLeft"] { margin-left: 0 !important; }
           main { padding: 0 !important; }
@@ -488,26 +469,14 @@ export default function Orcamentos() {
           .no-print { display: none !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           #a4-document {
-            height: auto !important;
-            min-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            gap: 0 !important;
-            display: block !important;
-            background: white !important;
+            height: auto !important; min-height: 0 !important; padding: 0 !important;
+            margin: 0 !important; gap: 0 !important; display: block !important; background: white !important;
           }
           .a4-page {
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 15mm !important;
-            width: 210mm !important;
-            height: 297mm !important;
-            max-height: 297mm !important;
-            overflow: hidden !important;
-            box-sizing: border-box !important;
-            page-break-inside: avoid;
-            page-break-after: always;
+            box-shadow: none !important; border: none !important; margin: 0 !important;
+            padding: 15mm !important; width: 210mm !important; height: 297mm !important;
+            max-height: 297mm !important; overflow: hidden !important;
+            box-sizing: border-box !important; page-break-inside: avoid; page-break-after: always;
           }
           .a4-page:last-of-type, .a4-page:last-child { page-break-after: avoid !important; }
         }
