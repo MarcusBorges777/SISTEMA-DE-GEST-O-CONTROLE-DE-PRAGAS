@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, FileText, FolderOpen, Shield,
+  LayoutDashboard, FileText, FolderOpen, Shield,
   ChevronLeft, ChevronRight, Bug, Target
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/documentos', icon: FileText, label: 'Documentos' },
   { to: '/arquivos', icon: FolderOpen, label: 'Arquivos' },
   { to: '/prospeccao', icon: Target, label: 'Prospeccao' },
