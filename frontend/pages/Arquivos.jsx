@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FolderOpen, Download, Eye, Trash2, Search, File, FileText,
   Image as ImageIcon, RefreshCw, Pencil, X, FolderInput,
@@ -243,6 +244,7 @@ function ModalEditar({ arquivo, diretorios, onSalvar, onCancel }) {
 // ─── Componente principal ────────────────────────────────────────────────────
 export default function Arquivos() {
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [arquivos, setArquivos]       = useState([]);
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
@@ -328,6 +330,36 @@ export default function Arquivos() {
     } finally {
       setEditModal(null);
     }
+  };
+
+  // Abre o documento no editor (busca sidecar JSON e navega)
+  const handleAbrirEditor = async (arquivo) => {
+    const caminho = arquivo.caminho;
+    if (!caminho) {
+      addToast('Caminho do arquivo não encontrado', 'error');
+      return;
+    }
+
+    // Detectar tipo a partir do arquivo
+    const tipo = (arquivo.tipo || arquivo.origem || '').toLowerCase();
+    let tab = 'laudo';
+    if (tipo.includes('recibo')) tab = 'recibo';
+    else if (tipo.includes('orcamento')) tab = 'orcamento';
+
+    try {
+      const resp = await api.get(`/api/documentos/metadados?caminho=${encodeURIComponent(caminho)}`);
+      sessionStorage.setItem('__editar_documento', JSON.stringify({
+        ...resp.data,
+        __caminho_original: caminho,
+        __tipo: tab,
+      }));
+    } catch {
+      // Sem sidecar — abre o editor vazio com apenas o tipo pré-selecionado
+      sessionStorage.removeItem('__editar_documento');
+      addToast('Metadados não encontrados — editor abrirá em branco', 'warning');
+    }
+
+    navigate(`/documentos?tab=${tab}`);
   };
 
   // ── render ──────────────────────────────────────────────────────────────
@@ -453,7 +485,7 @@ export default function Arquivos() {
                       <Download size={15} />
                     </a>
                     {!lixeira && (
-                      <button onClick={() => setEditModal(arquivo)} title="Editar / mover"
+                      <button onClick={() => handleAbrirEditor(arquivo)} title="Editar no editor"
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
                         <Pencil size={15} />
                       </button>

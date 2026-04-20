@@ -214,6 +214,22 @@ export default function Laudos() {
     setClientesSalvos(getClientes());
   }, []);
 
+  // Pré-preencher a partir de edição iniciada em Arquivos.jsx
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('__editar_documento');
+      if (!raw) return;
+      const meta = JSON.parse(raw);
+      if (meta.__tipo !== 'laudo') return;
+      sessionStorage.removeItem('__editar_documento');
+      if (meta.formData) setFormData(prev => ({ ...prev, ...meta.formData }));
+      if (meta.productRows) setProductRows(meta.productRows);
+      if (meta.showPestControl !== undefined) setShowPestControl(meta.showPestControl);
+      if (meta.showWaterTank !== undefined) setShowWaterTank(meta.showWaterTank);
+      if (meta.showGreaseTrap !== undefined) setShowGreaseTrap(meta.showGreaseTrap);
+    } catch {}
+  }, []);
+
   // --- EMPRESA CONTEXT: auto-fill do cliente ---
   const { empresa: empresaCtx } = useEmpresa();
   useEffect(() => {
@@ -616,6 +632,14 @@ export default function Laudos() {
         tipo: 'laudo',
         numeroDoc: formData.laudoNumero || '0001',
         nomeEmpresa,
+        metadados: {
+          __tipo: 'laudo',
+          formData,
+          productRows,
+          showPestControl,
+          showWaterTank,
+          showGreaseTrap,
+        },
       });
       if (result.sucesso) {
         alert(`PDF salvo: ${result.nomeArquivo}`);

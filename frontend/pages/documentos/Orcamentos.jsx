@@ -58,6 +58,23 @@ export default function Orcamentos() {
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { setClientesSalvos(getClientes()); }, []);
 
+  // Pré-preencher a partir de edição iniciada em Arquivos.jsx
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('__editar_documento');
+      if (!raw) return;
+      const meta = JSON.parse(raw);
+      if (meta.__tipo !== 'orcamento') return;
+      sessionStorage.removeItem('__editar_documento');
+      if (meta.clientData) setClientData(meta.clientData);
+      if (meta.items) setItems(meta.items);
+      if (meta.orcamentoNumero) setOrcamentoNumero(meta.orcamentoNumero);
+      if (meta.dataOrcamento) setDataOrcamento(meta.dataOrcamento);
+      if (meta.paymentMethod) setPaymentMethod(meta.paymentMethod);
+      if (meta.terms) setTerms(meta.terms);
+    } catch {}
+  }, []);
+
   // Carrega logo do servidor (igual ao Laudos)
   useEffect(() => {
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
@@ -110,6 +127,15 @@ export default function Orcamentos() {
         tipo: 'orcamento',
         numeroDoc: orcamentoNumero || '00001',
         nomeEmpresa,
+        metadados: {
+          __tipo: 'orcamento',
+          clientData,
+          items,
+          orcamentoNumero,
+          dataOrcamento,
+          paymentMethod,
+          terms,
+        },
       });
       if (result.sucesso) alert(`PDF salvo: ${result.nomeArquivo}`);
       else alert(`Erro ao salvar: ${result.erro}`);

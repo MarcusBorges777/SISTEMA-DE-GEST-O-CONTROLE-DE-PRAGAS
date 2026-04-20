@@ -1940,11 +1940,31 @@ def api_excluir_arquivo():
         if not arquivo_path.is_file():
             return jsonify({"error": "O caminho não é um arquivo válido"}), 400
 
-        # Deletar o arquivo
-        arquivo_path.unlink()
+        # Mover para Lixeira (soft delete)
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        pasta_principal = None
+        if config_duplos.exists():
+            with open(config_duplos, 'r', encoding='utf-8') as _f:
+                _cfg = json.load(_f)
+            pasta_principal = _cfg.get('principal', '').strip()
+
+        if pasta_principal and Path(pasta_principal).exists():
+            lixeira = Path(pasta_principal) / 'Lixeira'
+        else:
+            lixeira = OUTPUT_DIR / 'Lixeira'
+        lixeira.mkdir(parents=True, exist_ok=True)
+
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        nome_lixeira = f'{ts}_{arquivo_path.name}'
+        shutil.move(str(arquivo_path), str(lixeira / nome_lixeira))
+
+        # Mover também o sidecar .json, se existir
+        sidecar = arquivo_path.with_suffix('.json')
+        if sidecar.exists():
+            shutil.move(str(sidecar), str(lixeira / (ts + '_' + sidecar.name)))
 
         return jsonify({
-            "message": "Arquivo excluído com sucesso!",
+            "message": "Arquivo movido para Lixeira com sucesso!",
             "arquivo": arquivo_path.name
         })
 
@@ -3154,6 +3174,17 @@ def salvar_pdf():
 
         arquivo.save(str(caminho_final))
 
+        # Salvar sidecar JSON com metadados para re-edição
+        metadados_raw = request.form.get('metadados', '').strip()
+        if metadados_raw:
+            try:
+                metadados_json = json.loads(metadados_raw)
+                caminho_json = caminho_final.with_suffix('.json')
+                with open(caminho_json, 'w', encoding='utf-8') as _jf:
+                    json.dump(metadados_json, _jf, ensure_ascii=False, indent=2)
+            except Exception:
+                pass  # Falha silenciosa — o PDF já foi salvo com sucesso
+
         # Registrar no banco
         db = get_db()
         db.execute('''INSERT INTO documentos_salvos (nome_arquivo, tipo, caminho, numero_doc, nome_empresa)
@@ -3162,6 +3193,25 @@ def salvar_pdf():
         db.commit()
 
         return jsonify({'success': True, 'nome_arquivo': nome_arquivo, 'caminho': str(caminho_final)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/documentos/metadados', methods=['GET'])
+def get_metadados_documento():
+    """Retorna o sidecar JSON de metadados de um documento para re-edição"""
+    try:
+        caminho = request.args.get('caminho', '').strip()
+        if not caminho:
+            return jsonify({'error': 'Parâmetro caminho obrigatório'}), 400
+        pdf_path = Path(caminho)
+        json_path = pdf_path.with_suffix('.json')
+        if not json_path.exists():
+            return jsonify({'error': 'Metadados não encontrados para este documento'}), 404
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify(data)
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

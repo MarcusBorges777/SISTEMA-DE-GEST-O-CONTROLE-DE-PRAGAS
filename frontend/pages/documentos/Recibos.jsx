@@ -60,6 +60,24 @@ export default function Recibos() {
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { setClientesSalvos(getClientes()); }, []);
 
+  // Pré-preencher a partir de edição iniciada em Arquivos.jsx
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('__editar_documento');
+      if (!raw) return;
+      const meta = JSON.parse(raw);
+      if (meta.__tipo !== 'recibo') return;
+      sessionStorage.removeItem('__editar_documento');
+      if (meta.clientData) setClientData(meta.clientData);
+      if (meta.items) setItems(meta.items);
+      if (meta.reciboNumero) setReciboNumero(meta.reciboNumero);
+      if (meta.dataExecucao) setDataExecucao(meta.dataExecucao);
+      if (meta.garantiaMeses) setGarantiaMeses(meta.garantiaMeses);
+      if (meta.proximaManutencao) setProximaManutencao(meta.proximaManutencao);
+      if (meta.paymentMethod) setPaymentMethod(meta.paymentMethod);
+    } catch {}
+  }, []);
+
   // Carrega logo do servidor (igual ao Laudos)
   useEffect(() => {
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
@@ -112,6 +130,16 @@ export default function Recibos() {
         tipo: 'recibo',
         numeroDoc: reciboNumero || '00001',
         nomeEmpresa,
+        metadados: {
+          __tipo: 'recibo',
+          clientData,
+          items,
+          reciboNumero,
+          dataExecucao,
+          garantiaMeses,
+          proximaManutencao,
+          paymentMethod,
+        },
       });
       if (result.sucesso) {
         registrarRecibo(clientData.cnpj, total);
