@@ -407,6 +407,7 @@ export default function Recibos() {
       <ClientePerfilModal
         cliente={perfilCliente}
         onClose={() => setPerfilCliente(null)}
+        onUpdate={(lista) => setClientesSalvos(lista)}
       />
 
       {/* ══════════════════════════════════════════════════════════════════════

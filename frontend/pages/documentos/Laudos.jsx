@@ -1167,6 +1167,7 @@ export default function Laudos() {
       <ClientePerfilModal
         cliente={perfilCliente}
         onClose={() => setPerfilCliente(null)}
+        onUpdate={(lista) => setClientesSalvos(lista)}
       />
 
       {/* PÁGINA 1: LAUDO TÉCNICO PRAGAS */}

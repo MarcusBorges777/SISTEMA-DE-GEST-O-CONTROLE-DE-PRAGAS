@@ -388,6 +388,7 @@ export default function Orcamentos() {
       <ClientePerfilModal
         cliente={perfilCliente}
         onClose={() => setPerfilCliente(null)}
+        onUpdate={(lista) => setClientesSalvos(lista)}
       />
 
       {/* ══════════════════════════════════════════════════════════════════════
