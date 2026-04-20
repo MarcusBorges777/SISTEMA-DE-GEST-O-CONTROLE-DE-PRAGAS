@@ -9,6 +9,7 @@ import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes, saveCliente } from '../../services/clienteCache';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
+import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 
 export default function Orcamentos() {
   const fileInputRef = useRef(null);
@@ -50,6 +51,7 @@ export default function Orcamentos() {
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
   const [cnpjError, setCnpjError] = useState('');
   const [clientesSalvos, setClientesSalvos] = useState([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { setClientesSalvos(getClientes()); }, []);
@@ -279,14 +281,15 @@ export default function Orcamentos() {
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className="block text-xs font-bold text-gray-700 mb-1">Carregar Cliente Salvo</label>
-                  <select className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                    value="" onChange={e => {
-                      const c = clientesSalvos.find(x => x.cnpj === e.target.value);
-                      if (c) { setCnpjError(''); setClientData(prev => ({ ...prev, nome: c.nome, fantasia: c.fantasia, cnpj: c.cnpj, endereco: c.endereco, atividade: c.atividade })); }
-                    }}>
-                    <option value="">-- selecione um cliente salvo --</option>
-                    {clientesSalvos.map(c => <option key={c.cnpj} value={c.cnpj}>{c.fantasia || c.nome} — {c.cnpj}</option>)}
-                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="w-full flex items-center gap-2 p-2 border border-slate-300 rounded text-sm bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                  >
+                    <Search size={16} className="text-slate-400" />
+                    <span className="truncate">Buscar cliente salvo...</span>
+                    <span className="ml-auto text-xs text-slate-400 shrink-0">{clientesSalvos.length} salvo{clientesSalvos.length === 1 ? '' : 's'}</span>
+                  </button>
                 </div>
                 <button onClick={handleSalvarCliente}
                   className="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center gap-1 shrink-0">
@@ -355,6 +358,20 @@ export default function Orcamentos() {
       {renderEditorPanel()}
 
       <BotoesDocumento onSalvarPdf={handleSalvarPdf} onImprimir={handlePrint} salvandoPdf={salvandoPdf} />
+
+      <ClientePickerModal
+        isOpen={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        clientes={clientesSalvos}
+        onSelect={(c) => {
+          setCnpjError('');
+          setClientData(prev => ({
+            ...prev,
+            nome: c.nome, fantasia: c.fantasia, cnpj: c.cnpj,
+            endereco: c.endereco, atividade: c.atividade,
+          }));
+        }}
+      />
 
       {/* ══════════════════════════════════════════════════════════════════════
           PÁGINA A4 — ORÇAMENTO
