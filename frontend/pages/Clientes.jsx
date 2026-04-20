@@ -15,6 +15,7 @@ export default function Clientes() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filtros, setFiltros] = useState({ nome: '', cidade: '', cnpj: '' });
+  const [sortBy, setSortBy] = useState('az'); // 'az' | 'za' | 'recente'
   const [formData, setFormData] = useState({
     nome_fantasia: '', razao_social: '', cnpj: '', cnae: '',
     rua: '', numero: '', bairro: '', cidade: '', uf: 'MG', telefone: '',
@@ -391,7 +392,7 @@ export default function Clientes() {
 
       {/* Filtros */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <input type="text" placeholder="Buscar por nome..."
             value={filtros.nome} onChange={e => setFiltros(p => ({ ...p, nome: e.target.value }))}
             className="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
@@ -400,10 +401,20 @@ export default function Clientes() {
             value={filtros.cidade} onChange={e => setFiltros(p => ({ ...p, cidade: e.target.value }))}
             className="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
               bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400" />
-          <input type="text" placeholder="CNPJ..."
+          <input type="text" placeholder="CNPJ / CPF..."
             value={filtros.cnpj} onChange={e => setFiltros(p => ({ ...p, cnpj: e.target.value }))}
             className="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
               bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400" />
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
+              bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+          >
+            <option value="az">A–Z</option>
+            <option value="za">Z–A</option>
+            <option value="recente">Mais Recentes</option>
+          </select>
           <button type="submit"
             className="flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-xl
               bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
@@ -439,7 +450,14 @@ export default function Clientes() {
               ) : clientes.length === 0 ? (
                 <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-slate-500">Nenhum cliente encontrado</td></tr>
               ) : (
-                clientes.map(c => {
+                [...clientes].sort((a, b) => {
+                  const nA = (a.nome_fantasia || a.razao_social || '').toLowerCase();
+                  const nB = (b.nome_fantasia || b.razao_social || '').toLowerCase();
+                  if (sortBy === 'az') return nA.localeCompare(nB, 'pt-BR');
+                  if (sortBy === 'za') return nB.localeCompare(nA, 'pt-BR');
+                  if (sortBy === 'recente') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                  return 0;
+                }).map(c => {
                   // Montar endereço completo legível
                   const partes = [c.rua, c.numero ? `N° ${c.numero}` : '', c.bairro].filter(Boolean).join(', ');
                   const cidadeUf = [c.cidade, c.uf].filter(Boolean).join('/');

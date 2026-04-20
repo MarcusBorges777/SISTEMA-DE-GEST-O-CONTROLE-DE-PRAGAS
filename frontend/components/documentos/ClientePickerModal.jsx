@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Building2 } from 'lucide-react';
+import { Search, Building2, ExternalLink, ArrowDownAZ, Clock } from 'lucide-react';
 import Modal from '../shared/Modal';
 import { searchClientes, getClientes } from '../../services/clienteCache';
 
@@ -10,12 +10,14 @@ import { searchClientes, getClientes } from '../../services/clienteCache';
  * @param {() => void} onClose
  * @param {(cliente: object) => void} onSelect  — chamado ao selecionar um card
  * @param {Array} [clientes]  — lista opcional; se omitida, carrega via getClientes()
+ * @param {(cliente: object) => void} [onVerPerfil]  — abre o perfil completo do cliente
  */
-export function ClientePickerModal({ isOpen, onClose, onSelect, clientes }) {
+export function ClientePickerModal({ isOpen, onClose, onSelect, clientes, onVerPerfil }) {
   const [query, setQuery] = useState('');
+  const [sortPicker, setSortPicker] = useState('recente'); // 'recente' | 'az'
 
   useEffect(() => {
-    if (!isOpen) setQuery('');
+    if (!isOpen) { setQuery(''); setSortPicker('recente'); }
   }, [isOpen]);
 
   const base = useMemo(
@@ -23,10 +25,16 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes }) {
     [clientes, isOpen]
   );
 
-  const results = useMemo(
-    () => (query.trim() ? searchClientes(query) : base),
-    [query, base]
-  );
+  const results = useMemo(() => {
+    const lista = query.trim() ? searchClientes(query) : [...base];
+    if (sortPicker === 'az') {
+      lista.sort((a, b) =>
+        (a.nome || a.fantasia || '').localeCompare(b.nome || b.fantasia || '', 'pt-BR')
+      );
+    }
+    // 'recente' já vem ordenado por lastUsed do getClientes/searchClientes
+    return lista;
+  }, [query, base, sortPicker]);
 
   const handlePick = (c) => {
     onSelect(c);
@@ -36,6 +44,7 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Carregar Cliente Salvo" maxWidth="max-w-2xl">
       <div className="space-y-3">
+        {/* Input de busca */}
         <div className="relative">
           <Search
             size={18}
@@ -55,10 +64,36 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes }) {
           />
         </div>
 
-        <p className="text-xs text-slate-500">
-          {results.length} de {base.length} cliente{base.length === 1 ? '' : 's'} salvo{base.length === 1 ? '' : 's'}
-        </p>
+        {/* Barra de info + ordenação */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            {results.length} de {base.length} cliente{base.length === 1 ? '' : 's'} salvo{base.length === 1 ? '' : 's'}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSortPicker('recente')}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors
+                ${sortPicker === 'recente'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              <Clock size={11} /> Recentes
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortPicker('az')}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors
+                ${sortPicker === 'az'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              <ArrowDownAZ size={11} /> A–Z
+            </button>
+          </div>
+        </div>
 
+        {/* Lista de cards */}
         <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1">
           {results.length === 0 ? (
             <p className="text-center text-slate-500 py-10 text-sm">
@@ -68,36 +103,53 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes }) {
             </p>
           ) : (
             results.map((c) => (
-              <button
+              <div
                 key={c.cnpj}
-                type="button"
-                onClick={() => handlePick(c)}
-                className="w-full text-left p-3 border border-slate-200 rounded-lg bg-white
-                  hover:bg-slate-50 hover:border-blue-400 hover:shadow-sm
-                  transition-colors cursor-pointer"
+                className="flex items-stretch border border-slate-200 rounded-lg bg-white
+                  hover:border-blue-400 hover:shadow-sm transition-colors overflow-hidden"
               >
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0 w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <Building2 size={18} className="text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-800 truncate">
-                      {c.nome || '—'}
-                    </p>
-                    {c.fantasia && (
-                      <p className="text-xs text-slate-500 truncate">{c.fantasia}</p>
-                    )}
-                    <p className="text-xs font-mono text-slate-600 mt-0.5">
-                      {c.cnpj || '—'}
-                    </p>
-                    {c.endereco && (
-                      <p className="text-xs text-slate-500 truncate mt-0.5">
-                        {c.endereco}
+                {/* Área clicável para selecionar */}
+                <button
+                  type="button"
+                  onClick={() => handlePick(c)}
+                  className="flex-1 text-left p-3 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <Building2 size={18} className="text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 truncate">
+                        {c.nome || '—'}
                       </p>
-                    )}
+                      {c.fantasia && (
+                        <p className="text-xs text-slate-500 truncate">{c.fantasia}</p>
+                      )}
+                      <p className="text-xs font-mono text-slate-600 mt-0.5">
+                        {c.cnpj || '—'}
+                      </p>
+                      {c.endereco && (
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          {c.endereco}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+
+                {/* Botão Ver Perfil */}
+                {onVerPerfil && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onVerPerfil(c); }}
+                    className="shrink-0 px-3 border-l border-slate-200 text-slate-400
+                      hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center"
+                    title="Ver perfil completo"
+                  >
+                    <ExternalLink size={15} />
+                  </button>
+                )}
+              </div>
             ))
           )}
         </div>

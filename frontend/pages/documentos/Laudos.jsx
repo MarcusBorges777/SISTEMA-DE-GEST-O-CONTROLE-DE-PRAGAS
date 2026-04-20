@@ -6,6 +6,7 @@ import { salvarDocumento } from '../../utils/salvarDocumento';
 import ClienteBusca from '../../components/shared/ClienteBusca';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
+import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
 import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes, saveCliente } from '../../services/clienteCache';
 
@@ -206,6 +207,7 @@ export default function Laudos() {
   const [cnpjError, setCnpjError] = useState('');
   const [clientesSalvos, setClientesSalvos] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [perfilCliente, setPerfilCliente] = useState(null);
 
   // Carrega clientes salvos do localStorage na montagem
   useEffect(() => {
@@ -840,15 +842,24 @@ export default function Laudos() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ</label>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ / CPF</label>
                             <div className="flex gap-1">
                               <input
                                 type="text"
                                 name="cliente.cnpj"
                                 value={formData.cliente.cnpj}
-                                onChange={handleInputChange}
+                                onChange={e => {
+                                  const d = e.target.value.replace(/\D/g, '').slice(0, 14);
+                                  let m = d;
+                                  if (d.length <= 11) {
+                                    m = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+                                  } else {
+                                    m = d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4').replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
+                                  }
+                                  handleInputChange({ target: { name: 'cliente.cnpj', value: m } });
+                                }}
                                 maxLength={18}
-                                placeholder="00.000.000/0000-00"
+                                placeholder="000.000.000-00 ou 00.000.000/0000-00"
                                 className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                               />
                               <button
@@ -1068,7 +1079,7 @@ export default function Laudos() {
           <div className="space-y-1">
             <p className="font-black text-[#254191] uppercase text-[9px] leading-tight mb-1">{formData.cliente.nome}</p>
             <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">NOME FANTASIA:</span> {formData.cliente.fantasia}</p>
-            <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {formData.cliente.cnpj}</p>
+            <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ / CPF:</span> {formData.cliente.cnpj}</p>
           </div>
           <div className="md:border-l md:border-blue-200 md:pl-4 space-y-2">
             <div>
@@ -1150,6 +1161,12 @@ export default function Laudos() {
             }
           }));
         }}
+        onVerPerfil={(c) => { setPickerOpen(false); setPerfilCliente(c); }}
+      />
+
+      <ClientePerfilModal
+        cliente={perfilCliente}
+        onClose={() => setPerfilCliente(null)}
       />
 
       {/* PÁGINA 1: LAUDO TÉCNICO PRAGAS */}

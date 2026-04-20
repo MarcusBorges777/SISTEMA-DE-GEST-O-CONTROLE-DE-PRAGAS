@@ -10,6 +10,8 @@ import { getClientes, saveCliente } from '../../services/clienteCache';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
+import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
+import { registrarRecibo } from '../../services/reciboHistorico';
 
 export default function Recibos() {
   const fileInputRef = useRef(null);
@@ -53,6 +55,7 @@ export default function Recibos() {
   const [cnpjError, setCnpjError] = useState('');
   const [clientesSalvos, setClientesSalvos] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [perfilCliente, setPerfilCliente] = useState(null);
 
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { setClientesSalvos(getClientes()); }, []);
@@ -110,8 +113,12 @@ export default function Recibos() {
         numeroDoc: reciboNumero || '00001',
         nomeEmpresa,
       });
-      if (result.sucesso) alert(`PDF salvo: ${result.nomeArquivo}`);
-      else alert(`Erro ao salvar: ${result.erro}`);
+      if (result.sucesso) {
+        registrarRecibo(clientData.cnpj, total);
+        alert(`PDF salvo: ${result.nomeArquivo}`);
+      } else {
+        alert(`Erro ao salvar: ${result.erro}`);
+      }
     } finally {
       setSalvandoPdf(false);
     }
@@ -198,7 +205,7 @@ export default function Recibos() {
           <div className="space-y-1">
             <p className="font-black text-[#254191] uppercase text-[9px] leading-tight mb-1">{clientData.nome}</p>
             <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">NOME FANTASIA:</span> {clientData.fantasia}</p>
-            <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {clientData.cnpj}</p>
+            <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ / CPF:</span> {clientData.cnpj}</p>
           </div>
           <div className="border-l border-blue-200 pl-4 space-y-2">
             <div>
@@ -325,8 +332,17 @@ export default function Recibos() {
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ / CPF</label>
                   <div className="flex gap-1">
-                    <input type="text" value={clientData.cnpj} onChange={e => handleClientChange('cnpj', e.target.value)}
-                      maxLength={18} placeholder="00.000.000/0000-00"
+                    <input type="text" value={clientData.cnpj} onChange={e => {
+                        const d = e.target.value.replace(/\D/g, '').slice(0, 14);
+                        let m = d;
+                        if (d.length <= 11) {
+                          m = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+                        } else {
+                          m = d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4').replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
+                        }
+                        handleClientChange('cnpj', m);
+                      }}
+                      maxLength={18} placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                     <button onClick={handleBuscarCNPJ} disabled={isLoadingCnpj}
                       className="px-2 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded shrink-0 disabled:opacity-60 flex items-center gap-1">
@@ -385,6 +401,12 @@ export default function Recibos() {
             endereco: c.endereco, atividade: c.atividade,
           }));
         }}
+        onVerPerfil={(c) => { setPickerOpen(false); setPerfilCliente(c); }}
+      />
+
+      <ClientePerfilModal
+        cliente={perfilCliente}
+        onClose={() => setPerfilCliente(null)}
       />
 
       {/* ══════════════════════════════════════════════════════════════════════
