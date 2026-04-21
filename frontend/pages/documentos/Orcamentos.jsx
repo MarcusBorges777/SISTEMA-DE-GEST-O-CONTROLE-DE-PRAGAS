@@ -441,39 +441,39 @@ export default function Orcamentos() {
 
         {/* Tabela de Serviços */}
         <section className="mb-3">
-          <table className="w-full text-[10px] border-collapse">
+          <table className="w-full text-[10px] border-collapse border border-[#254191]">
             <thead>
               <tr className="bg-[#254191] text-white print:bg-[#254191] print:text-white">
-                <th className="py-2 px-3 text-left font-bold uppercase tracking-widest text-[9px] w-[26%]">Serviço</th>
-                <th className="py-2 px-3 text-left font-bold uppercase tracking-widest text-[9px]">Descrição / Procedimento</th>
-                <th className="py-2 px-2 text-center font-bold uppercase tracking-widest text-[9px] w-[9%]">Qtd</th>
-                <th className="py-2 px-3 text-right font-bold uppercase tracking-widest text-[9px] w-[14%]">Valor Total</th>
-                <th className="py-2 px-1 w-5 no-print" />
+                <th className="py-2 px-3 text-left font-bold uppercase tracking-widest text-[9px] w-[26%] border border-[#1e3575]">Serviço</th>
+                <th className="py-2 px-3 text-left font-bold uppercase tracking-widest text-[9px] border border-[#1e3575]">Descrição / Procedimento</th>
+                <th className="py-2 px-2 text-center font-bold uppercase tracking-widest text-[9px] w-[9%] border border-[#1e3575]">Qtd</th>
+                <th className="py-2 px-3 text-right font-bold uppercase tracking-widest text-[9px] w-[14%] border border-[#1e3575]">Valor Total</th>
+                <th className="py-2 px-1 w-5 no-print border border-[#1e3575]" />
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50/20'}>
-                  <td className="py-1.5 px-3">
+                <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
+                  <td className="py-1.5 px-3 border border-blue-200">
                     <input type="text" value={item.service} onChange={e => updateItem(item.id, 'service', e.target.value)}
-                      className="w-full bg-transparent border-none p-0 text-[10px] font-semibold text-[#254191] uppercase focus:ring-0" placeholder="SERVIÇO..." />
+                      className="w-full bg-transparent border-none p-0 text-[10px] font-semibold text-[#254191] uppercase focus:ring-0 outline-none" placeholder="SERVIÇO..." />
                   </td>
-                  <td className="py-1.5 px-3">
+                  <td className="py-1.5 px-3 border border-blue-200">
                     <input type="text" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)}
-                      className="w-full bg-transparent border-none p-0 text-[10px] focus:ring-0" placeholder="Descrição técnica..." />
+                      className="w-full bg-transparent border-none p-0 text-[10px] focus:ring-0 outline-none" placeholder="Descrição técnica..." />
                   </td>
-                  <td className="py-1.5 px-2 text-center">
+                  <td className="py-1.5 px-2 text-center border border-blue-200">
                     <input type="number" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', e.target.value)}
-                      className="w-full bg-transparent border-none p-0 text-[10px] text-center focus:ring-0 no-spinner" />
+                      className="w-full bg-transparent border-none p-0 text-[10px] text-center focus:ring-0 outline-none no-spinner" />
                   </td>
-                  <td className="py-1.5 px-3 text-right">
+                  <td className="py-1.5 px-3 text-right border border-blue-200">
                     <div className="flex items-center justify-end gap-0.5">
                       <span className="text-gray-400 text-[9px]">R$</span>
                       <input type="number" value={item.value} onChange={e => updateItem(item.id, 'value', e.target.value)}
-                        className="w-14 bg-transparent border-none p-0 text-[10px] text-right focus:ring-0 no-spinner" />
+                        className="w-14 bg-transparent border-none p-0 text-[10px] text-right focus:ring-0 outline-none no-spinner" />
                     </div>
                   </td>
-                  <td className="py-1.5 px-1 no-print">
+                  <td className="py-1.5 px-1 no-print border border-blue-200">
                     {items.length > 1 && (
                       <button onClick={() => removeItem(item.id)} className="text-red-300 hover:text-red-600">
                         <Trash2 size={12} />
