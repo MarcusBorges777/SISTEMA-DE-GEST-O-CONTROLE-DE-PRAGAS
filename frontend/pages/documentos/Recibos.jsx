@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Shield, Edit3, ChevronDown, ChevronUp,
-  Plus, Minus, Trash2, Loader2, Search, AlertTriangle, Hash,
+  Plus, Minus, Trash2, Hash,
   Image as ImageIcon, Upload,
 } from 'lucide-react';
-import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes, saveCliente } from '../../services/clienteCache';
+import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
+import { CnpjInput } from '../../components/shared/CnpjInput';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
@@ -53,9 +54,21 @@ export default function Recibos() {
   ]);
 
   const [clientData, setClientData] = useState({ nome: '', fantasia: '', cnpj: '', endereco: '', atividade: '' });
-  const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
-  const [cnpjError, setCnpjError] = useState('');
   const [clientesSalvos, setClientesSalvos] = useState([]);
+
+  const { cnpjValue, handleCnpjChange, setCnpjExternal, isLoadingCnpj, cnpjStatus } = useCnpjAutofill({
+    onFill: (dados) => {
+      setClientData(prev => ({
+        ...prev,
+        nome:      dados.nome,
+        fantasia:  dados.fantasia,
+        cnpj:      dados.cnpj,
+        endereco:  dados.endereco,
+        atividade: dados.atividade,
+      }));
+    },
+    onClear: () => setClientData(prev => ({ ...prev, nome: '', fantasia: '', cnpj: '', endereco: '', atividade: '' })),
+  });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [perfilCliente, setPerfilCliente] = useState(null);
 
@@ -70,7 +83,10 @@ export default function Recibos() {
       const meta = JSON.parse(raw);
       if (meta.__tipo !== 'recibo') return;
       sessionStorage.removeItem('__editar_documento');
-      if (meta.clientData) setClientData(meta.clientData);
+      if (meta.clientData) {
+        setClientData(meta.clientData);
+        if (meta.clientData.cnpj) setCnpjExternal(meta.clientData.cnpj);
+      }
       if (meta.items) setItems(meta.items);
       if (meta.reciboNumero) setReciboNumero(meta.reciboNumero);
       if (meta.dataExecucao) setDataExecucao(meta.dataExecucao);
@@ -107,20 +123,10 @@ export default function Recibos() {
   // ─── HANDLERS ────────────────────────────────────────────────────────────────
   const handleClientChange = (field, value) => setClientData(prev => ({ ...prev, [field]: value }));
 
-  const handleBuscarCNPJ = async () => {
-    const raw = clientData.cnpj.replace(/\D/g, '');
-    if (raw.length !== 14) { setCnpjError('Digite um CNPJ completo (14 dígitos).'); return; }
-    setCnpjError(''); setIsLoadingCnpj(true);
-    try {
-      const dados = await buscarCNPJ(raw);
-      setClientData(prev => ({
-        ...prev,
-        nome: dados.nome || '', fantasia: dados.fantasia || '',
-        cnpj: dados.cnpj || prev.cnpj, endereco: dados.endereco || '', atividade: dados.atividade || '',
-      }));
-    } catch (err) { setCnpjError(err.message || 'CNPJ não encontrado na Receita Federal.'); }
-    finally { setIsLoadingCnpj(false); }
-  };
+  // Sincroniza cnpjValue do hook -> clientData.cnpj para o documento
+  useEffect(() => {
+    setClientData(prev => ({ ...prev, cnpj: cnpjValue }));
+  }, [cnpjValue]);
 
   // Idêntico ao Laudos
   const handleSalvarPdf = async () => {
@@ -155,15 +161,11 @@ export default function Recibos() {
   };
 
   const handleSalvarCliente = () => {
-    if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) {
-      setCnpjError('Preencha ao menos Nome e CNPJ antes de salvar.');
-      return;
-    }
+    if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) return;
     saveCliente({
       nome: clientData.nome, fantasia: clientData.fantasia,
       cnpj: clientData.cnpj, endereco: clientData.endereco, atividade: clientData.atividade,
     });
-    setCnpjError('');
     setClientesSalvos(getClientes());
   };
 
@@ -347,28 +349,12 @@ export default function Recibos() {
                   className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ / CPF</label>
-                  <div className="flex gap-1">
-                    <input type="text" value={clientData.cnpj} onChange={e => {
-                        const d = e.target.value.replace(/\D/g, '').slice(0, 14);
-                        let m = d;
-                        if (d.length <= 11) {
-                          m = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
-                        } else {
-                          m = d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4').replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
-                        }
-                        handleClientChange('cnpj', m);
-                      }}
-                      maxLength={18} placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                      className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                    <button onClick={handleBuscarCNPJ} disabled={isLoadingCnpj}
-                      className="px-2 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded shrink-0 disabled:opacity-60 flex items-center gap-1">
-                      {isLoadingCnpj ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-                    </button>
-                  </div>
-                  {cnpjError && <p className="text-red-500 text-[10px] mt-1 font-bold flex items-center gap-1"><AlertTriangle size={11} /> {cnpjError}</p>}
-                </div>
+                <CnpjInput
+                  value={cnpjValue}
+                  onChange={handleCnpjChange}
+                  isLoading={isLoadingCnpj}
+                  status={cnpjStatus}
+                />
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Atividade Econômica</label>
                   <input type="text" value={clientData.atividade} onChange={e => handleClientChange('atividade', e.target.value)}
@@ -412,7 +398,7 @@ export default function Recibos() {
         onClose={() => setPickerOpen(false)}
         clientes={clientesSalvos}
         onSelect={(c) => {
-          setCnpjError('');
+          setCnpjExternal(c.cnpj || '');
           setClientData(prev => ({
             ...prev,
             nome: c.nome, fantasia: c.fantasia, cnpj: c.cnpj,

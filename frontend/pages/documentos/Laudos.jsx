@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Loader2, Search } from 'lucide-react';
+import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save } from 'lucide-react';
+import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
+import { CnpjInput } from '../../components/shared/CnpjInput';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
-import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes, saveCliente } from '../../services/clienteCache';
 
 export default function Laudos() {
@@ -196,9 +197,26 @@ export default function Laudos() {
   const [salvandoPdf, setSalvandoPdf] = useState(false);
 
   // --- Gestão de clientes (localStorage) ---
-  const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
-  const [cnpjError, setCnpjError] = useState('');
   const [clientesSalvos, setClientesSalvos] = useState([]);
+
+  const { cnpjValue, handleCnpjChange, setCnpjExternal, isLoadingCnpj, cnpjStatus } = useCnpjAutofill({
+    onFill: (dados) => {
+      setFormData(prev => ({
+        ...prev,
+        cliente: {
+          nome:               dados.nome,
+          fantasia:           dados.fantasia,
+          cnpj:               dados.cnpj,
+          endereco:           dados.endereco,
+          atividadeEconomica: dados.atividade,
+        }
+      }));
+    },
+    onClear: () => setFormData(prev => ({
+      ...prev,
+      cliente: { nome: '', fantasia: '', cnpj: '', endereco: '', atividadeEconomica: '' }
+    })),
+  });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [perfilCliente, setPerfilCliente] = useState(null);
 
@@ -215,7 +233,10 @@ export default function Laudos() {
       const meta = JSON.parse(raw);
       if (meta.__tipo !== 'laudo') return;
       sessionStorage.removeItem('__editar_documento');
-      if (meta.formData) setFormData(prev => ({ ...prev, ...meta.formData }));
+      if (meta.formData) {
+        setFormData(prev => ({ ...prev, ...meta.formData }));
+        if (meta.formData.cliente?.cnpj) setCnpjExternal(meta.formData.cliente.cnpj);
+      }
       if (meta.productRows) setProductRows(meta.productRows);
       if (meta.showPestControl !== undefined) setShowPestControl(meta.showPestControl);
       if (meta.showWaterTank !== undefined) setShowWaterTank(meta.showWaterTank);
@@ -494,18 +515,6 @@ export default function Laudos() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'cliente.cnpj') {
-      // Máscara automática: 00.000.000/0000-00
-      const digits = value.replace(/\D/g, '').slice(0, 14);
-      const masked = digits
-        .replace(/^(\d{2})(\d)/, '$1.$2')
-        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2')
-        .replace(/(\d{4})(\d)/, '$1-$2');
-      setCnpjError('');
-      setFormData(prev => ({ ...prev, cliente: { ...prev.cliente, cnpj: masked } }));
-      return;
-    }
     if (name.startsWith('cliente.')) {
         const field = name.split('.')[1];
         setFormData(prev => ({
@@ -517,41 +526,15 @@ export default function Laudos() {
     }
   };
 
-  // Busca dados da empresa pela Brasil API usando o CNPJ digitado
-  const handleBuscarCNPJ = async () => {
-    const raw = formData.cliente.cnpj.replace(/\D/g, '');
-    if (raw.length !== 14) {
-      setCnpjError('Digite um CNPJ completo (14 dígitos).');
-      return;
-    }
-    setCnpjError('');
-    setIsLoadingCnpj(true);
-    try {
-      const dados = await buscarCNPJ(raw);
-      setFormData(prev => ({
-        ...prev,
-        cliente: {
-          nome: dados.nome || '',
-          fantasia: dados.fantasia || '',
-          cnpj: dados.cnpj || formData.cliente.cnpj,
-          endereco: dados.endereco || '',
-          atividadeEconomica: dados.atividade || '',
-        }
-      }));
-    } catch (err) {
-      setCnpjError(err.message || 'CNPJ não encontrado na Receita Federal.');
-    } finally {
-      setIsLoadingCnpj(false);
-    }
-  };
+  // Sincroniza cnpjValue do hook -> formData.cliente.cnpj para o documento
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, cliente: { ...prev.cliente, cnpj: cnpjValue } }));
+  }, [cnpjValue]);
 
   // Salva o cliente atual no localStorage (cache local)
   const handleSalvarCliente = () => {
     const { nome, cnpj } = formData.cliente;
-    if (!nome.trim() || !cnpj.trim()) {
-      setCnpjError('Preencha ao menos Nome e CNPJ antes de salvar.');
-      return;
-    }
+    if (!nome.trim() || !cnpj.trim()) return;
     saveCliente({
       nome: formData.cliente.nome,
       fantasia: formData.cliente.fantasia,
@@ -560,7 +543,6 @@ export default function Laudos() {
       atividade: formData.cliente.atividadeEconomica,
     });
     setClientesSalvos(getClientes());
-    setCnpjError('');
   };
 
   const togglePest = (pestId) => {
@@ -840,43 +822,12 @@ export default function Laudos() {
                         <input type="text" name="cliente.fantasia" value={formData.cliente.fantasia} onChange={handleInputChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">CNPJ / CPF</label>
-                            <div className="flex gap-1">
-                              <input
-                                type="text"
-                                name="cliente.cnpj"
-                                value={formData.cliente.cnpj}
-                                onChange={e => {
-                                  const d = e.target.value.replace(/\D/g, '').slice(0, 14);
-                                  let m = d;
-                                  if (d.length <= 11) {
-                                    m = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
-                                  } else {
-                                    m = d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4').replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
-                                  }
-                                  handleInputChange({ target: { name: 'cliente.cnpj', value: m } });
-                                }}
-                                maxLength={18}
-                                placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                                className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                              />
-                              <button
-                                onClick={handleBuscarCNPJ}
-                                disabled={isLoadingCnpj}
-                                className="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors shrink-0 disabled:opacity-60 flex items-center gap-1"
-                                title="Buscar dados do CNPJ na Receita Federal"
-                              >
-                                {isLoadingCnpj ? <Loader2 size={14} className="animate-spin"/> : <Search size={14}/>}
-                                {isLoadingCnpj ? 'Buscando...' : 'Buscar'}
-                              </button>
-                            </div>
-                            {cnpjError && (
-                              <p className="text-red-500 text-[10px] mt-1 font-bold flex items-center gap-1">
-                                <AlertTriangle size={12}/> {cnpjError}
-                              </p>
-                            )}
-                        </div>
+                        <CnpjInput
+                          value={cnpjValue}
+                          onChange={handleCnpjChange}
+                          isLoading={isLoadingCnpj}
+                          status={cnpjStatus}
+                        />
                         <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1">Cód. / Atividade Econômica</label>
                             <input type="text" name="cliente.atividadeEconomica" value={formData.cliente.atividadeEconomica} onChange={handleInputChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -1148,7 +1099,7 @@ export default function Laudos() {
         onClose={() => setPickerOpen(false)}
         clientes={clientesSalvos}
         onSelect={(c) => {
-          setCnpjError('');
+          setCnpjExternal(c.cnpj || '');
           setFormData(prev => ({
             ...prev,
             cliente: {
