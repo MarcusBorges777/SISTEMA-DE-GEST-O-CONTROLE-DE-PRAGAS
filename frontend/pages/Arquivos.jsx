@@ -250,8 +250,10 @@ export default function Arquivos() {
   const [searchTerm, setSearchTerm]   = useState('');
   const [filtroTipo, setFiltroTipo]   = useState('all');
   const [previewFile, setPreviewFile] = useState(null); // { nome, caminho }
-  const [deleteModal, setDeleteModal] = useState(null);
-  const [editModal, setEditModal]     = useState(null);
+  const [deleteModal, setDeleteModal]           = useState(null);
+  const [editModal, setEditModal]               = useState(null);
+  const [esvaziandoLixeira, setEsvaziandoLixeira] = useState(false);
+  const [confirmarLixeira, setConfirmarLixeira] = useState(false);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
 
   const loadArquivos = useCallback(async () => {
@@ -362,6 +364,20 @@ export default function Arquivos() {
     navigate(`/documentos?tab=${tab}`);
   };
 
+  const handleEsvaziarLixeira = async () => {
+    setEsvaziandoLixeira(true);
+    try {
+      await api.post('/api/arquivo/esvaziar-lixeira');
+      addToast('Lixeira esvaziada com sucesso!', 'success');
+      loadArquivos();
+    } catch {
+      addToast('Erro ao esvaziar lixeira', 'error');
+    } finally {
+      setEsvaziandoLixeira(false);
+      setConfirmarLixeira(false);
+    }
+  };
+
   // ── render ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -371,10 +387,32 @@ export default function Arquivos() {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Arquivos</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Gerenciador de documentos gerados</p>
         </div>
-        <button onClick={loadArquivos}
-          className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Atualizar
-        </button>
+        <div className="flex gap-2">
+          {filtroTipo === 'lixeira' && counts.lixeira > 0 && (
+            confirmarLixeira ? (
+              <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl px-4 py-2.5">
+                <span className="text-sm font-medium text-red-700 dark:text-red-300">Apagar {counts.lixeira} arquivo{counts.lixeira !== 1 ? 's' : ''} permanentemente?</span>
+                <button onClick={handleEsvaziarLixeira} disabled={esvaziandoLixeira}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg disabled:opacity-60 flex items-center gap-1 transition">
+                  {esvaziandoLixeira ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />} Confirmar
+                </button>
+                <button onClick={() => setConfirmarLixeira(false)}
+                  className="px-3 py-1 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-300 transition">
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmarLixeira(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-xl font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                <Trash2 size={16} /> Esvaziar Lixeira
+              </button>
+            )
+          )}
+          <button onClick={loadArquivos}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Atualizar
+          </button>
+        </div>
       </div>
 
       {/* Stats cards */}

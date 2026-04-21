@@ -3198,6 +3198,35 @@ def salvar_pdf():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/arquivo/esvaziar-lixeira', methods=['POST'])
+def api_esvaziar_lixeira():
+    """Remove permanentemente todos os arquivos da Lixeira"""
+    try:
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        pasta_principal = None
+        if config_duplos.exists():
+            with open(config_duplos, 'r', encoding='utf-8') as _f:
+                _cfg = json.load(_f)
+            pasta_principal = _cfg.get('principal', '').strip()
+
+        if pasta_principal and Path(pasta_principal).exists():
+            lixeira = Path(pasta_principal) / 'Lixeira'
+        else:
+            lixeira = OUTPUT_DIR / 'Lixeira'
+
+        removidos = 0
+        if lixeira.exists():
+            for arq in list(lixeira.iterdir()):
+                if arq.is_file():
+                    arq.unlink()
+                    removidos += 1
+
+        return jsonify({'success': True, 'removidos': removidos})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/documentos/metadados', methods=['GET'])
 def get_metadados_documento():
     """Retorna o sidecar JSON de metadados de um documento para re-edição"""
