@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save } from 'lucide-react';
+import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Search } from 'lucide-react';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { useEmpresa } from '../../contexts/EmpresaContext';
