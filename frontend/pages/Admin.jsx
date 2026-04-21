@@ -194,6 +194,7 @@ export default function Admin() {
   };
 
   const [configNumeracao, setConfigNumeracao] = useState({ laudos: '', recibos: '', orcamentos: '' });
+  const [defaultGarantia, setDefaultGarantia] = useState('3');
 
   useEffect(() => {
     setConfigNumeracao({
@@ -201,20 +202,27 @@ export default function Admin() {
       recibos:    localStorage.getItem('receiptNumber')               || '1',
       orcamentos: localStorage.getItem('lastQuoteNumber_orcamento')   || '1',
     });
+    setDefaultGarantia(localStorage.getItem('defaultGarantiaMeses') || '3');
   }, []);
 
   const handleSalvarNumeracao = () => {
     const l = parseInt(configNumeracao.laudos, 10);
     const r = parseInt(configNumeracao.recibos, 10);
     const o = parseInt(configNumeracao.orcamentos, 10);
+    const g = parseInt(defaultGarantia, 10);
     if (isNaN(l) || isNaN(r) || isNaN(o) || l < 1 || r < 1 || o < 1) {
       addToast('Digite valores numéricos válidos (mínimo 1)', 'error');
+      return;
+    }
+    if (isNaN(g) || g < 0) {
+      addToast('Garantia padrão inválida (mínimo 0)', 'error');
       return;
     }
     localStorage.setItem('laudoSequence',             String(l));
     localStorage.setItem('receiptNumber',             String(r));
     localStorage.setItem('lastQuoteNumber_orcamento', String(o));
-    addToast('Numeração salva com sucesso!', 'success');
+    localStorage.setItem('defaultGarantiaMeses',      String(g));
+    addToast('Configurações salvas com sucesso!', 'success');
   };
 
   const sections = [
@@ -542,10 +550,35 @@ export default function Admin() {
             ))}
           </div>
 
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Padrões do Laudo</h3>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
+              Valores aplicados automaticamente ao abrir um novo Laudo.
+            </p>
+            <div className="max-w-xs">
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/50 rounded-xl p-4">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-3">
+                  <Hash size={12} /> Garantia Padrão (meses)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={defaultGarantia}
+                  onChange={e => setDefaultGarantia(e.target.value)}
+                  className="w-full px-3 py-2.5 text-center text-lg font-black text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <p className="text-[10px] text-slate-400 mt-2 text-center">
+                  {parseInt(defaultGarantia) === 0 ? 'Sem garantia' : `${parseInt(defaultGarantia) || 3} ${parseInt(defaultGarantia) === 1 ? 'mês' : 'meses'} de garantia`}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={handleSalvarNumeracao}
             className="flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm rounded-xl transition shadow-md shadow-brand-500/25">
-            <Save size={16} /> Salvar Numeração
+            <Save size={16} /> Salvar Configurações
           </button>
         </div>
       )}

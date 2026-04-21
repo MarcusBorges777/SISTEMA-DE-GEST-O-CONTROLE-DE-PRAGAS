@@ -166,8 +166,8 @@ export default function Laudos() {
     return {
       laudoNumero: "0001",       // sobrescrito pelo useEffect que lê laudoSequence
       dataExecucao: dataHoje,
-      garantiaMeses: 3,
-      selectedPests: [],
+      garantiaMeses: parseInt(localStorage.getItem('defaultGarantiaMeses') || '3', 10),
+      selectedPests: ['baratas', 'formigas'],
       observacao: "",
       reservatorios: [],
       caixasGordura: [],
