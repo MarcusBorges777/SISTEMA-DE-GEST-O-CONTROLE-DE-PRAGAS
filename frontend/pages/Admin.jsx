@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield, Users, Database, Palette, Upload, Trash2, Image as ImageIcon,
   Bug, FileImage, Award, Loader2, Package, FolderOpen, Plus, Edit2,
-  X, Check, FlaskConical, ChevronDown, Save, AlertCircle, CheckCircle2, Trash
+  X, Check, FlaskConical, ChevronDown, Save, AlertCircle, CheckCircle2, Trash,
+  SlidersHorizontal, Hash
 } from 'lucide-react';
 import { api, fetchImagensEmpresa, uploadImagemEmpresa, removerImagemEmpresa } from '../services/api';
 import { useToast } from '../components/shared/Toast';
@@ -192,12 +193,37 @@ export default function Admin() {
     }
   };
 
+  const [configNumeracao, setConfigNumeracao] = useState({ laudos: '', recibos: '', orcamentos: '' });
+
+  useEffect(() => {
+    setConfigNumeracao({
+      laudos:     localStorage.getItem('laudoSequence')               || '1',
+      recibos:    localStorage.getItem('receiptNumber')               || '1',
+      orcamentos: localStorage.getItem('lastQuoteNumber_orcamento')   || '1',
+    });
+  }, []);
+
+  const handleSalvarNumeracao = () => {
+    const l = parseInt(configNumeracao.laudos, 10);
+    const r = parseInt(configNumeracao.recibos, 10);
+    const o = parseInt(configNumeracao.orcamentos, 10);
+    if (isNaN(l) || isNaN(r) || isNaN(o) || l < 1 || r < 1 || o < 1) {
+      addToast('Digite valores numéricos válidos (mínimo 1)', 'error');
+      return;
+    }
+    localStorage.setItem('laudoSequence',             String(l));
+    localStorage.setItem('receiptNumber',             String(r));
+    localStorage.setItem('lastQuoteNumber_orcamento', String(o));
+    addToast('Numeração salva com sucesso!', 'success');
+  };
+
   const sections = [
-    { id: 'identidade', label: 'Identidade Visual', icon: Palette },
-    { id: 'produtos', label: 'Produtos', icon: FlaskConical },
-    { id: 'arquivos', label: 'Arquivos', icon: FolderOpen },
-    { id: 'usuarios', label: 'Usuarios', icon: Users },
-    { id: 'database', label: 'Banco de Dados', icon: Database },
+    { id: 'identidade',    label: 'Identidade Visual',    icon: Palette },
+    { id: 'produtos',      label: 'Produtos',             icon: FlaskConical },
+    { id: 'arquivos',      label: 'Arquivos',             icon: FolderOpen },
+    { id: 'usuarios',      label: 'Usuarios',             icon: Users },
+    { id: 'database',      label: 'Banco de Dados',       icon: Database },
+    { id: 'configuracoes', label: 'Configurações',        icon: SlidersHorizontal },
   ];
 
   const imagemCards = [
@@ -479,6 +505,48 @@ export default function Admin() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* === CONFIGURAÇÕES DO SISTEMA === */}
+      {activeSection === 'configuracoes' && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Numeração de Documentos</h3>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Define o próximo número a ser usado ao gerar um documento. Ao salvar, a alteração vale imediatamente na próxima abertura do editor.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { key: 'laudos',     label: 'Próximo Laudo',     color: 'blue' },
+              { key: 'recibos',    label: 'Próximo Recibo',    color: 'emerald' },
+              { key: 'orcamentos', label: 'Próximo Orçamento', color: 'amber' },
+            ].map(({ key, label, color }) => (
+              <div key={key} className={`bg-${color}-50 dark:bg-${color}-900/20 border border-${color}-200 dark:border-${color}-700/50 rounded-xl p-4`}>
+                <label className={`flex items-center gap-1.5 text-xs font-bold text-${color}-700 dark:text-${color}-300 uppercase tracking-wide mb-3`}>
+                  <Hash size={12} /> {label}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={configNumeracao[key]}
+                  onChange={e => setConfigNumeracao(prev => ({ ...prev, [key]: e.target.value }))}
+                  className={`w-full px-3 py-2.5 text-center text-lg font-black text-${color}-700 dark:text-${color}-300 bg-white dark:bg-slate-800 border border-${color}-200 dark:border-${color}-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-${color}-400`}
+                />
+                <p className="text-[10px] text-slate-400 mt-2 text-center">
+                  Será formatado como {String(parseInt(configNumeracao[key]) || 1).padStart(4, '0')}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleSalvarNumeracao}
+            className="flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm rounded-xl transition shadow-md shadow-brand-500/25">
+            <Save size={16} /> Salvar Numeração
+          </button>
         </div>
       )}
 

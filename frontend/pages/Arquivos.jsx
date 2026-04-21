@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   FolderOpen, Download, Eye, Trash2, Search, File, FileText,
   Image as ImageIcon, RefreshCw, Pencil, X, FolderInput,
-  CheckCircle2, AlertTriangle, FileArchive, Layers
+  CheckCircle2, AlertTriangle, FileArchive, Layers,
+  Bell, ChevronDown, ChevronUp, User, Calendar, Bug
 } from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
 import { useToast } from '../components/shared/Toast';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
+import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -252,8 +254,12 @@ export default function Arquivos() {
   const [previewFile, setPreviewFile] = useState(null); // { nome, caminho }
   const [deleteModal, setDeleteModal]           = useState(null);
   const [editModal, setEditModal]               = useState(null);
-  const [esvaziandoLixeira, setEsvaziandoLixeira] = useState(false);
-  const [confirmarLixeira, setConfirmarLixeira] = useState(false);
+  const [esvaziandoLixeira, setEsvaziandoLixeira]   = useState(false);
+  const [confirmarLixeira, setConfirmarLixeira]     = useState(false);
+  const [vencimentos, setVencimentos]               = useState([]);
+  const [loadingVenc, setLoadingVenc]               = useState(false);
+  const [expandVenc, setExpandVenc]                 = useState(true);
+  const [clientePerfil, setClientePerfil]           = useState(null);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
 
   const loadArquivos = useCallback(async () => {
@@ -284,6 +290,18 @@ export default function Arquivos() {
   useEffect(() => {
     loadArquivos();
     loadDiretorios();
+  }, []);
+
+  useEffect(() => {
+    const loadVencimentos = async () => {
+      setLoadingVenc(true);
+      try {
+        const resp = await api.get('/api/documentos/vencimentos');
+        setVencimentos(resp.data || []);
+      } catch { /* sem laudos ou pasta ainda não configurada */ }
+      finally { setLoadingVenc(false); }
+    };
+    loadVencimentos();
   }, []);
 
   // Filtros
@@ -414,6 +432,88 @@ export default function Arquivos() {
           </button>
         </div>
       </div>
+
+      {/* ── Painel de Vencimentos / Remarketing ─────────────────────────────── */}
+      {(loadingVenc || vencimentos.length > 0) && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-orange-200 dark:border-orange-700/50 shadow-sm overflow-hidden">
+          {/* Header colapsável */}
+          <button
+            onClick={() => setExpandVenc(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                <Bell size={15} className="text-orange-600 dark:text-orange-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-slate-800 dark:text-white leading-none">
+                  Vencimentos / Remarketing
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {loadingVenc ? 'Verificando garantias...' : `${vencimentos.length} garantia${vencimentos.length !== 1 ? 's' : ''} vencendo em ±30 dias`}
+                </p>
+              </div>
+            </div>
+            {expandVenc ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+          </button>
+
+          {expandVenc && (
+            <div className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {loadingVenc ? (
+                [1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-slate-100 dark:bg-slate-700 animate-pulse" />)
+              ) : vencimentos.map((v, idx) => {
+                const vencido  = v.dias_restantes < 0;
+                const urgente  = !vencido && v.dias_restantes <= 7;
+                const badgeCls = vencido
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                  : urgente
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+                const badgeLabel = vencido
+                  ? `Vencido há ${Math.abs(v.dias_restantes)} dia${Math.abs(v.dias_restantes) !== 1 ? 's' : ''}`
+                  : v.dias_restantes === 0
+                    ? 'Vence hoje!'
+                    : `Vence em ${v.dias_restantes} dia${v.dias_restantes !== 1 ? 's' : ''}`;
+
+                return (
+                  <div key={idx} className="border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 flex flex-col gap-2 hover:border-orange-300 dark:hover:border-orange-600 transition">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold text-slate-800 dark:text-white leading-tight truncate flex-1">
+                        {v.nome_cliente}
+                      </p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeCls}`}>
+                        {badgeLabel}
+                      </span>
+                    </div>
+
+                    {v.pragas?.length > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        <Bug size={11} />
+                        <span className="truncate capitalize">{v.pragas.join(', ')}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Calendar size={11} />
+                      <span>Vence em {v.data_vencimento} • Garantia {v.garanti_meses} {v.garanti_meses === 1 ? 'mês' : 'meses'}</span>
+                    </div>
+
+                    <button
+                      onClick={() => setClientePerfil({
+                        nome: v.nome_cliente, fantasia: v.fantasia,
+                        cnpj: v.cnpj, endereco: v.endereco,
+                      })}
+                      className="mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 transition"
+                    >
+                      <User size={12} /> Ver Cliente
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -564,6 +664,11 @@ export default function Arquivos() {
           onCancel={() => setEditModal(null)}
         />
       )}
+
+      <ClientePerfilModal
+        cliente={clientePerfil}
+        onClose={() => setClientePerfil(null)}
+      />
     </div>
   );
 }

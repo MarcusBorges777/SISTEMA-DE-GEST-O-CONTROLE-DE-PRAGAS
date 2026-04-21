@@ -160,27 +160,21 @@ export default function Laudos() {
     }
   });
 
-  const [formData, setFormData] = useState({
-    laudoNumero: "0001",
-    dataExecucao: "2026-04-07", 
-    garantiaMeses: 6,
-    selectedPests: ['baratas', 'formigas'],
-    observacao: "",
-    reservatorios: [
-        { quantidade: "01", tipo: "Caixa de Fibra", volume: "1.000 Litros", identificacao: "Água Potável" }
-    ],
-    caixasGordura: [
-        { quantidade: "01", tipo: "Caixa de Alvenaria", volume: "100 Litros", identificacao: "Cozinha Principal" }
-    ],
-    responsaveis: "PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES",
-    alvara: "Nº 164/2025 (Venc: 03/07/2028)",
-    cliente: {
-      nome: "COOPRAFAD - Cooperativa dos Produtores da Agricultura Familiar de Divinopolis/MG e Região",
-      fantasia: "COOPRAFAD",
-      cnpj: "21.378.985/0001-63",
-      endereco: "R. Adelino Gomes, Nº 525, Sala 02 - Bairro Interlagos - Divinópolis/MG",
-      atividadeEconomica: "47.24-5-00 - Comércio varejista de hortifrutigranjeiros"
-    }
+  const [formData, setFormData] = useState(() => {
+    const hoje = new Date();
+    const dataHoje = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+    return {
+      laudoNumero: "0001",       // sobrescrito pelo useEffect que lê laudoSequence
+      dataExecucao: dataHoje,
+      garantiaMeses: 3,
+      selectedPests: [],
+      observacao: "",
+      reservatorios: [],
+      caixasGordura: [],
+      responsaveis: "PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES",
+      alvara: "Nº 164/2025 (Venc: 03/07/2028)",
+      cliente: { nome: "", fantasia: "", cnpj: "", endereco: "", atividadeEconomica: "" }
+    };
   });
 
   const [productRows, setProductRows] = useState([]);

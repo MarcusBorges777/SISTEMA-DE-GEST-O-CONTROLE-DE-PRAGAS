@@ -3246,6 +3246,86 @@ def get_metadados_documento():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/documentos/vencimentos', methods=['GET'])
+def api_vencimentos_garantia():
+    """Varre sidecars de Laudos e retorna garantias que vencem em ±30 dias"""
+    try:
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        pasta_principal = None
+        if config_duplos.exists():
+            with open(config_duplos, 'r', encoding='utf-8') as _f:
+                _cfg = json.load(_f)
+            pasta_principal = _cfg.get('principal', '').strip()
+
+        pasta_laudos = (Path(pasta_principal) / 'Laudos') if pasta_principal and Path(pasta_principal).exists() else (OUTPUT_DIR / 'Laudos')
+
+        hoje = datetime.now().date()
+        janela_passado = hoje - timedelta(days=30)
+        janela_futuro  = hoje + timedelta(days=30)
+
+        resultado = []
+
+        if pasta_laudos.exists():
+            for sidecar in pasta_laudos.glob('*.json'):
+                try:
+                    with open(sidecar, 'r', encoding='utf-8') as _sf:
+                        meta = json.load(_sf)
+
+                    fd = meta.get('formData', {})
+                    garanti = fd.get('garantiaMeses', 0)
+                    if not garanti or int(garanti) <= 0:
+                        continue  # sem garantia (ex: caixa de gordura puro)
+
+                    data_exec_str = fd.get('dataExecucao', '')
+                    if not data_exec_str:
+                        continue
+
+                    # Suporte a DD/MM/YYYY e YYYY-MM-DD
+                    try:
+                        if '/' in data_exec_str:
+                            data_exec = datetime.strptime(data_exec_str, '%d/%m/%Y').date()
+                        else:
+                            data_exec = datetime.strptime(data_exec_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        continue
+
+                    # Somar meses manualmente (sem dateutil)
+                    m = data_exec.month - 1 + int(garanti)
+                    ano_v = data_exec.year + m // 12
+                    mes_v = m % 12 + 1
+                    import calendar
+                    dia_v = min(data_exec.day, calendar.monthrange(ano_v, mes_v)[1])
+                    data_venc = data_exec.replace(year=ano_v, month=mes_v, day=dia_v)
+
+                    if not (janela_passado <= data_venc <= janela_futuro):
+                        continue
+
+                    cliente = fd.get('cliente', {})
+                    pragas  = fd.get('selectedPests', [])
+
+                    resultado.append({
+                        'nome_cliente':    cliente.get('nome', '') or cliente.get('fantasia', '') or '(sem nome)',
+                        'fantasia':        cliente.get('fantasia', ''),
+                        'cnpj':            cliente.get('cnpj', ''),
+                        'endereco':        cliente.get('endereco', ''),
+                        'pragas':          pragas,
+                        'data_execucao':   data_exec_str,
+                        'garanti_meses':   int(garanti),
+                        'data_vencimento': data_venc.strftime('%d/%m/%Y'),
+                        'dias_restantes':  (data_venc - hoje).days,
+                        'laudo_numero':    fd.get('laudoNumero', ''),
+                        'caminho_pdf':     str(sidecar.with_suffix('.pdf')),
+                    })
+                except Exception:
+                    continue
+
+        resultado.sort(key=lambda x: x['dias_restantes'])
+        return jsonify(resultado)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/admin/limpar-lixeira', methods=['POST'])
 def limpar_lixeira():
     """Remove arquivos da Lixeira com mais de 90 dias"""
