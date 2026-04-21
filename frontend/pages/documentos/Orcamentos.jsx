@@ -4,7 +4,6 @@ import {
   Plus, Minus, Trash2, Loader2, Search, AlertTriangle, Hash,
   Image as ImageIcon, Upload,
 } from 'lucide-react';
-import ClienteBusca from '../../components/shared/ClienteBusca';
 import { buscarCNPJ } from '../../services/brasilApi';
 import { getClientes, saveCliente } from '../../services/clienteCache';
 import { salvarDocumento } from '../../utils/salvarDocumento';
@@ -39,8 +38,11 @@ export default function Orcamentos() {
   });
   const [dataOrcamento, setDataOrcamento] = useState(() => {
     const d = new Date();
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
+  const dataOrcamentoDisplay = dataOrcamento
+    ? dataOrcamento.split('-').reverse().join('/')
+    : '';
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro, Pix, Cartão de crédito (contém juros)');
   const [terms, setTerms] = useState('Este orçamento é válido por 15 dias.');
 
@@ -272,7 +274,7 @@ export default function Orcamentos() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Data do Orçamento</label>
-                  <input type="text" value={dataOrcamento} onChange={e => setDataOrcamento(e.target.value)}
+                  <input type="date" value={dataOrcamento} onChange={e => setDataOrcamento(e.target.value)}
                     className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 focus:border-blue-400 focus:ring-1 outline-none shadow-sm" />
                 </div>
               </div>
@@ -293,18 +295,6 @@ export default function Orcamentos() {
             {/* COLUNA 2 — Dados do Cliente */}
             <div className="space-y-4">
               <h4 className="font-bold text-[11px] text-gray-500 uppercase tracking-widest border-b border-gray-200 pb-2">Dados do Cliente</h4>
-
-              <ClienteBusca placeholder="Buscar cliente no sistema..." onSelect={c => {
-                setCnpjError('');
-                setClientData(prev => ({
-                  ...prev,
-                  nome:     c.razao_social || c.nome_fantasia || c.nome || '',
-                  fantasia: c.nome_fantasia || c.fantasia || '',
-                  cnpj:     c.cnpj || '',
-                  endereco: c.endereco_completo || c.endereco || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
-                  atividade: c.cnae || c.atividade || '',
-                }));
-              }} />
 
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
@@ -432,7 +422,7 @@ export default function Orcamentos() {
           </h2>
           <div className="text-right border-l-4 border-[#254191] pl-3">
             <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">Nº {orcamentoNumero}</p>
-            <p className="text-sm font-black text-gray-800 italic leading-tight">{dataOrcamento}</p>
+            <p className="text-sm font-black text-gray-800 italic leading-tight">{dataOrcamentoDisplay}</p>
           </div>
         </div>
 

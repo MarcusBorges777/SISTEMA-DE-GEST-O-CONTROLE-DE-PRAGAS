@@ -3,7 +3,6 @@ import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, In
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
-import ClienteBusca from '../../components/shared/ClienteBusca';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
@@ -807,24 +806,6 @@ export default function Laudos() {
 
                 <div className="space-y-4">
                     <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider border-b pb-1">Dados do Cliente</h4>
-
-                    {/* Importar cliente do sistema (backend) */}
-                    <ClienteBusca
-                      placeholder="Buscar cliente no sistema..."
-                      onSelect={(c) => {
-                        setCnpjError('');
-                        setFormData(prev => ({
-                          ...prev,
-                          cliente: {
-                            nome: c.razao_social || c.nome_fantasia || c.nome || '',
-                            fantasia: c.nome_fantasia || c.fantasia || '',
-                            cnpj: c.cnpj || '',
-                            endereco: c.endereco_completo || c.endereco || [c.rua, c.numero, c.bairro, c.cidade, c.uf].filter(Boolean).join(', '),
-                            atividadeEconomica: c.cnae || c.atividade || '',
-                          }
-                        }));
-                      }}
-                    />
 
                     {/* Carregar cliente salvo localmente + botão salvar */}
                     <div className="flex gap-2 items-end">
