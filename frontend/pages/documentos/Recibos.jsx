@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Shield, Edit3, ChevronDown, ChevronUp,
-  Plus, Minus, Trash2, Hash,
+  Plus, Minus, Trash2, Hash, Search,
   Image as ImageIcon, Upload,
 } from 'lucide-react';
 import { getClientes, saveCliente } from '../../services/clienteCache';
