@@ -1214,7 +1214,7 @@ export default function Laudos() {
                {pestOptions.map(p => (
                  (formData.selectedPests || []).includes(p.id) && (
                   <div key={p.id} className="bg-[#254191] text-white py-1 rounded shadow-sm border-b-2 border-blue-900/50 flex items-center justify-center whitespace-nowrap px-1">
-                    <span className="mr-1">✓</span> {p.label}
+                    {p.label}
                   </div>
                  )
                ))}

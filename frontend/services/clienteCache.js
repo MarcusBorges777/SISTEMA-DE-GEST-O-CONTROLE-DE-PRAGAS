@@ -21,7 +21,7 @@ export function getClientes() {
 
 /**
  * Salvar/atualizar cliente no cache
- * @param {Object} cliente - { nome, fantasia, cnpj, endereco, atividade }
+ * @param {Object} cliente - { nome, fantasia, cnpj, endereco, atividade, email, telefone }
  */
 export function saveCliente(cliente) {
   if (!cliente || !cliente.cnpj) return;
@@ -40,6 +40,8 @@ export function saveCliente(cliente) {
     cnpj: cliente.cnpj || '',
     endereco: cliente.endereco || '',
     atividade: cliente.atividade || '',
+    email: cliente.email || '',
+    telefone: cliente.telefone || '',
     lastUsed: new Date().toISOString()
   };
 

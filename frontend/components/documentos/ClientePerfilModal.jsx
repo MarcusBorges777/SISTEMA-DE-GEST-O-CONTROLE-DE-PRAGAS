@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
-import { getHistoricoCliente } from '../../services/reciboHistorico';
 import { saveCliente, getClientes } from '../../services/clienteCache';
-import { Building2, FileText, DollarSign, Clock, MapPin, Tag, Phone, Pencil, Check, X } from 'lucide-react';
+import { Building2, MapPin, Tag, Phone, Mail, Pencil, Check, X } from 'lucide-react';
 
 /**
  * Modal de perfil completo de um cliente.
- * Exibe dados cadastrais + histórico e métricas financeiras de recibos.
- * Permite editar os dados cadastrais salvos no cache local.
+ * Exibe e permite editar dados cadastrais salvos no cache local.
  *
- * @param {object|null} cliente  — objeto do clienteCache { nome, fantasia, cnpj, endereco, atividade }
+ * @param {object|null} cliente  — objeto do clienteCache { nome, fantasia, cnpj, endereco, atividade, email, telefone }
  * @param {() => void} onClose
  * @param {(clientesAtualizados: Array) => void} [onUpdate]  — chamado após salvar edição
  */
@@ -18,15 +16,16 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
   const [form, setForm] = useState({});
   const [saved, setSaved] = useState(false);
 
-  // Sincroniza o form sempre que o cliente mudar ou entrar em modo edição
   useEffect(() => {
     if (cliente) {
       setForm({
-        nome:      cliente.nome     || '',
-        fantasia:  cliente.fantasia || '',
-        cnpj:      cliente.cnpj     || '',
-        endereco:  cliente.endereco || '',
+        nome:      cliente.nome      || '',
+        fantasia:  cliente.fantasia  || '',
+        cnpj:      cliente.cnpj      || '',
+        endereco:  cliente.endereco  || '',
         atividade: cliente.atividade || '',
+        email:     cliente.email     || '',
+        telefone:  cliente.telefone  || '',
       });
     }
     setEditing(false);
@@ -34,19 +33,6 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
   }, [cliente]);
 
   if (!cliente) return null;
-
-  const historico = getHistoricoCliente(cliente.cnpj);
-
-  const totalFormatado = (historico.total || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-
-  const ultimoReciboFormatado = historico.ultimoRecibo
-    ? new Date(historico.ultimoRecibo).toLocaleDateString('pt-BR', {
-        day: '2-digit', month: 'long', year: 'numeric',
-      })
-    : null;
 
   const handleChange = (field, value) =>
     setForm(prev => ({ ...prev, [field]: value }));
@@ -62,23 +48,28 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
 
   const handleCancelar = () => {
     setForm({
-      nome:      cliente.nome     || '',
-      fantasia:  cliente.fantasia || '',
-      cnpj:      cliente.cnpj     || '',
-      endereco:  cliente.endereco || '',
+      nome:      cliente.nome      || '',
+      fantasia:  cliente.fantasia  || '',
+      cnpj:      cliente.cnpj      || '',
+      endereco:  cliente.endereco  || '',
       atividade: cliente.atividade || '',
+      email:     cliente.email     || '',
+      telefone:  cliente.telefone  || '',
     });
     setEditing(false);
   };
 
-  /* ─── display values (editado ou original) ─── */
   const display = editing ? form : {
     nome:      cliente.nome,
     fantasia:  cliente.fantasia,
     cnpj:      cliente.cnpj,
     endereco:  cliente.endereco,
     atividade: cliente.atividade,
+    email:     cliente.email,
+    telefone:  cliente.telefone,
   };
+
+  const inputCls = "flex-1 text-sm text-slate-600 border-b border-slate-200 focus:outline-none bg-transparent pb-0.5";
 
   return (
     <Modal isOpen={!!cliente} onClose={onClose} title="Perfil do Cliente" maxWidth="max-w-lg">
@@ -160,7 +151,7 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
       {/* Feedback de salvo */}
       {saved && (
         <div className="mt-3 text-xs text-emerald-600 font-medium flex items-center gap-1">
-          <Check size={13} /> Dados atualizados no cache com sucesso.
+          <Check size={13} /> Dados atualizados com sucesso.
         </div>
       )}
 
@@ -178,7 +169,7 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
                 value={form.endereco}
                 onChange={e => handleChange('endereco', e.target.value)}
                 placeholder="Endereço completo"
-                className="flex-1 text-sm text-slate-600 border-b border-slate-200 focus:outline-none bg-transparent pb-0.5"
+                className={inputCls}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -187,7 +178,7 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
                 value={form.atividade}
                 onChange={e => handleChange('atividade', e.target.value)}
                 placeholder="Atividade econômica"
-                className="flex-1 text-sm text-slate-600 border-b border-slate-200 focus:outline-none bg-transparent pb-0.5 italic"
+                className={`${inputCls} italic`}
               />
             </div>
           </div>
@@ -217,49 +208,62 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
         )}
       </div>
 
-      {/* ── Histórico e Métricas ── */}
-      <div className="pt-4 space-y-3">
-        <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          Histórico e Métricas
+      {/* ── Contatos ── */}
+      <div className="py-4 space-y-2">
+        <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+          Contatos
         </h5>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-blue-50 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-              <FileText size={18} className="text-blue-600" />
+        {editing ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Phone size={14} className="text-slate-400 shrink-0" />
+              <input
+                value={form.telefone}
+                onChange={e => handleChange('telefone', e.target.value)}
+                placeholder="Telefone / WhatsApp"
+                className={inputCls}
+              />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-blue-700 leading-none">{historico.contagem}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Recibos emitidos</p>
+            <div className="flex items-center gap-2">
+              <Mail size={14} className="text-slate-400 shrink-0" />
+              <input
+                value={form.email}
+                onChange={e => handleChange('email', e.target.value)}
+                placeholder="E-mail"
+                type="email"
+                className={inputCls}
+              />
             </div>
           </div>
-
-          <div className="bg-emerald-50 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-              <DollarSign size={18} className="text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-emerald-700 leading-none">{totalFormatado}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Total faturado</p>
-            </div>
-          </div>
-        </div>
-
-        {ultimoReciboFormatado && (
-          <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
-            <Clock size={13} className="shrink-0" />
-            <span>Último recibo: <span className="font-medium text-slate-500">{ultimoReciboFormatado}</span></span>
-          </div>
-        )}
-
-        {historico.contagem === 0 && (
-          <p className="text-center text-slate-400 text-xs pt-2 pb-1 italic">
-            Nenhum recibo registrado para este cliente ainda.
-            <br />
-            <span className="text-slate-300">Os valores são registrados automaticamente ao salvar um PDF de recibo.</span>
-          </p>
+        ) : (
+          <>
+            {display.telefone && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Phone size={14} className="text-slate-400 shrink-0" />
+                <span>{display.telefone}</span>
+              </div>
+            )}
+            {display.email && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Mail size={14} className="text-slate-400 shrink-0" />
+                <a href={`mailto:${display.email}`} className="text-blue-500 hover:underline">
+                  {display.email}
+                </a>
+              </div>
+            )}
+            {!display.telefone && !display.email && (
+              <p className="text-xs text-slate-400 italic">
+                Nenhum contato cadastrado.{' '}
+                <button onClick={() => setEditing(true)} className="underline hover:text-blue-500 transition-colors">
+                  Adicionar
+                </button>
+              </p>
+            )}
+          </>
         )}
       </div>
+
     </Modal>
   );
 }
