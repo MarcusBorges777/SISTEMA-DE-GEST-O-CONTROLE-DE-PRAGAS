@@ -7,6 +7,7 @@ import Documentos from './pages/Documentos';
 import Arquivos from './pages/Arquivos';
 import Admin from './pages/Admin';
 import Prospeccao from './pages/Prospeccao';
+import Agenda from './pages/Agenda';
 import Login from './pages/Login';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/documentos" element={<Documentos />} />
           <Route path="/arquivos" element={<Arquivos />} />
+          <Route path="/agenda" element={<Agenda />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/prospeccao" element={<Prospeccao />} />
         </Route>
