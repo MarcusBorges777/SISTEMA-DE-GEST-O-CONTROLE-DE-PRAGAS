@@ -161,7 +161,7 @@ export default function Laudos() {
 
   const [formData, setFormData] = useState(() => {
     const hoje = new Date();
-    const dataHoje = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+    const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
     return {
       laudoNumero: "0001",       // sobrescrito pelo useEffect que lê laudoSequence
       dataExecucao: dataHoje,
