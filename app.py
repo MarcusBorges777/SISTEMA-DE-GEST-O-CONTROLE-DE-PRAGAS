@@ -1684,7 +1684,7 @@ def listar_arquivos_diretorio(diretorio, tipo, origem, tag_id=None):
         return arquivos
 
     for arquivo in diretorio.iterdir():
-        if arquivo.is_file():
+        if arquivo.is_file() and arquivo.suffix.lower() != '.json':
             stat = arquivo.stat()
             arquivo_info = {
                 'nome': arquivo.name,

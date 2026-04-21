@@ -41,6 +41,35 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
         el.style.display = 'none';
       });
 
+      // ── Fix html2canvas: substitui <input>/<textarea> por <span> com o valor ──
+      // html2canvas lê o atributo HTML "value", mas React seta a propriedade JS.
+      // Solução: clonar cada campo como <span> e esconder o original.
+      const inputEls = Array.from(pagina.querySelectorAll('input, textarea'));
+      const inputRestores = inputEls.map(el => {
+        const span = document.createElement('span');
+        // Copia estilos computados essenciais para manter aparência
+        const cs = window.getComputedStyle(el);
+        span.style.cssText = [
+          `font-size:${cs.fontSize}`,
+          `font-family:${cs.fontFamily}`,
+          `font-weight:${cs.fontWeight}`,
+          `color:${cs.color}`,
+          `text-transform:${cs.textTransform}`,
+          `letter-spacing:${cs.letterSpacing}`,
+          `text-align:${cs.textAlign}`,
+          `display:inline-block`,
+          `width:${cs.width}`,
+          `padding:${cs.padding}`,
+          `line-height:${cs.lineHeight}`,
+          `white-space:pre-wrap`,
+          `word-break:break-word`,
+        ].join(';');
+        span.textContent = el.value;
+        el.parentNode.insertBefore(span, el);
+        el.style.display = 'none';
+        return { el, span };
+      });
+
       let canvas;
       try {
         canvas = await html2canvas(pagina, {
@@ -57,7 +86,12 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
           scrollY: -window.scrollY,   // Evita deslocamento pelo scroll da página
         });
       } finally {
-        // Restaurar sempre, mesmo se der erro
+        // Restaurar inputs/textareas
+        inputRestores.forEach(({ el, span }) => {
+          el.style.display = '';
+          span.parentNode?.removeChild(span);
+        });
+        // Restaurar elementos no-print
         noPrintEls.forEach(el => {
           el.style.display = el.dataset._origDisplay || '';
           delete el.dataset._origDisplay;
