@@ -11,6 +11,7 @@ import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
+import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 
 export default function Orcamentos() {
   const fileInputRef = useRef(null);
@@ -145,8 +146,17 @@ export default function Orcamentos() {
           terms,
         },
       });
-      if (result.sucesso) alert(`PDF salvo: ${result.nomeArquivo}`);
-      else alert(`Erro ao salvar: ${result.erro}`);
+      if (result.sucesso) {
+        registrarDocumentoNaAgenda(
+          'orcamento',
+          { nome: clientData.nome, fantasia: clientData.fantasia,
+            cnpj: clientData.cnpj, telefone: clientData.telefone,
+            endereco: clientData.endereco },
+          dataOrcamento,
+          orcamentoNumero
+        );
+        alert(`PDF salvo: ${result.nomeArquivo}`);
+      } else alert(`Erro ao salvar: ${result.erro}`);
     } finally {
       setSalvandoPdf(false);
     }

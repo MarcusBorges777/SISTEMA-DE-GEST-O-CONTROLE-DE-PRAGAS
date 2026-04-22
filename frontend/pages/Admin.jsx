@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Shield, Users, Database, Palette, Upload, Trash2, Image as ImageIcon,
+  Shield, Users, Users2, Database, Palette, Upload, Trash2, Image as ImageIcon,
   Bug, FileImage, Award, Loader2, Package, FolderOpen, Plus, Edit2,
   X, Check, FlaskConical, ChevronDown, Save, AlertCircle, CheckCircle2, Trash,
-  SlidersHorizontal, Hash
+  SlidersHorizontal, Hash, UserPlus, UserCheck
 } from 'lucide-react';
 import { api, fetchImagensEmpresa, uploadImagemEmpresa, removerImagemEmpresa } from '../services/api';
+import { getTecnicos, salvarTecnicos, getEquipes, salvarEquipes } from '../services/agendaService';
 import { useToast } from '../components/shared/Toast';
 import { useProdutos } from '../contexts/ProdutosContext';
 
@@ -52,11 +53,24 @@ export default function Admin() {
   const [pastaSaving, setPastaSaving] = useState(false);
   const [lixeiraLimpando, setLixeiraLimpando] = useState(false);
 
+  // Técnicos & Equipes
+  const [tecnicos, setTecnicos]         = useState([]);
+  const [equipes,  setEquipes]          = useState([]);
+  const [novoTecnico, setNovoTecnico]   = useState('');
+  const [editTecIdx,  setEditTecIdx]    = useState(null);
+  const [editTecVal,  setEditTecVal]    = useState('');
+  const [modalEquipe, setModalEquipe]   = useState(false);
+  const [equipeForm, setEquipeForm]     = useState({ id: null, nome: '', membros: [] });
+
   useEffect(() => {
     if (activeSection === 'usuarios') loadUsuarios();
     else if (activeSection === 'database') loadTables();
     else if (activeSection === 'identidade') loadImagens();
     else if (activeSection === 'arquivos') loadPastaConfig();
+    else if (activeSection === 'equipes') {
+      setTecnicos(getTecnicos());
+      setEquipes(getEquipes());
+    }
   }, [activeSection]);
 
   const loadUsuarios = async () => {
@@ -225,6 +239,82 @@ export default function Admin() {
     addToast('Configurações salvas com sucesso!', 'success');
   };
 
+  // ── Handlers Técnicos ──────────────────────────────────────────────────────
+  const addTecnico = () => {
+    const nome = novoTecnico.trim();
+    if (!nome) return;
+    if (tecnicos.includes(nome)) { addToast('Técnico já existe', 'error'); return; }
+    const nova = [...tecnicos, nome];
+    salvarTecnicos(nova);
+    setTecnicos(nova);
+    setNovoTecnico('');
+    addToast('Técnico adicionado', 'success');
+  };
+
+  const confirmarEditTecnico = () => {
+    const nome = editTecVal.trim();
+    if (!nome || editTecIdx === null) return;
+    const nova = tecnicos.map((t, i) => i === editTecIdx ? nome : t);
+    salvarTecnicos(nova);
+    setTecnicos(nova);
+    setEditTecIdx(null);
+    setEditTecVal('');
+    addToast('Técnico atualizado', 'success');
+  };
+
+  const removerTecnico = (idx) => {
+    const nome = tecnicos[idx];
+    if (!confirm(`Remover "${nome}"?`)) return;
+    const nova = tecnicos.filter((_, i) => i !== idx);
+    salvarTecnicos(nova);
+    setTecnicos(nova);
+    addToast('Técnico removido', 'success');
+  };
+
+  // ── Handlers Equipes ──────────────────────────────────────────────────────
+  const abrirNovaEquipe = () => {
+    setEquipeForm({ id: null, nome: '', membros: [] });
+    setModalEquipe(true);
+  };
+
+  const abrirEditarEquipe = (eq) => {
+    setEquipeForm({ ...eq });
+    setModalEquipe(true);
+  };
+
+  const salvarEquipe = () => {
+    const nome = equipeForm.nome.trim();
+    if (!nome) { addToast('Nome da equipe é obrigatório', 'error'); return; }
+    let novas;
+    if (equipeForm.id) {
+      novas = equipes.map(e => e.id === equipeForm.id ? { ...equipeForm, nome } : e);
+    } else {
+      novas = [...equipes, { ...equipeForm, id: Date.now(), nome }];
+    }
+    salvarEquipes(novas);
+    setEquipes(novas);
+    setModalEquipe(false);
+    addToast(equipeForm.id ? 'Equipe atualizada' : 'Equipe criada', 'success');
+  };
+
+  const removerEquipe = (id) => {
+    const eq = equipes.find(e => e.id === id);
+    if (!confirm(`Remover equipe "${eq?.nome}"?`)) return;
+    const novas = equipes.filter(e => e.id !== id);
+    salvarEquipes(novas);
+    setEquipes(novas);
+    addToast('Equipe removida', 'success');
+  };
+
+  const toggleMembroEquipe = (nome) => {
+    setEquipeForm(prev => ({
+      ...prev,
+      membros: prev.membros.includes(nome)
+        ? prev.membros.filter(m => m !== nome)
+        : [...prev.membros, nome],
+    }));
+  };
+
   const sections = [
     { id: 'identidade',    label: 'Identidade Visual',    icon: Palette },
     { id: 'produtos',      label: 'Produtos',             icon: FlaskConical },
@@ -232,6 +322,7 @@ export default function Admin() {
     { id: 'usuarios',      label: 'Usuarios',             icon: Users },
     { id: 'database',      label: 'Banco de Dados',       icon: Database },
     { id: 'configuracoes', label: 'Configurações',        icon: SlidersHorizontal },
+    { id: 'equipes',       label: 'Equipes & Técnicos',   icon: Users2 },
   ];
 
   const imagemCards = [
@@ -580,6 +671,237 @@ export default function Admin() {
             className="flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm rounded-xl transition shadow-md shadow-brand-500/25">
             <Save size={16} /> Salvar Configurações
           </button>
+        </div>
+      )}
+
+      {/* === EQUIPES & TÉCNICOS === */}
+      {activeSection === 'equipes' && (
+        <div className="space-y-8">
+
+          {/* ── Técnicos ──────────────────────────────────────────────────── */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <UserCheck size={18} className="text-brand-500" />
+                <h2 className="text-sm font-bold text-slate-800 dark:text-white">Técnicos</h2>
+                <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                  {tecnicos.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Adicionar novo técnico */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={novoTecnico}
+                  onChange={e => setNovoTecnico(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addTecnico()}
+                  placeholder="Nome do novo técnico..."
+                  className="flex-1 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                />
+                <button
+                  onClick={addTecnico}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold rounded-xl transition"
+                >
+                  <Plus size={15} /> Adicionar
+                </button>
+              </div>
+            </div>
+
+            {/* Lista de técnicos */}
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              {tecnicos.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-slate-400 text-center">Nenhum técnico cadastrado.</p>
+              ) : tecnicos.map((t, idx) => (
+                <div key={idx} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                  <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center shrink-0">
+                    <Users2 size={15} className="text-brand-500" />
+                  </div>
+
+                  {editTecIdx === idx ? (
+                    <>
+                      <input
+                        autoFocus
+                        value={editTecVal}
+                        onChange={e => setEditTecVal(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') confirmarEditTecnico(); if (e.key === 'Escape') setEditTecIdx(null); }}
+                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-brand-300 dark:border-brand-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <button onClick={confirmarEditTecnico} className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 hover:bg-emerald-100 transition">
+                        <Check size={14} />
+                      </button>
+                      <button onClick={() => setEditTecIdx(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition">
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm font-medium text-slate-800 dark:text-white">{t}</span>
+                      <button
+                        onClick={() => { setEditTecIdx(idx); setEditTecVal(t); }}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 transition"
+                        title="Editar"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => removerTecnico(idx)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition"
+                        title="Remover"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Equipes ──────────────────────────────────────────────────── */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-purple-500" />
+                <h2 className="text-sm font-bold text-slate-800 dark:text-white">Equipes</h2>
+                <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                  {equipes.length}
+                </span>
+              </div>
+              <button
+                onClick={abrirNovaEquipe}
+                className="flex items-center gap-1.5 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-bold rounded-xl transition"
+              >
+                <Plus size={15} /> Nova Equipe
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              {equipes.length === 0 ? (
+                <div className="px-5 py-8 text-center">
+                  <Users size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                  <p className="text-sm text-slate-400">Nenhuma equipe criada ainda.</p>
+                  <p className="text-xs text-slate-400 mt-1">Crie equipes para agrupar técnicos em serviços conjuntos.</p>
+                </div>
+              ) : equipes.map(eq => (
+                <div key={eq.id} className="px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="font-bold text-sm text-slate-800 dark:text-white">{eq.nome}</p>
+                      {eq.membros?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {eq.membros.map(m => (
+                            <span key={m} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 mt-1">Sem membros definidos</p>
+                      )}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => abrirEditarEquipe(eq)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 transition"
+                        title="Editar equipe"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => removerEquipe(eq.id)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition"
+                        title="Remover equipe"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === MODAL EQUIPE === */}
+      {modalEquipe && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                {equipeForm.id ? 'Editar Equipe' : 'Nova Equipe'}
+              </h3>
+              <button
+                onClick={() => setModalEquipe(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Nome da equipe */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Nome da Equipe
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={equipeForm.nome}
+                  onChange={e => setEquipeForm(prev => ({ ...prev, nome: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && salvarEquipe()}
+                  placeholder="Ex: Equipe Desinsetização"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                />
+              </div>
+
+              {/* Membros */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Membros ({equipeForm.membros.length} selecionados)
+                </label>
+                {tecnicos.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic">Cadastre técnicos primeiro para adicioná-los à equipe.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {tecnicos.map(t => (
+                      <label
+                        key={t}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={equipeForm.membros.includes(t)}
+                          onChange={() => toggleMembroEquipe(t)}
+                          className="w-4 h-4 rounded accent-brand-500"
+                        />
+                        <span className="text-sm text-slate-800 dark:text-white">{t}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-6 pb-6">
+              <button
+                onClick={() => setModalEquipe(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarEquipe}
+                className="flex-1 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold transition shadow-md shadow-brand-500/25"
+              >
+                {equipeForm.id ? 'Salvar Alterações' : 'Criar Equipe'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

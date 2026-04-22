@@ -13,7 +13,7 @@ import { X, User, Calendar, Clock, Wrench, FileText, Search } from 'lucide-react
 import Modal from '../shared/Modal';
 import { ClientePickerModal } from '../documentos/ClientePickerModal';
 import { getClientes } from '../../services/clienteCache';
-import { TIPOS_SERVICO, STATUS_OPTIONS } from '../../services/agendaService';
+import { TIPOS_SERVICO, STATUS_OPTIONS, getTecnicos, getEquipes } from '../../services/agendaService';
 
 export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial = null, eventoEditar = null }) {
   const hoje = (() => {
@@ -28,18 +28,27 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
     clienteTelefone: '',
     clienteEndereco: '',
     tipoServico:     TIPOS_SERVICO[0],
+    tecnico:         '',
+    recorrente:      false,
+    frequenciaMeses: 3,
     data:            hoje,
     hora:            '08:00',
     status:          'Agendado',
     observacao:      '',
   };
 
-  const [form, setForm]           = useState(emptyForm);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [form, setForm]                 = useState(emptyForm);
+  const [pickerOpen, setPickerOpen]     = useState(false);
   const [clientesSalvos, setClientesSalvos] = useState([]);
+  const [opcoesTecnico, setOpcoesTecnico]   = useState([]);
 
-  // Carrega clientes salvos
-  useEffect(() => { setClientesSalvos(getClientes()); }, [isOpen]);
+  // Carrega clientes salvos e lista de técnicos+equipes
+  useEffect(() => {
+    setClientesSalvos(getClientes());
+    const tecs    = getTecnicos();
+    const eqs     = getEquipes().map(e => e.nome);
+    setOpcoesTecnico([...tecs, ...eqs]);
+  }, [isOpen]);
 
   // Inicializa form ao abrir
   useEffect(() => {
@@ -164,6 +173,57 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
+          </div>
+
+          {/* ── Técnico Responsável ─────────────────────────────── */}
+          <div>
+            <label className={labelCls}>Técnico Responsável</label>
+            <select
+              value={form.tecnico}
+              onChange={e => set('tecnico', e.target.value)}
+              className={inputCls}
+            >
+              <option value="">— Sem técnico —</option>
+              {opcoesTecnico.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* ── Recorrência ─────────────────────────────────────── */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.recorrente}
+                onChange={e => set('recorrente', e.target.checked)}
+                className="w-4 h-4 rounded accent-brand-500"
+              />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Serviço Recorrente (Contrato)
+              </span>
+            </label>
+            {form.recorrente && (
+              <div className="ml-6">
+                <label className={labelCls}>Frequência</label>
+                <div className="flex gap-2">
+                  {[1, 3, 6].map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => set('frequenciaMeses', f)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition border-2
+                        ${form.frequenciaMeses === f
+                          ? 'bg-brand-500 border-brand-500 text-white'
+                          : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                        }`}
+                    >
+                      {f === 1 ? 'Mensal' : f === 3 ? 'Trimestral' : 'Semestral'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Status ──────────────────────────────────────────── */}

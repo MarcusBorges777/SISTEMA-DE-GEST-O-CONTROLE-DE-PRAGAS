@@ -9,6 +9,7 @@ import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
 import { getClientes, saveCliente } from '../../services/clienteCache';
+import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 
 export default function Laudos() {
   const [logo, setLogo] = useState(null);
@@ -617,6 +618,12 @@ export default function Laudos() {
         },
       });
       if (result.sucesso) {
+        registrarDocumentoNaAgenda(
+          'laudo',
+          formData.cliente,
+          formData.dataExecucao,
+          formData.laudoNumero
+        );
         alert(`PDF salvo: ${result.nomeArquivo}`);
       } else {
         alert(`Erro ao salvar: ${result.erro}`);

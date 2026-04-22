@@ -4,7 +4,7 @@ import {
   FolderOpen, Download, Eye, Trash2, Search, File, FileText,
   Image as ImageIcon, RefreshCw, Pencil, X, FolderInput,
   CheckCircle2, AlertTriangle, FileArchive, Layers,
-  Bell, ChevronDown, ChevronUp, User, Calendar, Bug
+  Bell, ChevronDown, ChevronUp, User, Calendar, Bug, CalendarDays
 } from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
 import { useToast } from '../components/shared/Toast';
@@ -382,6 +382,29 @@ export default function Arquivos() {
     navigate(`/documentos?tab=${tab}`);
   };
 
+  // Navega para a Agenda pré-buscando o cliente desse arquivo
+  const handleVerNaAgenda = async (arquivo) => {
+    const caminho = arquivo.caminho;
+    if (!caminho) { addToast('Caminho do arquivo não encontrado', 'error'); return; }
+    try {
+      const resp = await api.get(`/api/documentos/metadados?caminho=${encodeURIComponent(caminho)}`);
+      const meta = resp.data || {};
+      // Laudos guardam dados em formData.cliente; recibos/orcamentos em clientData
+      const c = meta.formData?.cliente || meta.clientData || meta.cliente || {};
+      const cliente = {
+        nome:     c.nome     || c.razaoSocial || '',
+        fantasia: c.fantasia || '',
+        cnpj:     c.cnpj     || '',
+        telefone: c.telefone || '',
+        endereco: c.endereco || '',
+      };
+      navigate('/agenda', { state: { cliente } });
+    } catch {
+      // Sem metadados — navega mesmo assim para a Agenda
+      navigate('/agenda');
+    }
+  };
+
   const handleEsvaziarLixeira = async () => {
     setEsvaziandoLixeira(true);
     try {
@@ -626,6 +649,12 @@ export default function Arquivos() {
                       <button onClick={() => handleAbrirEditor(arquivo)} title="Editar no editor"
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
                         <Pencil size={15} />
+                      </button>
+                    )}
+                    {!lixeira && (
+                      <button onClick={() => handleVerNaAgenda(arquivo)} title="Ver na Agenda"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition">
+                        <CalendarDays size={15} />
                       </button>
                     )}
                     <button onClick={() => setDeleteModal(arquivo)} title="Excluir"

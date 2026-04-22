@@ -12,6 +12,7 @@ import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
 import { registrarRecibo } from '../../services/reciboHistorico';
+import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 
 export default function Recibos() {
   const fileInputRef = useRef(null);
@@ -151,6 +152,14 @@ export default function Recibos() {
       });
       if (result.sucesso) {
         registrarRecibo(clientData.cnpj, total);
+        registrarDocumentoNaAgenda(
+          'recibo',
+          { nome: clientData.nome, fantasia: clientData.fantasia,
+            cnpj: clientData.cnpj, telefone: clientData.telefone,
+            endereco: clientData.endereco },
+          dataExecucao,
+          reciboNumero
+        );
         alert(`PDF salvo: ${result.nomeArquivo}`);
       } else {
         alert(`Erro ao salvar: ${result.erro}`);

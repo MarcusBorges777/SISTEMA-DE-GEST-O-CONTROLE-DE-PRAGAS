@@ -20,12 +20,16 @@ export default function Documentos() {
   const location = useLocation();
   const { empresa, setEmpresa } = useEmpresa();
 
-  // Bridge: se chegou com location.state.cliente e nao ha empresa no context, preencher
+  // Bridge: se chegou com location.state.cliente, preencher empresa e mudar aba
   useEffect(() => {
-    if (location.state?.cliente && !empresa) {
+    if (!location.state) return;
+    if (location.state.cliente) {
       setEmpresa(normalizeCliente(location.state.cliente));
     }
-  }, []);
+    if (location.state.tab) {
+      handleTabChange(location.state.tab);
+    }
+  }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Carregar feriados uma vez
   useEffect(() => {

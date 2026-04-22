@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, FolderOpen, Shield,
-  ChevronLeft, ChevronRight, Bug, Target, CalendarDays
+  ChevronLeft, ChevronRight, Bug, Users, CalendarDays
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 
@@ -11,7 +11,7 @@ const navItems = [
   { to: '/documentos', icon: FileText, label: 'Documentos' },
   { to: '/arquivos', icon: FolderOpen, label: 'Arquivos' },
   { to: '/agenda', icon: CalendarDays, label: 'Agenda' },
-  { to: '/prospeccao', icon: Target, label: 'Prospeccao' },
+  { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/admin', icon: Shield, label: 'Admin' },
 ];
 
