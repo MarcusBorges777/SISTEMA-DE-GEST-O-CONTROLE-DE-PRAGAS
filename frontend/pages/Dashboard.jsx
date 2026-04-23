@@ -65,12 +65,14 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Aviso de Garantias — logo abaixo dos stat cards */}
+      <GarantiaAlerts />
+
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Quick Actions + Garantias */}
+        {/* Left Column: Quick Actions */}
         <div className="space-y-6">
           <QuickActions />
-          <GarantiaAlerts />
         </div>
 
         {/* Right Column: Recent Activity (spans 2 cols) */}
