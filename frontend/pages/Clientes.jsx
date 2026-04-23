@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { getClientes, saveCliente, removeCliente } from '../services/clienteCache';
 import { buscarCNPJ } from '../services/brasilApi';
-import { getServicos } from '../services/agendaService';
+import { getAgendamentos } from '../services/agendaService';
 import { api } from '../services/api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -324,7 +324,8 @@ export default function Clientes() {
     api.get('/api/documentos/vencimentos?dias=60')
       .then(r => setVencimentos(Array.isArray(r.data) ? r.data : []))
       .catch(() => {});
-    setServicos(getServicos().filter(s => s.status === 'Concluído'));
+    // Todos os eventos (laudos emitidos, serviços concluídos) contam como atendimento
+    setServicos(getAgendamentos());
   }, []);
 
   // Mapa CNPJ → item de vencimento mais próximo

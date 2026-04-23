@@ -340,11 +340,22 @@ export default function Arquivos() {
 
       // Marcar evento correspondente na Agenda como deletado
       try {
-        const numMatch = (filename || '').match(/(\d{3,})/);
-        if (numMatch) {
-          const num = numMatch[1];
+        // Determinar tipo do documento pelo arquivo
+        const tipoArq = (deleteModal.tipo || deleteModal.origem || filename || '').toLowerCase();
+        const tipoAgenda = ['laudo', 'recibo', 'orcamento'].find(t => tipoArq.includes(t));
+
+        // Extrair número do documento: última sequência numérica antes da extensão
+        // Ex: "Laudo_Empresa_2026-04-22_0001.pdf" → "0001"
+        //     "Laudo_Empresa_20260422_1.pdf"       → "1"
+        const numMatch = (filename || '').match(/[_\s](\d{1,6})(?:\.[^.]+)?$/);
+        if (numMatch && tipoAgenda) {
+          const num = numMatch[1].replace(/^0+/, '') || '0'; // sem zeros à esquerda
           const eventos = getAgendamentos();
-          const alvo = eventos.find(e => e.numeroDoc && String(e.numeroDoc).includes(num));
+          const alvo = eventos.find(e =>
+            e.tipo === tipoAgenda &&
+            e.numeroDoc !== undefined &&
+            (String(e.numeroDoc).replace(/^0+/, '') || '0') === num
+          );
           if (alvo) atualizarAgendamento(alvo.id, { deletado: true });
         }
       } catch { /* silencioso — não bloqueia exclusão */ }

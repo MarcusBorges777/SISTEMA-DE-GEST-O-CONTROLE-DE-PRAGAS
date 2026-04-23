@@ -6,7 +6,8 @@ import QuickActions from '../components/dashboard/QuickActions';
 import GarantiaAlerts from '../components/dashboard/GarantiaAlerts';
 import RecentActivity from '../components/dashboard/RecentActivity';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
-import { fetchDashboardStats } from '../services/api';
+import { getClientes } from '../services/clienteCache';
+import { getAgendamentos } from '../services/agendaService';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -15,18 +16,23 @@ export default function Dashboard() {
   const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
-    fetchDashboardStats()
-      .then(data => setStats(data))
-      .catch(() => {
-        // Fallback se API nao existir ainda
-        setStats({
-          total_clientes: 0,
-          docs_mes: 0,
-          receita_mes: 'R$ 0,00',
-          clientes_ativos: 0,
-        });
-      })
-      .finally(() => setLoading(false));
+    // Contagens direto do localStorage — sem depender de API com DB
+    try {
+      const clientes   = getClientes();
+      const agendamentos = getAgendamentos();
+      const hojeStr  = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const docsMes  = agendamentos.filter(e =>
+        e.tipo !== 'servico' && (e.data || '').startsWith(hojeStr)
+      ).length;
+      setStats({
+        total_clientes: clientes.length,
+        docs_mes:       docsMes,
+      });
+    } catch {
+      setStats({ total_clientes: 0, docs_mes: 0 });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   return (

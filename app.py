@@ -3284,7 +3284,10 @@ def api_vencimentos_garantia():
                     with open(sidecar, 'r', encoding='utf-8') as _sf:
                         meta = json.load(_sf)
 
-                    fd = meta.get('formData', {})
+                    # Suporte a sidecars novos (campos dentro de formData)
+                    # e sidecars antigos (campos na raiz do JSON)
+                    fd = meta.get('formData') or meta
+
                     garanti = fd.get('garantiaMeses', 0)
                     if not garanti or int(garanti) <= 0:
                         continue  # sem garantia (ex: caixa de gordura puro)
@@ -3313,9 +3316,9 @@ def api_vencimentos_garantia():
                     if not (janela_passado <= data_venc <= janela_futuro):
                         continue
 
-                    cliente      = fd.get('cliente', {})
-                    pragas       = fd.get('selectedPests', [])
-                    laudo_numero = fd.get('laudoNumero', '')
+                    cliente      = fd.get('cliente', {}) or {}
+                    pragas       = fd.get('selectedPests', []) or []
+                    laudo_numero = fd.get('laudoNumero', '') or meta.get('laudoNumero', '')
 
                     # Deduplicar pelo número do laudo (evita duplicatas entre pastas)
                     if laudo_numero and laudo_numero in vistos:

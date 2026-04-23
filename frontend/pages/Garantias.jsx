@@ -12,6 +12,8 @@ import {
   Bug, MapPin,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { saveCliente } from '../services/clienteCache';
+import { registrarDocumentoNaAgenda } from '../services/agendaService';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +61,42 @@ export default function Garantias() {
   const carregar = () => {
     setLoading(true);
     api.get('/api/documentos/vencimentos?dias=365')
-      .then(r => setDados(Array.isArray(r.data) ? r.data : []))
+      .then(r => {
+        const lista = Array.isArray(r.data) ? r.data : [];
+        setDados(lista);
+
+        // ── Integração automática ────────────────────────────────────────────
+        // Para cada laudo com garantia, sincroniza o cliente no cache e
+        // registra o evento na Agenda (sem duplicatas — registrarDocumentoNaAgenda
+        // verifica se já existe antes de inserir)
+        lista.forEach(item => {
+          try {
+            if (item.cnpj || item.nome_cliente) {
+              const cliente = {
+                nome:     item.nome_cliente || item.fantasia || '',
+                fantasia: item.fantasia     || '',
+                cnpj:     item.cnpj         || '',
+                telefone: item.telefone     || '',
+                endereco: item.endereco     || '',
+              };
+              saveCliente(cliente);
+
+              // Converter data execução de DD/MM/YYYY → YYYY-MM-DD para a Agenda
+              let dataAgenda = item.data_execucao || '';
+              if (dataAgenda.includes('/')) {
+                const [d, m, y] = dataAgenda.split('/');
+                dataAgenda = `${y}-${m}-${d}`;
+              }
+              registrarDocumentoNaAgenda(
+                'laudo',
+                cliente,
+                dataAgenda,
+                item.laudo_numero || ''
+              );
+            }
+          } catch { /* silencioso */ }
+        });
+      })
       .catch(() => setDados([]))
       .finally(() => setLoading(false));
   };
