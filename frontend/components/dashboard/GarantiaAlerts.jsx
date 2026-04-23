@@ -3,9 +3,10 @@ import { AlertTriangle, Clock, CalendarX, CalendarCheck, RefreshCw, ChevronDown,
 import { fetchGarantiasVencendo } from '../../services/api';
 
 export default function GarantiaAlerts() {
-  const [data, setData]         = useState({ vencidas: [], esta_semana: [], proximas: [] });
-  const [loading, setLoading]   = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [data, setData]           = useState({ vencidas: [], esta_semana: [], proximas: [] });
+  const [loading, setLoading]     = useState(false);
+  const [ready, setReady]         = useState(false);  // true após 1ª carga completa
+  const [expanded, setExpanded]   = useState(false);
   const listId = useId();
 
   const loadData = async () => {
@@ -21,6 +22,7 @@ export default function GarantiaAlerts() {
       console.warn('Erro ao carregar garantias:', e);
     } finally {
       setLoading(false);
+      setReady(true);
     }
   };
 
@@ -28,7 +30,9 @@ export default function GarantiaAlerts() {
 
   const total = data.vencidas.length + data.esta_semana.length + data.proximas.length;
 
-  if (!loading && total === 0) return null;
+  // Oculta até a 1ª carga terminar (evita flash do card laranja ao navegar)
+  // Após pronto, oculta somente se não houver dados
+  if (!ready || total === 0) return null;
 
   return (
     <section
