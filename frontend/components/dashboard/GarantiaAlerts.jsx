@@ -28,12 +28,9 @@ export default function GarantiaAlerts() {
 
   const total = data.vencidas.length + data.esta_semana.length + data.proximas.length;
 
-  // Oculta apenas quando carregamento terminar sem dados
-  if (!loading && total === 0) return null;
-
   return (
     <section
-      aria-label={`Avisos de garantia — ${loading ? 'carregando' : `${total} cliente${total !== 1 ? 's' : ''}`}`}
+      aria-label={`Avisos de garantia — ${loading ? 'carregando' : total === 0 ? 'nenhuma pendência' : `${total} cliente${total !== 1 ? 's' : ''}`}`}
       className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg p-6 text-white"
     >
       {/* Header */}
@@ -44,7 +41,9 @@ export default function GarantiaAlerts() {
           </div>
           <div>
             <h3 className="font-bold text-lg">Avisos de Garantia</h3>
-            <p className="text-orange-100 text-xs">Clientes com garantia vencida ou próxima</p>
+            <p className="text-orange-100 text-xs">
+              {!loading && total === 0 ? 'Todas as garantias em dia ✓' : 'Clientes com garantia vencida ou próxima'}
+            </p>
           </div>
         </div>
 
@@ -62,21 +61,23 @@ export default function GarantiaAlerts() {
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
           </button>
 
-          <button
-            onClick={() => setExpanded(v => !v)}
-            aria-expanded={expanded}
-            aria-controls={listId}
-            aria-label={expanded ? 'Recolher lista de garantias' : 'Expandir lista de garantias'}
-            className="w-9 h-9 bg-white/20 hover:bg-white/30 active:scale-95
-              rounded-lg flex items-center justify-center
-              transition-all duration-150
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-          >
-            {expanded
-              ? <ChevronUp size={16} aria-hidden="true" />
-              : <ChevronDown size={16} aria-hidden="true" />
-            }
-          </button>
+          {total > 0 && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              aria-expanded={expanded}
+              aria-controls={listId}
+              aria-label={expanded ? 'Recolher lista de garantias' : 'Expandir lista de garantias'}
+              className="w-9 h-9 bg-white/20 hover:bg-white/30 active:scale-95
+                rounded-lg flex items-center justify-center
+                transition-all duration-150
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              {expanded
+                ? <ChevronUp size={16} aria-hidden="true" />
+                : <ChevronDown size={16} aria-hidden="true" />
+              }
+            </button>
+          )}
         </div>
       </div>
 
