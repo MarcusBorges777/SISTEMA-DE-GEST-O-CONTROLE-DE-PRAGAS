@@ -29,24 +29,35 @@ export default function Sidebar() {
 
   return (
     <aside
+      aria-label="Menu de navegação principal"
       className={`fixed left-0 top-0 h-screen z-30 flex flex-col
-        bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-800
+        border-r border-slate-200 dark:border-slate-700
         transition-all duration-300 print:hidden
         ${collapsed ? 'w-[68px]' : 'w-64'}`}
     >
       {/* Logo */}
       <div className="flex items-center justify-center h-20 px-3 border-b border-slate-200 dark:border-slate-700">
         {logoPath ? (
-          <img src={logoPath} alt="Logo" className={`object-contain flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10 rounded-lg' : 'w-full h-16 rounded-xl'}`} />
+          <img
+            src={logoPath}
+            alt="Logo Dedetizadora Borges"
+            className={`object-contain flex-shrink-0 transition-all duration-300
+              ${collapsed ? 'w-10 h-10 rounded-lg' : 'w-full h-16 rounded-xl'}`}
+          />
         ) : (
-          <div className={`rounded-xl bg-brand-500 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10' : 'w-14 h-14'}`}>
+          <div
+            className={`rounded-xl bg-brand-500 flex items-center justify-center flex-shrink-0
+              transition-all duration-300 ${collapsed ? 'w-10 h-10' : 'w-14 h-14'}`}
+            aria-hidden="true"
+          >
             <Bug size={collapsed ? 20 : 28} className="text-white" />
           </div>
         )}
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+      <nav aria-label="Navegação principal" className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {navItems.map(item => {
           const Icon = item.icon;
           return (
@@ -54,18 +65,35 @@ export default function Sidebar() {
               key={item.to}
               to={item.to}
               end={item.to === '/'}
+              aria-label={collapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                transition-all duration-200 outline-none
+                focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-1
+                active:scale-[0.97]
                 ${collapsed ? 'justify-center' : ''}
                 ${isActive
                   ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white'
                 }`
               }
               title={collapsed ? item.label : undefined}
             >
-              <Icon size={20} className="flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={20}
+                    className="flex-shrink-0"
+                    aria-hidden="true"
+                  />
+                  {!collapsed && (
+                    <span>{item.label}</span>
+                  )}
+                  {isActive && collapsed && (
+                    <span className="sr-only">(página atual)</span>
+                  )}
+                </>
+              )}
             </NavLink>
           );
         })}
@@ -75,12 +103,21 @@ export default function Sidebar() {
       <div className="p-3 border-t border-slate-200 dark:border-slate-700">
         <button
           onClick={toggle}
+          aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          aria-expanded={!collapsed}
           className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium
-            text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all
+            text-slate-500 dark:text-slate-400
+            hover:bg-slate-100 dark:hover:bg-slate-700/60
+            hover:text-slate-700 dark:hover:text-slate-200
+            active:scale-[0.97]
+            transition-all duration-150
+            focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-1 outline-none
             ${collapsed ? 'justify-center' : ''}`}
-          title={collapsed ? 'Expandir' : 'Recolher'}
         >
-          {collapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /><span>Recolher</span></>}
+          {collapsed
+            ? <ChevronRight size={18} aria-hidden="true" />
+            : <><ChevronLeft size={18} aria-hidden="true" /><span>Recolher</span></>
+          }
         </button>
       </div>
     </aside>

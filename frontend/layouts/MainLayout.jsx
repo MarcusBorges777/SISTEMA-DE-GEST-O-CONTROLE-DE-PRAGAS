@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/shared/Sidebar';
 import Topbar from '../components/shared/Topbar';
 import CompanyDrawer from '../components/shared/CompanyDrawer';
@@ -10,10 +10,11 @@ import { ProdutosProvider } from '../contexts/ProdutosContext';
 export default function MainLayout() {
   const { collapsed } = useSidebar();
   const { drawerOpen } = useEmpresa();
+  const location = useLocation();
 
   // Calcular margin-left dinamicamente
   const sidebarW = collapsed ? 68 : 256;
-  const drawerW = drawerOpen ? 288 : 0;
+  const drawerW  = drawerOpen ? 288 : 0;
   const marginLeft = sidebarW + drawerW;
 
   return (
@@ -30,7 +31,16 @@ export default function MainLayout() {
         >
           <Topbar />
           <main className="p-6 print:p-0">
-            <Outlet />
+            {/*
+              key={pathname} faz o React remontar o wrapper a cada mudança de rota,
+              acionando a animação fadeIn (180ms) — transição suave entre páginas.
+            */}
+            <div
+              key={location.pathname}
+              className="animate-[fadeIn_0.18s_ease-out_both]"
+            >
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

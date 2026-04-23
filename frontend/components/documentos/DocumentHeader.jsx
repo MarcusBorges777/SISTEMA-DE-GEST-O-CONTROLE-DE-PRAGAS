@@ -14,7 +14,7 @@ import { empresa } from '../../data/empresa';
 export default function DocumentHeader({ logo, onLogoClick, variant = 'recibo' }) {
   if (variant === 'laudo') {
     return (
-      <header className="flex justify-between items-start mb-6 border-b-2 border-[#254191] pb-4">
+      <header className="flex justify-between items-start mb-6 border-b-2 border-brand-500 pb-4">
         <div className="flex items-center gap-4">
           <div
             onClick={onLogoClick}
@@ -31,7 +31,7 @@ export default function DocumentHeader({ logo, onLogoClick, variant = 'recibo' }
           </div>
         </div>
         <div className="flex-1 text-right space-y-1 pl-4">
-          <h1 className="text-sm font-black text-[#254191] uppercase leading-none tracking-tight">{empresa.razao}</h1>
+          <h1 className="text-sm font-black text-brand-500 uppercase leading-none tracking-tight">{empresa.razao}</h1>
           <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
@@ -40,10 +40,10 @@ export default function DocumentHeader({ logo, onLogoClick, variant = 'recibo' }
               <span className="flex items-center gap-1"><Mail size={10} /> {empresa.email}</span>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
-              <p>Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
-              <p>Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licenca}</span></p>
-              <p>Responsável Técnico: <span className="text-[#254191] font-bold">{empresa.rt}</span></p>
-              <p>CRQ / ART: <span className="text-[#254191] font-bold">{empresa.crq}</span></p>
+              <p>Alvará Sanitário: <span className="text-brand-500 font-bold">{empresa.alvara}</span></p>
+              <p>Licença Ambiental: <span className="text-brand-500 font-bold">{empresa.licenca}</span></p>
+              <p>Responsável Técnico: <span className="text-brand-500 font-bold">{empresa.rt}</span></p>
+              <p>CRQ / ART: <span className="text-brand-500 font-bold">{empresa.crq}</span></p>
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@ function ContactRow({ icon, text }) {
   return (
     <div className="flex items-center justify-end gap-2 text-slate-600">
       <span className="text-[10px] font-bold tracking-tight">{text}</span>
-      <div className="w-5 h-5 flex items-center justify-center bg-[#254191] rounded-full text-white shadow-sm print-bg-blue">
+      <div className="w-5 h-5 flex items-center justify-center bg-brand-500 rounded-full text-white shadow-sm print-bg-blue">
         {icon}
       </div>
     </div>
