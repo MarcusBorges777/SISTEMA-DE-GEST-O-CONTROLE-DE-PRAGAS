@@ -21,6 +21,7 @@ import {
 import { NovoAgendamentoModal } from '../components/agenda/NovoAgendamentoModal';
 import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal';
 import { api } from '../services/api';
+import { useVencimentos } from '../hooks/useVencimentos';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -495,18 +496,9 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
 // ─── Painel de vencimentos ────────────────────────────────────────────────────
 
 function PainelVencimentos({ onAgendarRetorno }) {
-  const [vencimentos, setVencimentos]     = useState([]);
-  const [loading, setLoading]             = useState(false);
+  const { data: vencimentos, loading }    = useVencimentos();
   const [expandido, setExpandido]         = useState(true);
   const [clientePerfil, setClientePerfil] = useState(null);
-
-  useEffect(() => {
-    setLoading(true);
-    api.get('/api/documentos/vencimentos')
-      .then(r => setVencimentos(r.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
 
   if (!loading && vencimentos.length === 0) return null;
 

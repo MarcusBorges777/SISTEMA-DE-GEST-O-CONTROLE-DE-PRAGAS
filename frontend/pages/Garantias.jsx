@@ -11,7 +11,8 @@ import {
   AlertTriangle, Clock, CheckCircle2, ChevronDown, ChevronUp,
   Bug, MapPin,
 } from 'lucide-react';
-import { api } from '../services/api';
+import { useVencimentos } from '../hooks/useVencimentos';
+import { useSearch } from '../hooks/useSearch';
 import { saveCliente } from '../services/clienteCache';
 import { registrarDocumentoNaAgenda } from '../services/agendaService';
 
@@ -52,78 +53,56 @@ const FILTROS = [
 
 export default function Garantias() {
   const navigate = useNavigate();
-  const [dados, setDados]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [filtro, setFiltro]     = useState('todas');
-  const [busca, setBusca]       = useState('');
+  const { data: dados, loading, refetch: carregar } = useVencimentos(365);
+  const [filtro, setFiltro]         = useState('todas');
   const [expandidos, setExpandidos] = useState({});
 
-  const carregar = () => {
-    setLoading(true);
-    api.get('/api/documentos/vencimentos?dias=365')
-      .then(r => {
-        const lista = Array.isArray(r.data) ? r.data : [];
-        setDados(lista);
+  // Integração automática: sincroniza clientes no cache e registra na Agenda
+  useEffect(() => {
+    if (!dados.length) return;
+    dados.forEach(item => {
+      try {
+        if (item.cnpj || item.nome_cliente) {
+          const cliente = {
+            nome:     item.nome_cliente || item.fantasia || '',
+            fantasia: item.fantasia     || '',
+            cnpj:     item.cnpj         || '',
+            telefone: item.telefone     || '',
+            endereco: item.endereco     || '',
+          };
+          saveCliente(cliente);
+          let dataAgenda = item.data_execucao || '';
+          if (dataAgenda.includes('/')) {
+            const [d, m, y] = dataAgenda.split('/');
+            dataAgenda = `${y}-${m}-${d}`;
+          }
+          registrarDocumentoNaAgenda('laudo', cliente, dataAgenda, item.laudo_numero || '');
+        }
+      } catch { /* silencioso */ }
+    });
+  }, [dados]);
 
-        // ── Integração automática ────────────────────────────────────────────
-        // Para cada laudo com garantia, sincroniza o cliente no cache e
-        // registra o evento na Agenda (sem duplicatas — registrarDocumentoNaAgenda
-        // verifica se já existe antes de inserir)
-        lista.forEach(item => {
-          try {
-            if (item.cnpj || item.nome_cliente) {
-              const cliente = {
-                nome:     item.nome_cliente || item.fantasia || '',
-                fantasia: item.fantasia     || '',
-                cnpj:     item.cnpj         || '',
-                telefone: item.telefone     || '',
-                endereco: item.endereco     || '',
-              };
-              saveCliente(cliente);
+  // 1. Filtro por período (chip)
+  const dadosPeriodo = useMemo(() => {
+    if (filtro === 'vencidas') return dados.filter(d => d.dias_restantes < 0);
+    if (filtro === '7dias')    return dados.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 7);
+    if (filtro === '15dias')   return dados.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 15);
+    if (filtro === '30dias')   return dados.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 30);
+    return dados;
+  }, [dados, filtro]);
 
-              // Converter data execução de DD/MM/YYYY → YYYY-MM-DD para a Agenda
-              let dataAgenda = item.data_execucao || '';
-              if (dataAgenda.includes('/')) {
-                const [d, m, y] = dataAgenda.split('/');
-                dataAgenda = `${y}-${m}-${d}`;
-              }
-              registrarDocumentoNaAgenda(
-                'laudo',
-                cliente,
-                dataAgenda,
-                item.laudo_numero || ''
-              );
-            }
-          } catch { /* silencioso */ }
-        });
-      })
-      .catch(() => setDados([]))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { carregar(); }, []);
-
-  const dadosFiltrados = useMemo(() => {
-    let lista = [...dados];
-
-    // Filtro por chip
-    if (filtro === 'vencidas') lista = lista.filter(d => d.dias_restantes < 0);
-    else if (filtro === '7dias')  lista = lista.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 7);
-    else if (filtro === '15dias') lista = lista.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 15);
-    else if (filtro === '30dias') lista = lista.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 30);
-
-    // Filtro por busca textual
-    if (busca.trim()) {
-      const q = busca.trim().toLowerCase();
-      lista = lista.filter(d =>
-        (d.nome_cliente || '').toLowerCase().includes(q) ||
-        (d.fantasia     || '').toLowerCase().includes(q) ||
-        (d.cnpj         || '').includes(q)
+  // 2. Busca textual com debounce via useSearch
+  const { query: busca, setQuery: setBusca, filtered: dadosFiltrados } = useSearch(
+    dadosPeriodo,
+    (list, q) => {
+      const lq = q.toLowerCase();
+      return list.filter(d =>
+        (d.nome_cliente || '').toLowerCase().includes(lq) ||
+        (d.fantasia     || '').toLowerCase().includes(lq) ||
+        (d.cnpj         || '').includes(lq)
       );
     }
-
-    return lista;
-  }, [dados, filtro, busca]);
+  );
 
   const toggleExpandido = (idx) => setExpandidos(p => ({ ...p, [idx]: !p[idx] }));
 

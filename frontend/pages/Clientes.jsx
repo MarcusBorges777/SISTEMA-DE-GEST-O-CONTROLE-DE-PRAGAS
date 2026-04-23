@@ -17,7 +17,7 @@ import {
 import { getClientes, saveCliente, removeCliente } from '../services/clienteCache';
 import { buscarCNPJ } from '../services/brasilApi';
 import { getAgendamentos } from '../services/agendaService';
-import { api } from '../services/api';
+import { useVencimentos } from '../hooks/useVencimentos';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -389,17 +389,13 @@ export default function Clientes() {
   const [busca, setBusca]             = useState('');
   const [ordenacao, setOrdenacao]     = useState('recente');
   const [modal, setModal]             = useState(null);
-  const [vencimentos, setVencimentos] = useState([]);
+  const { data: vencimentos } = useVencimentos(60);
   const [servicos, setServicos]       = useState([]);
 
   const recarregar = () => setClientes(getClientes());
 
   useEffect(() => {
     recarregar();
-    // Carregar dados para os filtros cruzados
-    api.get('/api/documentos/vencimentos?dias=60')
-      .then(r => setVencimentos(Array.isArray(r.data) ? r.data : []))
-      .catch(() => {});
     // Todos os eventos (laudos emitidos, serviços concluídos) contam como atendimento
     setServicos(getAgendamentos());
   }, []);

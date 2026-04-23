@@ -7,6 +7,7 @@ import {
   Bell, ChevronDown, ChevronUp, User, Calendar, Bug, CalendarDays, ArrowUpDown
 } from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
+import { useVencimentos } from '../hooks/useVencimentos';
 import { useToast } from '../components/shared/Toast';
 import { getAgendamentos, atualizarAgendamento } from '../services/agendaService';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
@@ -257,8 +258,7 @@ export default function Arquivos() {
   const [editModal, setEditModal]               = useState(null);
   const [esvaziandoLixeira, setEsvaziandoLixeira]   = useState(false);
   const [confirmarLixeira, setConfirmarLixeira]     = useState(false);
-  const [vencimentos, setVencimentos]               = useState([]);
-  const [loadingVenc, setLoadingVenc]               = useState(false);
+  const { data: vencimentos, loading: loadingVenc } = useVencimentos();
   const [expandVenc, setExpandVenc]                 = useState(true);
   const [clientePerfil, setClientePerfil]           = useState(null);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
@@ -294,17 +294,6 @@ export default function Arquivos() {
     loadDiretorios();
   }, []);
 
-  useEffect(() => {
-    const loadVencimentos = async () => {
-      setLoadingVenc(true);
-      try {
-        const resp = await api.get('/api/documentos/vencimentos');
-        setVencimentos(resp.data || []);
-      } catch { /* sem laudos ou pasta ainda não configurada */ }
-      finally { setLoadingVenc(false); }
-    };
-    loadVencimentos();
-  }, []);
 
   // Filtros + Ordenação
   const filteredFiles = useMemo(() => {
