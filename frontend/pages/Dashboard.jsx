@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, FileText, DollarSign, Activity } from 'lucide-react';
+import { Users, FileText } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import QuickActions from '../components/dashboard/QuickActions';
 import GarantiaAlerts from '../components/dashboard/GarantiaAlerts';
@@ -38,7 +38,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
         <StatCard
           title="Total de Clientes"
           value={stats?.total_clientes ?? 0}
@@ -56,22 +56,6 @@ export default function Dashboard() {
           color="green"
           loading={loading}
           onClick={() => navigate('/arquivos')}
-        />
-        <StatCard
-          title="Receita Estimada"
-          value={stats?.receita_mes ?? 'R$ 0'}
-          subtitle="Este mes"
-          icon={DollarSign}
-          color="purple"
-          loading={loading}
-        />
-        <StatCard
-          title="Clientes Ativos"
-          value={stats?.clientes_ativos ?? 0}
-          subtitle="Com servicos ativos"
-          icon={Activity}
-          color="orange"
-          loading={loading}
         />
       </div>
 

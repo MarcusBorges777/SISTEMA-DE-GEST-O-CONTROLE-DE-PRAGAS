@@ -402,7 +402,11 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                 return (
                   <div
                     key={ev.id}
-                    className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    className={`rounded-2xl border p-4 shadow-sm transition-shadow cursor-pointer
+                      ${ev.deletado
+                        ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 opacity-60'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-md'
+                      }`}
                     onClick={() => onEventoClick(ev)}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2.5">
@@ -410,9 +414,15 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cor.light}`}>
                           {TIPO_LABEL[ev.tipo] || ev.tipo}
                         </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>
-                          {ev.status}
-                        </span>
+                        {ev.deletado ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                            Excluído
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>
+                            {ev.status}
+                          </span>
+                        )}
                       </div>
                       {ev.hora && (
                         <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
@@ -421,7 +431,7 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                       )}
                     </div>
 
-                    <p className="font-bold text-sm text-slate-800 dark:text-white leading-tight">{ev.clienteNome || '—'}</p>
+                    <p className={`font-bold text-sm leading-tight ${ev.deletado ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-white'}`}>{ev.clienteNome || '—'}</p>
                     {ev.clienteFantasia && <p className="text-xs text-slate-400 truncate">{ev.clienteFantasia}</p>}
 
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1.5">

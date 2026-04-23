@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FolderOpen, Download, Eye, Trash2, Search, File, FileText,
   Image as ImageIcon, RefreshCw, Pencil, X, FolderInput,
   CheckCircle2, AlertTriangle, FileArchive, Layers,
-  Bell, ChevronDown, ChevronUp, User, Calendar, Bug, CalendarDays
+  Bell, ChevronDown, ChevronUp, User, Calendar, Bug, CalendarDays, ArrowUpDown
 } from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
 import { useToast } from '../components/shared/Toast';
+import { getAgendamentos, atualizarAgendamento } from '../services/agendaService';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
 import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal';
 
@@ -261,6 +262,7 @@ export default function Arquivos() {
   const [expandVenc, setExpandVenc]                 = useState(true);
   const [clientePerfil, setClientePerfil]           = useState(null);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
+  const [sortOrder, setSortOrder]     = useState('recente');
 
   const loadArquivos = useCallback(async () => {
     setLoading(true);
@@ -304,11 +306,18 @@ export default function Arquivos() {
     loadVencimentos();
   }, []);
 
-  // Filtros
-  const filteredFiles = arquivos.filter(f => {
-    const name = (f.nome || f.filename || '').toLowerCase();
-    return name.includes(searchTerm.toLowerCase()) && matchesTipo(f, filtroTipo);
-  });
+  // Filtros + Ordenação
+  const filteredFiles = useMemo(() => {
+    let lista = arquivos.filter(f => {
+      const name = (f.nome || f.filename || '').toLowerCase();
+      return name.includes(searchTerm.toLowerCase()) && matchesTipo(f, filtroTipo);
+    });
+    if (sortOrder === 'recente') lista.sort((a, b) => (b.data_modificacao || b.data || '').localeCompare(a.data_modificacao || a.data || ''));
+    if (sortOrder === 'antigo')  lista.sort((a, b) => (a.data_modificacao || a.data || '').localeCompare(b.data_modificacao || b.data || ''));
+    if (sortOrder === 'az')      lista.sort((a, b) => (a.nome || a.filename || '').localeCompare(b.nome || b.filename || ''));
+    if (sortOrder === 'za')      lista.sort((a, b) => (b.nome || b.filename || '').localeCompare(a.nome || a.filename || ''));
+    return lista;
+  }, [arquivos, searchTerm, filtroTipo, sortOrder]);
 
   const counts = {
     all:       arquivos.length,
@@ -328,6 +337,17 @@ export default function Arquivos() {
       await api.post('/api/arquivo/excluir', { caminho: caminho || filename });
       addToast('Arquivo excluído', 'success');
       loadArquivos();
+
+      // Marcar evento correspondente na Agenda como deletado
+      try {
+        const numMatch = (filename || '').match(/(\d{3,})/);
+        if (numMatch) {
+          const num = numMatch[1];
+          const eventos = getAgendamentos();
+          const alvo = eventos.find(e => e.numeroDoc && String(e.numeroDoc).includes(num));
+          if (alvo) atualizarAgendamento(alvo.id, { deletado: true });
+        }
+      } catch { /* silencioso — não bloqueia exclusão */ }
     } catch {
       addToast('Erro ao excluir arquivo', 'error');
     } finally {
@@ -579,11 +599,26 @@ export default function Arquivos() {
             </button>
           ))}
         </div>
-        <div className="relative max-w-sm w-full">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Filtrar arquivos..."
-            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative max-w-sm w-full">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Filtrar arquivos..."
+              className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <ArrowUpDown size={14} className="text-slate-400" />
+            <select
+              value={sortOrder}
+              onChange={e => setSortOrder(e.target.value)}
+              className="text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="recente">Mais Recentes</option>
+              <option value="antigo">Mais Antigos</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+          </div>
         </div>
       </div>
 

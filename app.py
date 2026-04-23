@@ -3259,16 +3259,27 @@ def api_vencimentos_garantia():
                 _cfg = json.load(_f)
             pasta_principal = _cfg.get('principal', '').strip()
 
-        pasta_laudos = (Path(pasta_principal) / 'Laudos') if pasta_principal and Path(pasta_principal).exists() else (OUTPUT_DIR / 'Laudos')
+        # Montar lista de pastas a escanear (principal configurada + fallback output/)
+        pastas_a_escanear = []
+        if pasta_principal and Path(pasta_principal).exists():
+            p = Path(pasta_principal) / 'Laudos'
+            if p not in pastas_a_escanear:
+                pastas_a_escanear.append(p)
+        fallback = OUTPUT_DIR / 'Laudos'
+        if fallback not in pastas_a_escanear:
+            pastas_a_escanear.append(fallback)
 
         hoje = datetime.now().date()
         janela_passado = hoje - timedelta(days=dias_janela)
         janela_futuro  = hoje + timedelta(days=dias_janela)
 
         resultado = []
+        vistos = set()  # evitar duplicatas pelo laudoNumero
 
-        if pasta_laudos.exists():
-            for sidecar in pasta_laudos.glob('*.json'):
+        for pasta_laudos in pastas_a_escanear:
+          if not pasta_laudos.exists():
+            continue
+          for sidecar in pasta_laudos.glob('*.json'):
                 try:
                     with open(sidecar, 'r', encoding='utf-8') as _sf:
                         meta = json.load(_sf)
@@ -3302,20 +3313,28 @@ def api_vencimentos_garantia():
                     if not (janela_passado <= data_venc <= janela_futuro):
                         continue
 
-                    cliente = fd.get('cliente', {})
-                    pragas  = fd.get('selectedPests', [])
+                    cliente      = fd.get('cliente', {})
+                    pragas       = fd.get('selectedPests', [])
+                    laudo_numero = fd.get('laudoNumero', '')
+
+                    # Deduplicar pelo número do laudo (evita duplicatas entre pastas)
+                    if laudo_numero and laudo_numero in vistos:
+                        continue
+                    if laudo_numero:
+                        vistos.add(laudo_numero)
 
                     resultado.append({
                         'nome_cliente':    cliente.get('nome', '') or cliente.get('fantasia', '') or '(sem nome)',
                         'fantasia':        cliente.get('fantasia', ''),
                         'cnpj':            cliente.get('cnpj', ''),
+                        'telefone':        cliente.get('telefone', ''),
                         'endereco':        cliente.get('endereco', ''),
                         'pragas':          pragas,
                         'data_execucao':   data_exec_str,
                         'garanti_meses':   int(garanti),
                         'data_vencimento': data_venc.strftime('%d/%m/%Y'),
                         'dias_restantes':  (data_venc - hoje).days,
-                        'laudo_numero':    fd.get('laudoNumero', ''),
+                        'laudo_numero':    laudo_numero,
                         'caminho_pdf':     str(sidecar.with_suffix('.pdf')),
                     })
                 except Exception:

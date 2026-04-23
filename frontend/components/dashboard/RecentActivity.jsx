@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, FileText, User, Receipt, CreditCard, Eye } from 'lucide-react';
-import { fetchAtividadesRecentes } from '../../services/api';
+import { Clock, FileText, User, Receipt, CreditCard, Eye, Wrench, Bug } from 'lucide-react';
+import { getAgendamentos } from '../../services/agendaService';
 
 const typeConfig = {
-  documento: { icon: FileText, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  cliente: { icon: User, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
-  recibo: { icon: Receipt, color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-900/30' },
-  boleto: { icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  laudo:     { icon: Bug,      color: 'text-blue-500',    bg: 'bg-blue-100 dark:bg-blue-900/30'    },
+  recibo:    { icon: Receipt,  color: 'text-purple-500',  bg: 'bg-purple-100 dark:bg-purple-900/30' },
+  orcamento: { icon: FileText, color: 'text-amber-500',   bg: 'bg-amber-100 dark:bg-amber-900/30'  },
+  servico:   { icon: Wrench,   color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  documento: { icon: FileText, color: 'text-blue-500',    bg: 'bg-blue-100 dark:bg-blue-900/30'    },
+  cliente:   { icon: User,     color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
 };
 
 function timeAgo(dateStr) {
@@ -26,13 +28,23 @@ export default function RecentActivity({ onPreview }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAtividadesRecentes()
-      .then(data => setActivities(Array.isArray(data) ? data : data.atividades || []))
-      .catch(() => {
-        // Fallback com dados mockados se API ainda nao existe
-        setActivities([]);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const TIPO_LABEL = { laudo: 'Laudo', recibo: 'Recibo', orcamento: 'Orçamento', servico: 'Serviço' };
+      const eventos = getAgendamentos()
+        .sort((a, b) => (b.criadoEm || b.data || '').localeCompare(a.criadoEm || a.data || ''))
+        .slice(0, 8)
+        .map(e => ({
+          id:       e.id,
+          tipo:     e.tipo,
+          descricao: `${TIPO_LABEL[e.tipo] || e.tipo} — ${e.clienteNome || e.clienteFantasia || 'Cliente'}`,
+          data:     e.criadoEm || e.data,
+        }));
+      setActivities(eventos);
+    } catch {
+      setActivities([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   return (
