@@ -2,10 +2,9 @@
  * Clientes — CRUD de clientes via localStorage (clienteCache.js)
  *
  * Features:
- * - Listagem com busca em tempo real
- * - Adicionar / Editar / Excluir cliente
- * - Deep link → Documentos: botões "Laudo / Recibo / Orçamento"
- * - Deep link → Agenda: botão "Agenda"
+ * - Modal com autofill de CNPJ via Brasil API (14 dígitos) + máscara CPF/CNPJ
+ * - Filtros avançados: Mais Recentes | A-Z | Garantias a Vencer | Últimos Serviços
+ * - Deep links → Documentos e Agenda
  */
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -13,8 +12,28 @@ import {
   Users, Plus, Search, X, Pencil, Trash2,
   CalendarDays, Receipt, Calculator,
   Phone, Mail, MapPin, Building2, ChevronDown, ChevronUp, Bug,
+  Loader2, CheckCircle2, AlertCircle, SortAsc, Clock, Bell, ArrowUpDown,
 } from 'lucide-react';
 import { getClientes, saveCliente, removeCliente } from '../services/clienteCache';
+import { buscarCNPJ } from '../services/brasilApi';
+import { getServicos } from '../services/agendaService';
+import { api } from '../services/api';
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function formatDoc(value) {
+  const d = value.replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 11) {
+    // CPF: 000.000.000-00
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+    return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+  }
+  // CNPJ: 00.000.000/0000-00
+  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
 
 // ─── Modal de formulário ──────────────────────────────────────────────────────
 
@@ -24,8 +43,39 @@ const emptyForm = {
 };
 
 function ClienteModal({ cliente, onSalvar, onClose }) {
-  const [form, setForm] = useState(cliente ? { ...emptyForm, ...cliente } : { ...emptyForm });
+  const [form, setForm]           = useState(cliente ? { ...emptyForm, ...cliente } : { ...emptyForm });
+  const [cnpjStatus, setCnpjStatus] = useState(null); // null | 'loading' | 'ok' | 'erro'
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
+
+  // Autofill via Brasil API ao completar 14 dígitos
+  useEffect(() => {
+    const digits = (form.cnpj || '').replace(/\D/g, '');
+    if (digits.length !== 14) { setCnpjStatus(null); return; }
+
+    let cancelled = false;
+    setCnpjStatus('loading');
+    buscarCNPJ(digits)
+      .then(data => {
+        if (cancelled) return;
+        if (data && data.nome) {
+          setForm(prev => ({
+            ...prev,
+            nome:      data.nome      || prev.nome,
+            fantasia:  data.fantasia  || prev.fantasia,
+            endereco:  data.endereco  || prev.endereco,
+            telefone:  data.telefone  || prev.telefone,
+            atividade: data.atividade || prev.atividade,
+            email:     data.email     || prev.email,
+          }));
+          setCnpjStatus('ok');
+        } else {
+          setCnpjStatus('erro');
+        }
+      })
+      .catch(() => { if (!cancelled) setCnpjStatus('erro'); });
+
+    return () => { cancelled = true; };
+  }, [form.cnpj]);
 
   const labelCls = 'block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide';
   const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition';
@@ -42,10 +92,10 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
           <h2 className="font-bold text-slate-800 dark:text-white">
             {cliente ? 'Editar Cliente' : 'Novo Cliente'}
           </h2>
@@ -56,6 +106,45 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
+
+            {/* CNPJ / CPF — com máscara e autofill */}
+            <div className="col-span-2">
+              <label className={labelCls}>CNPJ / CPF</label>
+              <div className="relative">
+                <input
+                  value={form.cnpj}
+                  onChange={e => set('cnpj', formatDoc(e.target.value))}
+                  className={inputCls}
+                  placeholder="Digite o CNPJ (14 dígitos) ou CPF (11 dígitos)"
+                  inputMode="numeric"
+                />
+                {cnpjStatus === 'loading' && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 size={15} className="animate-spin text-brand-500" />
+                  </div>
+                )}
+                {cnpjStatus === 'ok' && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <CheckCircle2 size={15} className="text-emerald-500" />
+                  </div>
+                )}
+                {cnpjStatus === 'erro' && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <AlertCircle size={15} className="text-red-400" />
+                  </div>
+                )}
+              </div>
+              {cnpjStatus === 'loading' && (
+                <p className="text-[11px] text-brand-500 mt-1">Buscando CNPJ na Receita Federal...</p>
+              )}
+              {cnpjStatus === 'ok' && (
+                <p className="text-[11px] text-emerald-600 mt-1">✓ Dados preenchidos automaticamente</p>
+              )}
+              {cnpjStatus === 'erro' && (
+                <p className="text-[11px] text-red-400 mt-1">CNPJ não encontrado — preencha manualmente</p>
+              )}
+            </div>
+
             <div className="col-span-2">
               <label className={labelCls}>Razão Social *</label>
               <input
@@ -71,14 +160,10 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
               <input value={form.fantasia} onChange={e => set('fantasia', e.target.value)} className={inputCls} placeholder="Ex: Padaria do João" />
             </div>
             <div>
-              <label className={labelCls}>CNPJ / CPF</label>
-              <input value={form.cnpj} onChange={e => set('cnpj', e.target.value)} className={inputCls} placeholder="00.000.000/0000-00" />
-            </div>
-            <div>
               <label className={labelCls}>Telefone</label>
-              <input value={form.telefone} onChange={e => set('telefone', e.target.value)} className={inputCls} placeholder="(11) 9 9999-9999" />
+              <input value={form.telefone} onChange={e => set('telefone', e.target.value)} className={inputCls} placeholder="(37) 9 9999-9999" />
             </div>
-            <div>
+            <div className="col-span-2">
               <label className={labelCls}>E-mail</label>
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={inputCls} placeholder="contato@empresa.com" />
             </div>
@@ -114,13 +199,27 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
 // ─── Card do cliente ──────────────────────────────────────────────────────────
 
-function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda }) {
+function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, alertaGarantia }) {
   const [expandido, setExpandido] = useState(false);
   const iniciais = (cliente.nome || '?')
     .split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-md transition-shadow ${
+      alertaGarantia ? 'border-orange-300 dark:border-orange-600' : 'border-slate-200 dark:border-slate-700'
+    }`}>
+
+      {/* Badge de garantia */}
+      {alertaGarantia && (
+        <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
+          <Bell size={11} className="text-orange-500" />
+          <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
+            Garantia vence em {alertaGarantia.dias_restantes < 0
+              ? `${Math.abs(alertaGarantia.dias_restantes)} dias (vencida)`
+              : `${alertaGarantia.dias_restantes} dias`}
+          </span>
+        </div>
+      )}
 
       {/* Cabeçalho */}
       <div className="flex items-start gap-4 p-4">
@@ -201,14 +300,54 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda }) 
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
+const ORDENACOES = [
+  { value: 'recente',  label: 'Mais Recentes', icon: Clock   },
+  { value: 'az',       label: 'A–Z',           icon: SortAsc },
+  { value: 'garantia', label: 'Garantias',     icon: Bell    },
+  { value: 'servico',  label: 'Últ. Serviço',  icon: ArrowUpDown },
+];
+
 export default function Clientes() {
   const navigate = useNavigate();
-  const [clientes, setClientes] = useState([]);
-  const [busca, setBusca]       = useState('');
-  const [modal, setModal]       = useState(null); // null | 'novo' | objeto cliente
+  const [clientes, setClientes]       = useState([]);
+  const [busca, setBusca]             = useState('');
+  const [ordenacao, setOrdenacao]     = useState('recente');
+  const [modal, setModal]             = useState(null);
+  const [vencimentos, setVencimentos] = useState([]);
+  const [servicos, setServicos]       = useState([]);
 
   const recarregar = () => setClientes(getClientes());
-  useEffect(() => { recarregar(); }, []);
+
+  useEffect(() => {
+    recarregar();
+    // Carregar dados para os filtros cruzados
+    api.get('/api/documentos/vencimentos?dias=60')
+      .then(r => setVencimentos(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    setServicos(getServicos().filter(s => s.status === 'Concluído'));
+  }, []);
+
+  // Mapa CNPJ → item de vencimento mais próximo
+  const mapaGarantias = useMemo(() => {
+    const m = {};
+    vencimentos.forEach(v => {
+      const k = (v.cnpj || '').replace(/\D/g, '');
+      if (!k) return;
+      if (!m[k] || v.dias_restantes < m[k].dias_restantes) m[k] = v;
+    });
+    return m;
+  }, [vencimentos]);
+
+  // Mapa CNPJ → data do último serviço concluído
+  const mapaServico = useMemo(() => {
+    const m = {};
+    servicos.forEach(s => {
+      const k = (s.clienteCnpj || '').replace(/\D/g, '');
+      if (!k) return;
+      if (!m[k] || s.data > m[k]) m[k] = s.data;
+    });
+    return m;
+  }, [servicos]);
 
   const clientesFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -220,6 +359,34 @@ export default function Clientes() {
       (qNum && (c.cnpj || '').replace(/\D/g, '').includes(qNum))
     );
   }, [clientes, busca]);
+
+  const clientesOrdenados = useMemo(() => {
+    let lista = [...clientesFiltrados];
+
+    if (ordenacao === 'az') {
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+    } else if (ordenacao === 'garantia') {
+      // Filtrar apenas os que têm garantia vencendo em ±60 dias
+      const cnpjsComGarantia = new Set(
+        Object.keys(mapaGarantias).filter(k => mapaGarantias[k].dias_restantes <= 30)
+      );
+      lista = lista.filter(c => cnpjsComGarantia.has((c.cnpj || '').replace(/\D/g, '')));
+      // Ordenar pelos que vencem mais cedo primeiro
+      lista.sort((a, b) => {
+        const da = mapaGarantias[(a.cnpj || '').replace(/\D/g, '')]?.dias_restantes ?? 9999;
+        const db = mapaGarantias[(b.cnpj || '').replace(/\D/g, '')]?.dias_restantes ?? 9999;
+        return da - db;
+      });
+    } else if (ordenacao === 'servico') {
+      lista.sort((a, b) => {
+        const da = mapaServico[(a.cnpj || '').replace(/\D/g, '')] || '';
+        const db = mapaServico[(b.cnpj || '').replace(/\D/g, '')] || '';
+        return db.localeCompare(da); // mais recente primeiro
+      });
+    }
+    // 'recente' → ordem do getClientes() (lastUsed desc)
+    return lista;
+  }, [clientesFiltrados, ordenacao, mapaGarantias, mapaServico]);
 
   const handleSalvar = (form) => {
     saveCliente(form);
@@ -233,13 +400,10 @@ export default function Clientes() {
     recarregar();
   };
 
-  const handleGerarDoc = (cliente, tab) => {
-    navigate('/documentos', { state: { cliente, tab } });
-  };
+  const handleGerarDoc = (cliente, tab) => navigate('/documentos', { state: { cliente, tab } });
+  const handleVerAgenda = (cliente)      => navigate('/agenda',    { state: { cliente } });
 
-  const handleVerAgenda = (cliente) => {
-    navigate('/agenda', { state: { cliente } });
-  };
+  const totalGarantias = Object.values(mapaGarantias).filter(v => v.dias_restantes <= 30).length;
 
   return (
     <div className="space-y-5">
@@ -252,7 +416,12 @@ export default function Clientes() {
             Clientes
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} cadastrado{clientes.length !== 1 ? 's' : ''}
+            {clientes.length} cliente{clientes.length !== 1 ? 's' : ''}
+            {totalGarantias > 0 && (
+              <span className="ml-2 text-orange-500 font-medium">
+                · {totalGarantias} com garantia vencendo
+              </span>
+            )}
           </p>
         </div>
         <button
@@ -263,38 +432,69 @@ export default function Clientes() {
         </button>
       </div>
 
-      {/* Busca */}
-      <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        <input
-          type="text"
-          value={busca}
-          onChange={e => setBusca(e.target.value)}
-          placeholder="Buscar por nome, fantasia ou CNPJ..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition"
-        />
-        {busca && (
-          <button onClick={() => setBusca('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
-            <X size={14} />
-          </button>
-        )}
+      {/* Busca + Ordenação */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por nome, fantasia ou CNPJ..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition"
+          />
+          {busca && (
+            <button onClick={() => setBusca('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Botões de ordenação */}
+        <div className="flex gap-1.5 flex-wrap">
+          {ORDENACOES.map(o => {
+            const Icon = o.icon;
+            const ativo = ordenacao === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => setOrdenacao(o.value)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition border ${
+                  ativo
+                    ? o.value === 'garantia'
+                      ? 'bg-orange-500 border-orange-500 text-white'
+                      : 'bg-brand-500 border-brand-500 text-white'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-brand-300'
+                }`}
+              >
+                <Icon size={12} />
+                {o.label}
+                {o.value === 'garantia' && totalGarantias > 0 && (
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    ativo ? 'bg-white/30 text-white' : 'bg-orange-100 text-orange-600'
+                  }`}>{totalGarantias}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Lista */}
-      {clientesFiltrados.length === 0 ? (
+      {clientesOrdenados.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
             <Users size={28} className="text-slate-400" />
           </div>
           <p className="font-bold text-slate-600 dark:text-slate-300">
-            {busca ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
+            {ordenacao === 'garantia'
+              ? 'Nenhum cliente com garantia vencendo nos próximos 30 dias'
+              : busca ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
           </p>
           <p className="text-sm text-slate-400 mt-1">
-            {busca
-              ? 'Tente outros termos de busca.'
-              : 'Clique em "Novo Cliente" para começar.'}
+            {!busca && ordenacao !== 'garantia' && 'Clique em "Novo Cliente" para começar.'}
           </p>
-          {!busca && (
+          {!busca && ordenacao === 'recente' && (
             <p className="text-xs text-slate-400 mt-2">
               Dica: ao salvar documentos (laudos, recibos, orçamentos) o cliente é salvo automaticamente aqui.
             </p>
@@ -302,16 +502,21 @@ export default function Clientes() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {clientesFiltrados.map((c, i) => (
-            <ClienteCard
-              key={c.cnpj || c.nome || i}
-              cliente={c}
-              onEditar={(cl) => setModal(cl)}
-              onExcluir={handleExcluir}
-              onGerarDoc={handleGerarDoc}
-              onVerAgenda={handleVerAgenda}
-            />
-          ))}
+          {clientesOrdenados.map((c, i) => {
+            const cnpjNum = (c.cnpj || '').replace(/\D/g, '');
+            const alerta  = cnpjNum ? mapaGarantias[cnpjNum] : null;
+            return (
+              <ClienteCard
+                key={c.cnpj || c.nome || i}
+                cliente={c}
+                alertaGarantia={alerta && alerta.dias_restantes <= 30 ? alerta : null}
+                onEditar={(cl) => setModal(cl)}
+                onExcluir={handleExcluir}
+                onGerarDoc={handleGerarDoc}
+                onVerAgenda={handleVerAgenda}
+              />
+            );
+          })}
         </div>
       )}
 

@@ -3248,8 +3248,10 @@ def get_metadados_documento():
 
 @app.route('/api/documentos/vencimentos', methods=['GET'])
 def api_vencimentos_garantia():
-    """Varre sidecars de Laudos e retorna garantias que vencem em ±30 dias"""
+    """Varre sidecars de Laudos e retorna garantias que vencem em ±N dias (padrão 30)"""
     try:
+        dias_janela = int(request.args.get('dias', 30))
+
         config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
         pasta_principal = None
         if config_duplos.exists():
@@ -3260,8 +3262,8 @@ def api_vencimentos_garantia():
         pasta_laudos = (Path(pasta_principal) / 'Laudos') if pasta_principal and Path(pasta_principal).exists() else (OUTPUT_DIR / 'Laudos')
 
         hoje = datetime.now().date()
-        janela_passado = hoje - timedelta(days=30)
-        janela_futuro  = hoje + timedelta(days=30)
+        janela_passado = hoje - timedelta(days=dias_janela)
+        janela_futuro  = hoje + timedelta(days=dias_janela)
 
         resultado = []
 
