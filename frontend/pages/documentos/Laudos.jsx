@@ -828,15 +828,13 @@ export default function Laudos() {
               <div className="text-[#254191] font-bold uppercase text-[10px]">
                 Detalhamento do Controle de Vetores e Pragas
               </div>
-              <div className="flex gap-4 text-[9px] font-bold text-gray-700 pb-0.5">
-                 <div className="flex items-center gap-1">
-                   <span className={`inline-block w-3 h-3 border border-blue-800 flex-shrink-0 ${getControlTypes().quimico ? 'bg-blue-800' : 'bg-white'}`} />
-                   <span className="uppercase">Controle Químico</span>
-                 </div>
-                 <div className="flex items-center gap-1">
-                   <span className={`inline-block w-3 h-3 border border-blue-800 flex-shrink-0 ${getControlTypes().naoQuimico ? 'bg-blue-800' : 'bg-white'}`} />
-                   <span className="uppercase">Controle Não Químico</span>
-                 </div>
+              <div className="flex gap-4 text-[9px] font-bold pb-0.5">
+                 <span className={getControlTypes().quimico ? 'text-blue-800' : 'text-gray-300'}>
+                   {getControlTypes().quimico ? '■' : '□'} <span className="uppercase">Controle Químico</span>
+                 </span>
+                 <span className={getControlTypes().naoQuimico ? 'text-blue-800' : 'text-gray-300'}>
+                   {getControlTypes().naoQuimico ? '■' : '□'} <span className="uppercase">Controle Não Químico</span>
+                 </span>
               </div>
             </div>
             
