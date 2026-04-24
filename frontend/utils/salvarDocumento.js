@@ -90,6 +90,20 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
               ].join(';');
               cloneInput.parentNode.replaceChild(span, cloneInput);
             });
+
+            // Fix: lucide-react SVGs têm width/height como atributos HTML, não CSS.
+            // html2canvas precisa de propriedades CSS explícitas para dimensionar SVGs
+            // corretamente. Sem isso, os ícones ficam desalinhados nos flex containers
+            // (items-center gap-X) quando o PDF é gerado via rasterização.
+            clonedEl.querySelectorAll('svg').forEach(svg => {
+              const w = svg.getAttribute('width');
+              const h = svg.getAttribute('height');
+              if (w) { svg.style.width    = `${w}px`; svg.style.minWidth  = `${w}px`; }
+              if (h) { svg.style.height   = `${h}px`; svg.style.minHeight = `${h}px`; }
+              svg.style.display      = 'inline-block';
+              svg.style.flexShrink   = '0';
+              svg.style.verticalAlign = 'middle';
+            });
           },
         });
       } finally {
