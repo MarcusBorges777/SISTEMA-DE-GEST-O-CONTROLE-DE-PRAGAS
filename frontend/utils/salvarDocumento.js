@@ -104,6 +104,14 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
               svg.style.flexShrink   = '0';
               svg.style.verticalAlign = 'middle';
             });
+
+            // Nudge: move textos marcados 1px para cima diretamente no clone do PDF.
+            // CSS (position/transform) não é confiável no html2canvas — aplicamos
+            // margin negativo aqui, onde temos controle total sobre o DOM capturado.
+            clonedEl.querySelectorAll('[data-pdf-nudge="up1"]').forEach(el => {
+              el.style.display   = 'inline-block';
+              el.style.marginTop = '-1px';
+            });
           },
         });
       } finally {
