@@ -696,8 +696,8 @@ export default function Laudos() {
 
   const renderClientSection = (className = "") => (
     <section className={`bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm ${className}`}>
-      <h3 className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
-        <Shield size={12} /><span data-pdf-nudge="up1">Cliente / Contratante</span>
+      <h3 className="text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
+        Cliente / Contratante
       </h3>
       <div className="text-[10px] space-y-1 text-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -825,21 +825,17 @@ export default function Laudos() {
 
           <section className="mb-4">
             <div className="flex justify-between items-end mb-2 border-b-2 border-blue-600 pb-1">
-              <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px]">
-                <Bug size={14} /><span data-pdf-nudge="up1">Detalhamento do Controle de Vetores e Pragas</span>
+              <div className="text-[#254191] font-bold uppercase text-[10px]">
+                Detalhamento do Controle de Vetores e Pragas
               </div>
               <div className="flex gap-4 text-[9px] font-bold text-gray-700 pb-0.5">
                  <div className="flex items-center gap-1">
-                   <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${getControlTypes().quimico ? 'bg-blue-800' : 'bg-white'}`}>
-                      {getControlTypes().quimico && <CheckCircle2 size={10} className="text-white" />}
-                   </div>
-                   <span className="uppercase" data-pdf-nudge="up1">Controle Químico</span>
+                   <span className={`inline-block w-3 h-3 border border-blue-800 flex-shrink-0 ${getControlTypes().quimico ? 'bg-blue-800' : 'bg-white'}`} />
+                   <span className="uppercase">Controle Químico</span>
                  </div>
                  <div className="flex items-center gap-1">
-                   <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${getControlTypes().naoQuimico ? 'bg-blue-800' : 'bg-white'}`}>
-                      {getControlTypes().naoQuimico && <CheckCircle2 size={10} className="text-white" />}
-                   </div>
-                   <span className="uppercase" data-pdf-nudge="up1">Controle Não Químico</span>
+                   <span className={`inline-block w-3 h-3 border border-blue-800 flex-shrink-0 ${getControlTypes().naoQuimico ? 'bg-blue-800' : 'bg-white'}`} />
+                   <span className="uppercase">Controle Não Químico</span>
                  </div>
               </div>
             </div>
@@ -993,8 +989,8 @@ export default function Laudos() {
           </div>
 
           <section className="mb-4 bg-blue-50/30 p-4 rounded-lg border border-blue-100 shadow-sm">
-            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 flex items-center gap-2 italic border-b border-blue-200 pb-1">
-              <Droplets size={12} /><span data-pdf-nudge="up1">Especificações do Serviço</span>
+            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 italic border-b border-blue-200 pb-1">
+              Especificações do Serviço
             </p>
             
             <div className="text-[9px] text-zinc-700 leading-tight"> 
@@ -1030,8 +1026,8 @@ export default function Laudos() {
           </section>
 
           <section className="mb-4 overflow-hidden">
-            <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
-              <ClipboardCheck size={14} /><span data-pdf-nudge="up1">Protocolo Técnico Operacional Realizado</span>
+            <div className="text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
+              Protocolo Técnico Operacional Realizado
             </div>
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-0">
@@ -1084,8 +1080,8 @@ export default function Laudos() {
           </div>
 
           <section className="mb-4 bg-blue-50/30 p-4 rounded-lg border border-blue-100 shadow-sm">
-            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 flex items-center gap-2 italic border-b border-blue-200 pb-1">
-              <Archive size={12} /><span data-pdf-nudge="up1">Especificações do Serviço</span>
+            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 italic border-b border-blue-200 pb-1">
+              Especificações do Serviço
             </p>
             
             <div className="text-[9px] text-zinc-700 leading-tight"> 
@@ -1129,8 +1125,8 @@ export default function Laudos() {
           </section>
 
           <section className="mb-4 overflow-hidden">
-            <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
-              <ClipboardCheck size={14} /><span data-pdf-nudge="up1">Protocolo Técnico Operacional Realizado</span>
+            <div className="text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
+              Protocolo Técnico Operacional Realizado
             </div>
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-0">

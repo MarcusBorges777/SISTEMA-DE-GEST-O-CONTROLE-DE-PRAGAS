@@ -34,15 +34,6 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
       const elW = pagina.offsetWidth  || pagina.scrollWidth;
       const elH = pagina.offsetHeight || pagina.scrollHeight;
 
-      // Aplicar nudge diretamente no DOM real antes da captura e restaurar depois.
-      // Mais confiável que onclone pois o html2canvas captura o que já está renderizado.
-      const nudgeEls = Array.from(pagina.querySelectorAll('[data-pdf-nudge="up1"]'));
-      const nudgeSaved = nudgeEls.map(el => el.style.cssText);
-      nudgeEls.forEach(el => {
-        el.style.display   = 'inline-block';
-        el.style.marginTop = '-1px';
-      });
-
       let canvas;
       try {
         canvas = await html2canvas(pagina, {
@@ -117,8 +108,7 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
           },
         });
       } finally {
-        // Restaurar estilos originais dos elementos com nudge
-        nudgeEls.forEach((el, i) => { el.style.cssText = nudgeSaved[i]; });
+        // onclone opera apenas no clone — nada para restaurar no DOM real
       }
 
       // Usar PNG para qualidade máxima (sem artefatos de compressão JPEG)
