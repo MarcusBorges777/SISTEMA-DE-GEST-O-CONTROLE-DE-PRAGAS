@@ -72,7 +72,7 @@ export default function Orcamentos() {
   const [perfilCliente, setPerfilCliente] = useState(null);
 
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
-  useEffect(() => { setClientesSalvos(getClientes()); }, []);
+  useEffect(() => { getClientes().then(setClientesSalvos).catch(() => {}); }, []);
 
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
   useEffect(() => {
@@ -154,7 +154,7 @@ export default function Orcamentos() {
             endereco: clientData.endereco },
           dataOrcamento,
           orcamentoNumero
-        );
+        ).catch(() => {});
         alert(`PDF salvo: ${result.nomeArquivo}`);
       } else alert(`Erro ao salvar: ${result.erro}`);
     } finally {
@@ -162,13 +162,13 @@ export default function Orcamentos() {
     }
   };
 
-  const handleSalvarCliente = () => {
+  const handleSalvarCliente = async () => {
     if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) return;
-    saveCliente({
+    await saveCliente({
       nome: clientData.nome, fantasia: clientData.fantasia,
       cnpj: clientData.cnpj, endereco: clientData.endereco, atividade: clientData.atividade,
     });
-    setClientesSalvos(getClientes());
+    getClientes().then(setClientesSalvos).catch(() => {});
   };
 
   const handlePrint = () => window.print();

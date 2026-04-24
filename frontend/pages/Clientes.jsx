@@ -10,16 +10,44 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Plus, Search, X, Pencil, Trash2,
-  CalendarDays, Receipt, Calculator,
+  CalendarDays, Receipt, Calculator, Wrench, FileText, TrendingUp,
   Phone, Mail, MapPin, Building2, ChevronDown, ChevronUp, Bug,
   Loader2, CheckCircle2, AlertCircle, SortAsc, Clock, Bell, ArrowUpDown,
 } from 'lucide-react';
 import { getClientes, saveCliente, removeCliente } from '../services/clienteCache';
 import { buscarCNPJ } from '../services/brasilApi';
 import { getAgendamentos } from '../services/agendaService';
-import { useVencimentos } from '../hooks/useVencimentos';
+import { api } from '../services/api';
+import { documentoApi } from '../services/dbService';
+import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+function fmtData(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }); }
+  catch { return iso.slice(0, 10); }
+}
+
+function fmtValor(v) {
+  if (v == null) return '';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+}
+
+const DOC_CFG = {
+  laudo:     { icon: Bug,        color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       label: 'Laudo'     },
+  recibo:    { icon: Receipt,    color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', label: 'Recibo'    },
+  orcamento: { icon: Calculator, color: 'text-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     label: 'Orçamento' },
+  servico:   { icon: Wrench,     color: 'text-purple-500',  bg: 'bg-purple-50 dark:bg-purple-900/20',   label: 'Serviço'   },
+};
+
+const STATUS_COR = {
+  'Agendado':     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  'Concluído':    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  'Cancelado':    'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+  'Emitido':      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  'Em Andamento': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+};
 
 function formatDoc(value) {
   const d = value.replace(/\D/g, '').slice(0, 14);
@@ -78,7 +106,7 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
   }, [form.cnpj]);
 
   const labelCls = 'block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide';
-  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all duration-150';
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -88,28 +116,19 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={cliente ? 'Editar cliente' : 'Novo cliente'}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-[backdropIn_0.2s_ease-out_both]"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto animate-[modalIn_0.22s_cubic-bezier(0.16,1,0.3,1)_both]"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
           <h2 className="font-bold text-slate-800 dark:text-white">
             {cliente ? 'Editar Cliente' : 'Novo Cliente'}
           </h2>
-          <button
-            onClick={onClose}
-            aria-label="Fechar modal"
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90
-              transition-all duration-150
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
-          >
-            <X size={16} aria-hidden="true" />
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            <X size={16} />
           </button>
         </div>
 
@@ -118,104 +137,84 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
             {/* CNPJ / CPF — com máscara e autofill */}
             <div className="col-span-2">
-              <label htmlFor="cli-cnpj" className={labelCls}>CNPJ / CPF</label>
+              <label className={labelCls}>CNPJ / CPF</label>
               <div className="relative">
                 <input
-                  id="cli-cnpj"
                   value={form.cnpj}
                   onChange={e => set('cnpj', formatDoc(e.target.value))}
                   className={inputCls}
                   placeholder="Digite o CNPJ (14 dígitos) ou CPF (11 dígitos)"
                   inputMode="numeric"
-                  autoComplete="off"
-                  aria-describedby="cli-cnpj-status"
                 />
                 {cnpjStatus === 'loading' && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2" aria-hidden="true">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <Loader2 size={15} className="animate-spin text-brand-500" />
                   </div>
                 )}
                 {cnpjStatus === 'ok' && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2" aria-hidden="true">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <CheckCircle2 size={15} className="text-emerald-500" />
                   </div>
                 )}
                 {cnpjStatus === 'erro' && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2" aria-hidden="true">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <AlertCircle size={15} className="text-red-400" />
                   </div>
                 )}
               </div>
-              <div id="cli-cnpj-status" aria-live="polite" aria-atomic="true">
-                {cnpjStatus === 'loading' && (
-                  <p className="text-[11px] text-brand-500 mt-1">Buscando CNPJ na Receita Federal...</p>
-                )}
-                {cnpjStatus === 'ok' && (
-                  <p className="text-[11px] text-emerald-600 mt-1">✓ Dados preenchidos automaticamente</p>
-                )}
-                {cnpjStatus === 'erro' && (
-                  <p className="text-[11px] text-red-400 mt-1">CNPJ não encontrado — preencha manualmente</p>
-                )}
-              </div>
+              {cnpjStatus === 'loading' && (
+                <p className="text-[11px] text-brand-500 mt-1">Buscando CNPJ na Receita Federal...</p>
+              )}
+              {cnpjStatus === 'ok' && (
+                <p className="text-[11px] text-emerald-600 mt-1">✓ Dados preenchidos automaticamente</p>
+              )}
+              {cnpjStatus === 'erro' && (
+                <p className="text-[11px] text-red-400 mt-1">CNPJ não encontrado — preencha manualmente</p>
+              )}
             </div>
 
             <div className="col-span-2">
-              <label htmlFor="cli-nome" className={labelCls}>
-                Razão Social <span className="text-red-400" aria-hidden="true">*</span>
-              </label>
+              <label className={labelCls}>Razão Social *</label>
               <input
-                id="cli-nome"
                 required
-                aria-required="true"
                 value={form.nome}
                 onChange={e => set('nome', e.target.value)}
                 className={inputCls}
                 placeholder="Nome completo / Razão Social"
-                autoComplete="organization"
               />
             </div>
             <div>
-              <label htmlFor="cli-fantasia" className={labelCls}>Nome Fantasia</label>
-              <input id="cli-fantasia" value={form.fantasia} onChange={e => set('fantasia', e.target.value)} className={inputCls} placeholder="Ex: Padaria do João" />
+              <label className={labelCls}>Nome Fantasia</label>
+              <input value={form.fantasia} onChange={e => set('fantasia', e.target.value)} className={inputCls} placeholder="Ex: Padaria do João" />
             </div>
             <div>
-              <label htmlFor="cli-telefone" className={labelCls}>Telefone</label>
-              <input id="cli-telefone" type="tel" autoComplete="tel" value={form.telefone} onChange={e => set('telefone', e.target.value)} className={inputCls} placeholder="(37) 9 9999-9999" />
+              <label className={labelCls}>Telefone</label>
+              <input value={form.telefone} onChange={e => set('telefone', e.target.value)} className={inputCls} placeholder="(37) 9 9999-9999" />
             </div>
             <div className="col-span-2">
-              <label htmlFor="cli-email" className={labelCls}>E-mail</label>
-              <input id="cli-email" type="email" autoComplete="email" value={form.email} onChange={e => set('email', e.target.value)} className={inputCls} placeholder="contato@empresa.com" />
+              <label className={labelCls}>E-mail</label>
+              <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={inputCls} placeholder="contato@empresa.com" />
             </div>
             <div className="col-span-2">
-              <label htmlFor="cli-endereco" className={labelCls}>Endereço</label>
-              <input id="cli-endereco" autoComplete="street-address" value={form.endereco} onChange={e => set('endereco', e.target.value)} className={inputCls} placeholder="Rua, número, bairro, cidade" />
+              <label className={labelCls}>Endereço</label>
+              <input value={form.endereco} onChange={e => set('endereco', e.target.value)} className={inputCls} placeholder="Rua, número, bairro, cidade" />
             </div>
             <div className="col-span-2">
-              <label htmlFor="cli-atividade" className={labelCls}>Atividade / Segmento</label>
-              <input id="cli-atividade" value={form.atividade} onChange={e => set('atividade', e.target.value)} className={inputCls} placeholder="Ex: Restaurante, Escola, Residência" />
+              <label className={labelCls}>Atividade / Segmento</label>
+              <input value={form.atividade} onChange={e => set('atividade', e.target.value)} className={inputCls} placeholder="Ex: Restaurante, Escola, Residência" />
             </div>
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600
-                text-sm font-medium text-slate-600 dark:text-slate-300
-                hover:bg-slate-50 dark:hover:bg-slate-700
-                active:scale-[0.97]
-                transition-all duration-150
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
+              type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold
-                hover:bg-brand-600
-                active:scale-[0.97]
-                transition-all duration-150
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/50"
+              className="flex-1 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition"
             >
               {cliente ? 'Salvar Alterações' : 'Adicionar Cliente'}
             </button>
@@ -228,10 +227,40 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
 // ─── Card do cliente ──────────────────────────────────────────────────────────
 
-function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, alertaGarantia }) {
-  const [expandido, setExpandido] = useState(false);
-  const iniciais = (cliente.nome || '?')
-    .split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, onVerPerfil, alertaGarantia, servicos = [] }) {
+  const [expandido, setExpandido]       = useState(false);
+  const [docs, setDocs]                 = useState([]);
+  const [docsCarregados, setDocsCarregados] = useState(false);
+
+  const iniciais   = (cliente.nome || '?').split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+  const cnpjDigits = (cliente.cnpj || '').replace(/\D/g, '');
+  const hoje       = new Date().toISOString().slice(0, 10);
+
+  // Lazy-load documentos ao abrir pela primeira vez
+  useEffect(() => {
+    if (!expandido || docsCarregados) return;
+    if (!cliente.id) { setDocsCarregados(true); return; }
+    documentoApi.getAll(cliente.id)
+      .then(data => setDocs(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setDocsCarregados(true));
+  }, [expandido, cliente.id, docsCarregados]);
+
+  // Agenda deste cliente filtrada e ordenada (próximos primeiro, depois mais recentes)
+  const agendaCliente = servicos
+    .filter(s => cnpjDigits && (s.clienteCnpj || '').replace(/\D/g, '') === cnpjDigits)
+    .sort((a, b) => {
+      const af = (a.data || '') >= hoje, bf = (b.data || '') >= hoje;
+      if (af && !bf) return -1;
+      if (!af && bf) return 1;
+      return af
+        ? (a.data || '').localeCompare(b.data || '')
+        : (b.data || '').localeCompare(a.data || '');
+    });
+
+  const totalFaturado = docs
+    .filter(d => d.tipo === 'recibo' && d.valor != null)
+    .reduce((acc, d) => acc + (d.valor || 0), 0);
 
   return (
     <div className={`bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-md transition-shadow ${
@@ -243,131 +272,203 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, al
         <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
           <Bell size={11} className="text-orange-500" />
           <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
-            Garantia vence em {alertaGarantia.dias_restantes < 0
-              ? `${Math.abs(alertaGarantia.dias_restantes)} dias (vencida)`
-              : `${alertaGarantia.dias_restantes} dias`}
+            Garantia {alertaGarantia.dias_restantes < 0
+              ? `vencida há ${Math.abs(alertaGarantia.dias_restantes)} dias`
+              : `vence em ${alertaGarantia.dias_restantes} dias`}
           </span>
         </div>
       )}
 
       {/* Cabeçalho */}
       <div className="flex items-start gap-4 p-4">
-        <div className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+        <button
+          onClick={() => onVerPerfil(cliente)}
+          title="Ver perfil completo"
+          className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0 hover:bg-brand-200 dark:hover:bg-brand-800/50 transition"
+        >
           <span className="text-brand-600 dark:text-brand-400 font-bold text-sm">{iniciais}</span>
-        </div>
+        </button>
 
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate">{cliente.nome}</p>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onVerPerfil(cliente)}>
+          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate hover:text-brand-600 dark:hover:text-brand-400 transition-colors">{cliente.nome}</p>
           {cliente.fantasia && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{cliente.fantasia}</p>}
           {cliente.cnpj     && <p className="text-xs font-mono text-slate-400 mt-0.5">{cliente.cnpj}</p>}
         </div>
 
         <div className="flex gap-1 shrink-0">
-          <button
-            onClick={() => onEditar(cliente)}
-            aria-label={`Editar cliente ${cliente.nome}`}
-            className="w-8 h-8 rounded-lg flex items-center justify-center
-              text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30
-              active:scale-90 transition-all duration-150
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
-          >
-            <Pencil size={14} aria-hidden="true" />
+          <button onClick={() => onEditar(cliente)} title="Editar"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
+            <Pencil size={14} />
           </button>
-          <button
-            onClick={() => onExcluir(cliente)}
-            aria-label={`Excluir cliente ${cliente.nome}`}
-            className="w-8 h-8 rounded-lg flex items-center justify-center
-              text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30
-              active:scale-90 transition-all duration-150
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
-          >
-            <Trash2 size={14} aria-hidden="true" />
+          <button onClick={() => onExcluir(cliente)} title="Excluir"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition">
+            <Trash2 size={14} />
           </button>
-          <button
-            onClick={() => setExpandido(p => !p)}
-            aria-label={expandido ? `Recolher detalhes de ${cliente.nome}` : `Ver detalhes de ${cliente.nome}`}
-            aria-expanded={expandido}
-            className="w-8 h-8 rounded-lg flex items-center justify-center
-              text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700
-              active:scale-90 transition-all duration-150
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40"
-          >
-            {expandido ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+          <button onClick={() => setExpandido(p => !p)} title={expandido ? 'Recolher' : 'Ver detalhes'}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            {expandido ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
       </div>
 
-      {/* Detalhes */}
+      {/* ── Seção expandida ─────────────────────────────────────────────── */}
       {expandido && (
-        <div className="px-4 pb-3 space-y-1.5 border-t border-slate-100 dark:border-slate-700 pt-3">
-          {cliente.telefone && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Phone size={12} /> {cliente.telefone}
+        <div className="border-t border-slate-100 dark:border-slate-700">
+
+          {/* Contatos */}
+          {(cliente.telefone || cliente.email || cliente.endereco || cliente.atividade) && (
+            <div className="px-4 py-3 space-y-1 border-b border-slate-50 dark:border-slate-700/50">
+              {cliente.telefone && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Phone size={11} className="shrink-0" /> {cliente.telefone}
+                </div>
+              )}
+              {cliente.email && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Mail size={11} className="shrink-0" />
+                  <a href={`mailto:${cliente.email}`} className="hover:text-blue-500 transition-colors truncate">{cliente.email}</a>
+                </div>
+              )}
+              {cliente.endereco && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <MapPin size={11} className="shrink-0" /> <span className="truncate">{cliente.endereco}</span>
+                </div>
+              )}
+              {cliente.atividade && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 italic">
+                  <Building2 size={11} className="shrink-0" /> {cliente.atividade}
+                </div>
+              )}
             </div>
           )}
-          {cliente.email && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Mail size={12} /> {cliente.email}
+
+          {/* Documentos emitidos */}
+          <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50">
+            <div className="flex items-center gap-1.5 mb-2">
+              <FileText size={11} className="text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Documentos Emitidos</span>
+            </div>
+
+            {!docsCarregados ? (
+              <div className="flex gap-1.5 py-1">
+                {[1,2,3].map(i => <div key={i} className="h-2 rounded bg-slate-100 dark:bg-slate-700 animate-pulse flex-1" />)}
+              </div>
+            ) : docs.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic">
+                {!cliente.id ? 'Salve um PDF para este cliente para ver o histórico.' : 'Nenhum documento emitido ainda.'}
+              </p>
+            ) : (() => {
+              const recibos    = docs.filter(d => d.tipo === 'recibo');
+              const orcamentos = docs.filter(d => d.tipo === 'orcamento');
+              const totalRec   = recibos.reduce((s, d) => s + (d.valor || 0), 0);
+              const totalOrc   = orcamentos.reduce((s, d) => s + (d.valor || 0), 0);
+              const DocRow = ({ doc }) => (
+                <div className="flex items-center gap-2 py-0.5">
+                  <span className="text-[10px] font-mono text-slate-400 shrink-0">{fmtData(doc.dataCriacao)}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 flex-1">{doc.numero ? `#${doc.numero}` : '—'}</span>
+                  {doc.valor != null && (
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">{fmtValor(doc.valor)}</span>
+                  )}
+                </div>
+              );
+              return (
+                <div className="space-y-3">
+                  {recibos.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <Receipt size={10} className="text-emerald-500" />
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Recibos ({recibos.length})</span>
+                        </div>
+                        {totalRec > 0 && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalRec)}</span>}
+                      </div>
+                      <div className="pl-2 border-l-2 border-emerald-100 dark:border-emerald-900/50 space-y-0.5">
+                        {recibos.map(doc => <DocRow key={doc.id} doc={doc} />)}
+                      </div>
+                    </div>
+                  )}
+                  {orcamentos.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <Calculator size={10} className="text-amber-500" />
+                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Orçamentos ({orcamentos.length})</span>
+                        </div>
+                        {totalOrc > 0 && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{fmtValor(totalOrc)}</span>}
+                      </div>
+                      <div className="pl-2 border-l-2 border-amber-100 dark:border-amber-900/50 space-y-0.5">
+                        {orcamentos.map(doc => <DocRow key={doc.id} doc={doc} />)}
+                      </div>
+                    </div>
+                  )}
+                  {totalFaturado > 0 && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                        <TrendingUp size={11} /> Total faturado (recibos)
+                      </div>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalFaturado)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Agenda do cliente */}
+          {agendaCliente.length > 0 && (
+            <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50">
+              <div className="flex items-center gap-1.5 mb-2">
+                <CalendarDays size={11} className="text-slate-400" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agenda</span>
+                <span className="text-[10px] text-slate-400">({agendaCliente.length})</span>
+              </div>
+              <div className="space-y-1.5">
+                {agendaCliente.slice(0, 4).map((ev, i) => {
+                  const cfg = DOC_CFG[ev.tipo] || DOC_CFG.laudo;
+                  const Icon = cfg.icon;
+                  const statusCls = STATUS_COR[ev.status] || 'bg-slate-100 text-slate-500';
+                  const isFuturo = (ev.data || '') >= hoje;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-md ${cfg.bg} flex items-center justify-center shrink-0`}>
+                        <Icon size={11} className={cfg.color} />
+                      </div>
+                      <span className={`text-[10px] font-mono shrink-0 ${isFuturo ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-400'}`}>
+                        {ev.data}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 flex-1 truncate">
+                        {cfg.label}{ev.tipoServico ? ` · ${ev.tipoServico}` : ''}
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${statusCls}`}>
+                        {ev.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
-          {cliente.endereco && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <MapPin size={12} /> <span className="truncate">{cliente.endereco}</span>
-            </div>
-          )}
-          {cliente.atividade && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Building2 size={12} /> {cliente.atividade}
-            </div>
-          )}
+
         </div>
       )}
 
       {/* Ações rápidas */}
-      <div className="flex gap-1.5 px-4 pb-4 pt-2 flex-wrap" role="group" aria-label={`Ações para ${cliente.nome}`}>
-        <button
-          onClick={() => onVerAgenda(cliente)}
-          aria-label={`Ver agenda de ${cliente.nome}`}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold
-            bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400
-            hover:bg-brand-100 dark:hover:bg-brand-900/40
-            active:scale-[0.96] transition-all duration-150
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/50"
-        >
-          <CalendarDays size={12} aria-hidden="true" /> Agenda
+      <div className="flex gap-1.5 px-4 pb-4 pt-2 flex-wrap">
+        <button onClick={() => onVerAgenda(cliente)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition">
+          <CalendarDays size={12} /> Agenda
         </button>
-        <button
-          onClick={() => onGerarDoc(cliente, 'laudo')}
-          aria-label={`Gerar laudo para ${cliente.nome}`}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold
-            bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400
-            hover:bg-blue-100 dark:hover:bg-blue-900/40
-            active:scale-[0.96] transition-all duration-150
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50"
-        >
-          <Bug size={12} aria-hidden="true" /> Laudo
+        <button onClick={() => onGerarDoc(cliente, 'laudo')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition">
+          <Bug size={12} /> Laudo
         </button>
-        <button
-          onClick={() => onGerarDoc(cliente, 'recibo')}
-          aria-label={`Gerar recibo para ${cliente.nome}`}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold
-            bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400
-            hover:bg-emerald-100 dark:hover:bg-emerald-900/40
-            active:scale-[0.96] transition-all duration-150
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
-        >
-          <Receipt size={12} aria-hidden="true" /> Recibo
+        <button onClick={() => onGerarDoc(cliente, 'recibo')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition">
+          <Receipt size={12} /> Recibo
         </button>
-        <button
-          onClick={() => onGerarDoc(cliente, 'orcamento')}
-          aria-label={`Gerar orçamento para ${cliente.nome}`}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold
-            bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400
-            hover:bg-amber-100 dark:hover:bg-amber-900/40
-            active:scale-[0.96] transition-all duration-150
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
-        >
-          <Calculator size={12} aria-hidden="true" /> Orçamento
+        <button onClick={() => onGerarDoc(cliente, 'orcamento')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition">
+          <Calculator size={12} /> Orçamento
         </button>
       </div>
     </div>
@@ -385,19 +486,24 @@ const ORDENACOES = [
 
 export default function Clientes() {
   const navigate = useNavigate();
-  const [clientes, setClientes]       = useState([]);
-  const [busca, setBusca]             = useState('');
-  const [ordenacao, setOrdenacao]     = useState('recente');
-  const [modal, setModal]             = useState(null);
-  const { data: vencimentos } = useVencimentos(60);
-  const [servicos, setServicos]       = useState([]);
+  const [clientes, setClientes]         = useState([]);
+  const [busca, setBusca]               = useState('');
+  const [ordenacao, setOrdenacao]       = useState('recente');
+  const [modal, setModal]               = useState(null);
+  const [clientePerfil, setClientePerfil] = useState(null);
+  const [vencimentos, setVencimentos]   = useState([]);
+  const [servicos, setServicos]         = useState([]);
 
-  const recarregar = () => setClientes(getClientes());
+  const recarregar = async () => setClientes(await getClientes());
 
   useEffect(() => {
     recarregar();
+    // Carregar dados para os filtros cruzados
+    api.get('/api/documentos/vencimentos?dias=60')
+      .then(r => setVencimentos(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
     // Todos os eventos (laudos emitidos, serviços concluídos) contam como atendimento
-    setServicos(getAgendamentos());
+    getAgendamentos().then(setServicos).catch(() => {});
   }, []);
 
   // Mapa CNPJ → item de vencimento mais próximo
@@ -461,15 +567,15 @@ export default function Clientes() {
     return lista;
   }, [clientesFiltrados, ordenacao, mapaGarantias, mapaServico]);
 
-  const handleSalvar = (form) => {
-    saveCliente(form);
+  const handleSalvar = async (form) => {
+    await saveCliente(form);
     recarregar();
     setModal(null);
   };
 
-  const handleExcluir = (cliente) => {
+  const handleExcluir = async (cliente) => {
     if (!window.confirm(`Remover "${cliente.nome}" da lista de clientes?`)) return;
-    removeCliente(cliente.cnpj || cliente.nome);
+    await removeCliente(cliente.cnpj || cliente.nome);
     recarregar();
   };
 
@@ -583,10 +689,12 @@ export default function Clientes() {
                 key={c.cnpj || c.nome || i}
                 cliente={c}
                 alertaGarantia={alerta && alerta.dias_restantes <= 30 ? alerta : null}
+                servicos={servicos}
                 onEditar={(cl) => setModal(cl)}
                 onExcluir={handleExcluir}
                 onGerarDoc={handleGerarDoc}
                 onVerAgenda={handleVerAgenda}
+                onVerPerfil={setClientePerfil}
               />
             );
           })}
@@ -601,6 +709,13 @@ export default function Clientes() {
           onClose={() => setModal(null)}
         />
       )}
+
+      {/* Modal perfil do cliente */}
+      <ClientePerfilModal
+        cliente={clientePerfil}
+        onClose={() => setClientePerfil(null)}
+        onUpdate={setClientes}
+      />
     </div>
   );
 }

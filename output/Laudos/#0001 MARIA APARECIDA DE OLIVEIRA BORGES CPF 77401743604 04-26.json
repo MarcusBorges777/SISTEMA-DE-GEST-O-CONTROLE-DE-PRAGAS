@@ -1,0 +1,31 @@
+{
+  "__tipo": "laudo",
+  "formData": {
+    "laudoNumero": "0001",
+    "dataExecucao": "2026-04-22",
+    "garantiaMeses": 6,
+    "selectedPests": [
+      "baratas",
+      "formigas"
+    ],
+    "observacao": "",
+    "reservatorios": [],
+    "caixasGordura": [],
+    "responsaveis": "PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES",
+    "alvara": "Nº 164/2025 (Venc: 03/07/2028)",
+    "cliente": {
+      "nome": "MARIA APARECIDA DE OLIVEIRA BORGES CPF 77401743604",
+      "fantasia": "DEDETIZADORA BORGES",
+      "cnpj": "10409228000193",
+      "endereco": "- DISTRITO INDUSTRIAL CORONEL JOVELINO RABELO - DIVINOPOLIS /MG CEP 35502289",
+      "atividadeEconomica": "8122200 - Imunização e controle de pragas urbanas"
+    }
+  },
+  "productRows": [
+    "cyperex",
+    "formim"
+  ],
+  "showPestControl": true,
+  "showWaterTank": true,
+  "showGreaseTrap": false
+}

@@ -7,7 +7,7 @@ import {
   Bell, ChevronDown, ChevronUp, User, Calendar, Bug, CalendarDays, ArrowUpDown
 } from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
-import { useVencimentos } from '../hooks/useVencimentos';
+import { documentoApi } from '../services/dbService';
 import { useToast } from '../components/shared/Toast';
 import { getAgendamentos, atualizarAgendamento } from '../services/agendaService';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
@@ -258,11 +258,13 @@ export default function Arquivos() {
   const [editModal, setEditModal]               = useState(null);
   const [esvaziandoLixeira, setEsvaziandoLixeira]   = useState(false);
   const [confirmarLixeira, setConfirmarLixeira]     = useState(false);
-  const { data: vencimentos, loading: loadingVenc } = useVencimentos();
+  const [vencimentos, setVencimentos]               = useState([]);
+  const [loadingVenc, setLoadingVenc]               = useState(false);
   const [expandVenc, setExpandVenc]                 = useState(true);
   const [clientePerfil, setClientePerfil]           = useState(null);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
   const [sortOrder, setSortOrder]     = useState('recente');
+  const [mapaValores, setMapaValores] = useState({});
 
   const loadArquivos = useCallback(async () => {
     setLoading(true);
@@ -292,8 +294,31 @@ export default function Arquivos() {
   useEffect(() => {
     loadArquivos();
     loadDiretorios();
+    documentoApi.getAll()
+      .then(docs => {
+        const mapa = {};
+        (Array.isArray(docs) ? docs : []).forEach(doc => {
+          if (doc.nomeArquivo && doc.valor != null) {
+            const base = doc.nomeArquivo.split(/[\\/]/).pop();
+            mapa[base] = doc;
+          }
+        });
+        setMapaValores(mapa);
+      })
+      .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const loadVencimentos = async () => {
+      setLoadingVenc(true);
+      try {
+        const resp = await api.get('/api/documentos/vencimentos');
+        setVencimentos(resp.data || []);
+      } catch { /* sem laudos ou pasta ainda não configurada */ }
+      finally { setLoadingVenc(false); }
+    };
+    loadVencimentos();
+  }, []);
 
   // Filtros + Ordenação
   const filteredFiles = useMemo(() => {
@@ -325,6 +350,9 @@ export default function Arquivos() {
       // Envia o caminho completo para exclusão direta sem busca
       await api.post('/api/arquivo/excluir', { caminho: caminho || filename });
       addToast('Arquivo excluído', 'success');
+      // Remove registro de valor do db.json
+      documentoApi.deleteByFilename(filename).catch(() => {});
+      setMapaValores(prev => { const n = { ...prev }; delete n[filename]; return n; });
       loadArquivos();
 
       // Marcar evento correspondente na Agenda como deletado
@@ -339,13 +367,13 @@ export default function Arquivos() {
         const numMatch = (filename || '').match(/[_\s](\d{1,6})(?:\.[^.]+)?$/);
         if (numMatch && tipoAgenda) {
           const num = numMatch[1].replace(/^0+/, '') || '0'; // sem zeros à esquerda
-          const eventos = getAgendamentos();
+          const eventos = await getAgendamentos();
           const alvo = eventos.find(e =>
             e.tipo === tipoAgenda &&
             e.numeroDoc !== undefined &&
             (String(e.numeroDoc).replace(/^0+/, '') || '0') === num
           );
-          if (alvo) atualizarAgendamento(alvo.id, { deletado: true });
+          if (alvo) await atualizarAgendamento(alvo.id, { deletado: true });
         }
       } catch { /* silencioso — não bloqueia exclusão */ }
     } catch {
@@ -639,10 +667,13 @@ export default function Arquivos() {
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {filteredFiles.map((arquivo, i) => {
-              const filename = arquivo.nome || arquivo.filename || `arquivo_${i}`;
-              const Icon     = getFileIcon(filename);
-              const badge    = getTipoBadge(arquivo);
-              const lixeira  = isLixeira(arquivo);
+              const filename  = arquivo.nome || arquivo.filename || `arquivo_${i}`;
+              const Icon      = getFileIcon(filename);
+              const badge     = getTipoBadge(arquivo);
+              const lixeira   = isLixeira(arquivo);
+              const docDb     = mapaValores[filename];
+              const temValor  = docDb && docDb.valor != null && (badge?.label === 'Recibo' || badge?.label === 'Orçamento');
+              const fmtV      = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
               return (
                 <div key={i} className={`flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${lixeira ? 'opacity-70' : ''}`}>
@@ -659,6 +690,13 @@ export default function Arquivos() {
                       <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate max-w-xs">{filename}</p>
                       {badge && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${badge.color}`}>{badge.label}</span>
+                      )}
+                      {temValor && (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
+                          badge?.label === 'Recibo'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                        }`}>{fmtV(docDb.valor)}</span>
                       )}
                       {lixeira && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">Lixeira</span>
@@ -702,6 +740,35 @@ export default function Arquivos() {
             })}
           </div>
         )}
+
+        {/* Barra de totais — só para recibos e orçamentos */}
+        {!loading && filteredFiles.length > 0 && (filtroTipo === 'recibo' || filtroTipo === 'orcamento') && (() => {
+          const fmtV = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+          const total = filteredFiles.reduce((acc, arq) => {
+            const nome = arq.nome || arq.filename || '';
+            const doc  = mapaValores[nome];
+            return acc + (doc?.valor || 0);
+          }, 0);
+          const comValor = filteredFiles.filter(arq => {
+            const nome = arq.nome || arq.filename || '';
+            return mapaValores[nome]?.valor != null;
+          }).length;
+          if (total === 0) return null;
+          return (
+            <div className={`flex items-center justify-between px-5 py-3 border-t-2 ${
+              filtroTipo === 'recibo'
+                ? 'border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/10'
+                : 'border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10'
+            }`}>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Total de {comValor} {filtroTipo === 'recibo' ? 'recibos' : 'orçamentos'} com valor registrado
+              </span>
+              <span className={`text-base font-black ${
+                filtroTipo === 'recibo' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
+              }`}>{fmtV(total)}</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Modais */}

@@ -74,7 +74,7 @@ export default function Recibos() {
   const [perfilCliente, setPerfilCliente] = useState(null);
 
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
-  useEffect(() => { setClientesSalvos(getClientes()); }, []);
+  useEffect(() => { getClientes().then(setClientesSalvos).catch(() => {}); }, []);
 
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function Recibos() {
             endereco: clientData.endereco },
           dataExecucao,
           reciboNumero
-        );
+        ).catch(() => {});
         alert(`PDF salvo: ${result.nomeArquivo}`);
       } else {
         alert(`Erro ao salvar: ${result.erro}`);
@@ -169,13 +169,13 @@ export default function Recibos() {
     }
   };
 
-  const handleSalvarCliente = () => {
+  const handleSalvarCliente = async () => {
     if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) return;
-    saveCliente({
+    await saveCliente({
       nome: clientData.nome, fantasia: clientData.fantasia,
       cnpj: clientData.cnpj, endereco: clientData.endereco, atividade: clientData.atividade,
     });
-    setClientesSalvos(getClientes());
+    getClientes().then(setClientesSalvos).catch(() => {});
   };
 
   const handlePrint = () => window.print();

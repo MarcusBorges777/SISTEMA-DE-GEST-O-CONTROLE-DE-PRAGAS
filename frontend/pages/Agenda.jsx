@@ -21,7 +21,6 @@ import {
 import { NovoAgendamentoModal } from '../components/agenda/NovoAgendamentoModal';
 import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal';
 import { api } from '../services/api';
-import { useVencimentos } from '../hooks/useVencimentos';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -496,9 +495,18 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
 // ─── Painel de vencimentos ────────────────────────────────────────────────────
 
 function PainelVencimentos({ onAgendarRetorno }) {
-  const { data: vencimentos, loading }    = useVencimentos();
+  const [vencimentos, setVencimentos]     = useState([]);
+  const [loading, setLoading]             = useState(false);
   const [expandido, setExpandido]         = useState(true);
   const [clientePerfil, setClientePerfil] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/api/documentos/vencimentos')
+      .then(r => setVencimentos(r.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   if (!loading && vencimentos.length === 0) return null;
 
@@ -690,7 +698,7 @@ export default function Agenda() {
   const [eventoEditar, setEventoEditar]           = useState(null);
   const [clienteInicial, setClienteInicial]       = useState(null);
 
-  const recarregar = useCallback(() => setEventos(getAgendamentos()), []);
+  const recarregar = useCallback(async () => setEventos(await getAgendamentos()), []);
   useEffect(() => { recarregar(); }, [recarregar]);
 
   // ── Deep link: chegou com cliente via navigate state ──
@@ -733,32 +741,32 @@ export default function Agenda() {
   }, [eventosFiltrados]);
 
   // ── Handlers ──
-  const handleSalvar = (dados) => {
+  const handleSalvar = async (dados) => {
     if (eventoEditar) {
-      atualizarAgendamento(eventoEditar.id, dados);
+      await atualizarAgendamento(eventoEditar.id, dados);
     } else if (dados.recorrente) {
-      criarAgendamentoComRecorrencia(dados);
+      await criarAgendamentoComRecorrencia(dados);
     } else {
-      criarAgendamento(dados);
+      await criarAgendamento(dados);
     }
     recarregar();
   };
 
-  const handleStatusRapido = (id, status) => {
-    atualizarAgendamento(id, { status });
+  const handleStatusRapido = async (id, status) => {
+    await atualizarAgendamento(id, { status });
     recarregar();
   };
 
-  const handleExcluir = (id) => {
+  const handleExcluir = async (id) => {
     if (window.confirm('Remover este agendamento?')) {
-      excluirAgendamento(id);
+      await excluirAgendamento(id);
       recarregar();
     }
   };
 
-  const handleExcluirSerie = (recorrenciaId) => {
+  const handleExcluirSerie = async (recorrenciaId) => {
     if (window.confirm('Remover TODOS os eventos desta série?')) {
-      excluirSerieRecorrente(recorrenciaId);
+      await excluirSerieRecorrente(recorrenciaId);
       recarregar();
     }
   };

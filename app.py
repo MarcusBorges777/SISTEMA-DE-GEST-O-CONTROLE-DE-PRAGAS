@@ -68,6 +68,8 @@ from blueprints.admin import admin_bp
 from blueprints.admin import init as admin_init
 from blueprints.ia import ia_bp
 from blueprints.ia import init as ia_init, init_upload_helpers as ia_init_upload_helpers
+from blueprints.json_db import json_db_bp
+from services.json_db import JsonDbService, resolve_db_path
 
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
 from data_bridge import criar_bridge
@@ -93,6 +95,7 @@ app.register_blueprint(tags_bp)
 app.register_blueprint(boletos_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(ia_bp)
+app.register_blueprint(json_db_bp)
 
 # Gerar SECRET_KEY segura e persistente
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
@@ -235,6 +238,9 @@ TRAINING_DIR.mkdir(exist_ok=True)
 db_service.init(DB_PATH, BASE_DIR)
 formatters_service.init(CNAES_FILE)
 admin_init(BASE_DIR)
+
+# JSON DB (db.json no OneDrive — persistência cross-PC)
+app.json_db_service = JsonDbService(resolve_db_path(BASE_DIR))
 
 # Inicializar sistema de aprendizagem de layouts
 layout_learner = DocumentLayoutLearner(DB_PATH, TRAINING_DIR)

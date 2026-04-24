@@ -1,0 +1,23 @@
+{
+  "__tipo": "orcamento",
+  "clientData": {
+    "nome": "",
+    "fantasia": "",
+    "cnpj": "",
+    "endereco": "",
+    "atividade": ""
+  },
+  "items": [
+    {
+      "id": 1,
+      "service": "DEDETIZAÇÃO",
+      "description": "Aplicação de gel e pulverização líquida",
+      "quantity": "1",
+      "value": "1000"
+    }
+  ],
+  "orcamentoNumero": "00015",
+  "dataOrcamento": "20/04/2026",
+  "paymentMethod": "Dinheiro, Pix, Cartão de crédito (contém juros)",
+  "terms": "Este orçamento é válido por 15 dias."
+}

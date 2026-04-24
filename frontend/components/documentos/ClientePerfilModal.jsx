@@ -37,12 +37,12 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
   const handleChange = (field, value) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (!form.nome?.trim() && !form.fantasia?.trim()) return;
-    saveCliente(form);
+    await saveCliente(form);
     setSaved(true);
     setEditing(false);
-    if (onUpdate) onUpdate(getClientes());
+    if (onUpdate) getClientes().then(onUpdate).catch(() => {});
     setTimeout(() => setSaved(false), 2000);
   };
 
