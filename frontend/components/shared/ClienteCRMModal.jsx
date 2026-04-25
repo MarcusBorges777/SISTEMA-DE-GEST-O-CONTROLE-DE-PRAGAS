@@ -250,7 +250,7 @@ function TabAgenda({ eventos, loading, onNovaAgenda }) {
           )}
         </div>
         <span className={`text-[10px] font-mono shrink-0 ${futuro ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-400'}`}>
-          {ev.data}
+          {fmtData(ev.data)}
         </span>
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${stCls}`}>
           {ev.status}
@@ -409,24 +409,44 @@ export function ClienteCRMModal({ cliente, onClose, onUpdate, onVerAgenda, onGer
     setDocs([]);
     setEventos([]);
 
-    if (!cliente.id) return;
     setLoading(true);
 
-    const cnpjDigits = (cliente.cnpj || '').replace(/\D/g, '');
+    const cnpjDigits  = (cliente.cnpj    || '').replace(/\D/g, '');
+    const nomeNorm    = (cliente.nome     || '').toLowerCase().trim();
+    const fantasiaNorm= (cliente.fantasia || '').toLowerCase().trim();
 
+    // Busca tudo sem filtro de servidor para não perder registros criados
+    // com clienteCnpj/clienteNome mas sem clienteId
     Promise.all([
-      documentoApi.getAll(cliente.id).catch(() => []),
-      agendaApi.getAll(cliente.id).catch(() => []),
+      documentoApi.getAll().catch(() => []),
+      agendaApi.getAll().catch(() => []),
     ]).then(([docsData, agendaData]) => {
-      setDocs(Array.isArray(docsData) ? docsData : []);
 
-      // Aceita eventos com clienteId OU que tenham clienteCnpj correspondente
-      const evts = Array.isArray(agendaData) ? agendaData : [];
-      const filtrado = evts.filter(e =>
-        e.clienteId === cliente.id ||
-        (cnpjDigits && (e.clienteCnpj || '').replace(/\D/g, '') === cnpjDigits)
-      );
-      setEventos(filtrado);
+      // ── Filtro de documentos ──────────────────────────────────────
+      const allDocs = Array.isArray(docsData) ? docsData : [];
+      const docsCliente = allDocs.filter(d => {
+        if (cliente.id && d.clienteId === cliente.id) return true;
+        if (cnpjDigits && (d.clienteCnpj || '').replace(/\D/g, '') === cnpjDigits) return true;
+        const dNome = (d.clienteNome || '').toLowerCase().trim();
+        if (nomeNorm && dNome && dNome === nomeNorm) return true;
+        if (fantasiaNorm && dNome && dNome === fantasiaNorm) return true;
+        return false;
+      });
+      setDocs(docsCliente);
+
+      // ── Filtro de agenda ──────────────────────────────────────────
+      const allEvts = Array.isArray(agendaData) ? agendaData : [];
+      const evtsCliente = allEvts.filter(e => {
+        if (e.deletado) return false; // ignora excluídos
+        if (cliente.id && e.clienteId === cliente.id) return true;
+        if (cnpjDigits && (e.clienteCnpj || '').replace(/\D/g, '') === cnpjDigits) return true;
+        const eNome = (e.clienteNome || '').toLowerCase().trim();
+        if (nomeNorm && eNome && eNome === nomeNorm) return true;
+        if (fantasiaNorm && eNome && eNome === fantasiaNorm) return true;
+        return false;
+      });
+      setEventos(evtsCliente);
+
     }).finally(() => setLoading(false));
   }, [cliente]);
 
