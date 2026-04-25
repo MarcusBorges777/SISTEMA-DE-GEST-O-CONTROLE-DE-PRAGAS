@@ -9,9 +9,20 @@ function cnpjDigits(cnpj) {
 
 export async function getClientes() {
   try {
-    return await clienteApi.getAll();
+    const fromDb = await clienteApi.getAll();
+    // One-time migration: if db.json is empty, seed from localStorage
+    if (fromDb.length === 0) {
+      const legacy = JSON.parse(localStorage.getItem('clientes') || '[]');
+      if (legacy.length > 0) {
+        await Promise.all(legacy.map(c => clienteApi.upsert(c).catch(() => {})));
+        localStorage.removeItem('clientes');
+        return await clienteApi.getAll();
+      }
+    }
+    return fromDb;
   } catch {
-    return [];
+    // Backend unavailable — fall back to localStorage
+    return JSON.parse(localStorage.getItem('clientes') || '[]');
   }
 }
 

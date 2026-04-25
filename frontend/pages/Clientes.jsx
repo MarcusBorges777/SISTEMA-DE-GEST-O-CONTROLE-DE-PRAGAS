@@ -227,16 +227,27 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
 // ─── Card do cliente ──────────────────────────────────────────────────────────
 
+function DocRow({ doc }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="text-[10px] font-mono text-slate-400 shrink-0">{fmtData(doc.dataCriacao)}</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400 flex-1">{doc.numero ? `#${doc.numero}` : '—'}</span>
+      {doc.valor != null && (
+        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">{fmtValor(doc.valor)}</span>
+      )}
+    </div>
+  );
+}
+
 function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, onVerPerfil, alertaGarantia, servicos = [] }) {
-  const [expandido, setExpandido]       = useState(false);
-  const [docs, setDocs]                 = useState([]);
+  const [expandido, setExpandido]           = useState(false);
+  const [docs, setDocs]                     = useState([]);
   const [docsCarregados, setDocsCarregados] = useState(false);
 
   const iniciais   = (cliente.nome || '?').split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
   const cnpjDigits = (cliente.cnpj || '').replace(/\D/g, '');
   const hoje       = new Date().toISOString().slice(0, 10);
 
-  // Lazy-load documentos ao abrir pela primeira vez
   useEffect(() => {
     if (!expandido || docsCarregados) return;
     if (!cliente.id) { setDocsCarregados(true); return; }
@@ -246,7 +257,6 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
       .finally(() => setDocsCarregados(true));
   }, [expandido, cliente.id, docsCarregados]);
 
-  // Agenda deste cliente filtrada e ordenada (próximos primeiro, depois mais recentes)
   const agendaCliente = servicos
     .filter(s => cnpjDigits && (s.clienteCnpj || '').replace(/\D/g, '') === cnpjDigits)
     .sort((a, b) => {
@@ -258,9 +268,11 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
         : (b.data || '').localeCompare(a.data || '');
     });
 
-  const totalFaturado = docs
-    .filter(d => d.tipo === 'recibo' && d.valor != null)
-    .reduce((acc, d) => acc + (d.valor || 0), 0);
+  const recibos    = docs.filter(d => d.tipo === 'recibo');
+  const orcamentos = docs.filter(d => d.tipo === 'orcamento');
+  const totalRec   = recibos.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalOrc   = orcamentos.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalFaturado = totalRec;
 
   return (
     <div className={`bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-md transition-shadow ${
@@ -279,22 +291,34 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
         </div>
       )}
 
-      {/* Cabeçalho */}
-      <div className="flex items-start gap-4 p-4">
+      {/* ── Cabeçalho ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 p-4">
+        {/* Avatar → abre modal de perfil */}
         <button
           onClick={() => onVerPerfil(cliente)}
           title="Ver perfil completo"
-          className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0 hover:bg-brand-200 dark:hover:bg-brand-800/50 transition"
+          className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0 hover:bg-brand-200 dark:hover:bg-brand-800/50 transition"
         >
           <span className="text-brand-600 dark:text-brand-400 font-bold text-sm">{iniciais}</span>
         </button>
 
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onVerPerfil(cliente)}>
-          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate hover:text-brand-600 dark:hover:text-brand-400 transition-colors">{cliente.nome}</p>
-          {cliente.fantasia && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{cliente.fantasia}</p>}
-          {cliente.cnpj     && <p className="text-xs font-mono text-slate-400 mt-0.5">{cliente.cnpj}</p>}
-        </div>
+        {/* Nome → expande/recolhe o card */}
+        <button
+          onClick={() => setExpandido(p => !p)}
+          className="flex-1 min-w-0 text-left group"
+        >
+          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+            {cliente.nome}
+          </p>
+          {cliente.fantasia && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{cliente.fantasia}</p>
+          )}
+          {cliente.cnpj && (
+            <p className="text-xs font-mono text-slate-400 mt-0.5">{cliente.cnpj}</p>
+          )}
+        </button>
 
+        {/* Ações do cabeçalho */}
         <div className="flex gap-1 shrink-0">
           <button onClick={() => onEditar(cliente)} title="Editar"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
@@ -311,36 +335,55 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
         </div>
       </div>
 
-      {/* ── Seção expandida ─────────────────────────────────────────────── */}
+      {/* ── Seção expandida ───────────────────────────────────────────────── */}
       {expandido && (
         <div className="border-t border-slate-100 dark:border-slate-700">
 
-          {/* Contatos */}
-          {(cliente.telefone || cliente.email || cliente.endereco || cliente.atividade) && (
-            <div className="px-4 py-3 space-y-1 border-b border-slate-50 dark:border-slate-700/50">
-              {cliente.telefone && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <Phone size={11} className="shrink-0" /> {cliente.telefone}
-                </div>
-              )}
-              {cliente.email && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <Mail size={11} className="shrink-0" />
-                  <a href={`mailto:${cliente.email}`} className="hover:text-blue-500 transition-colors truncate">{cliente.email}</a>
-                </div>
-              )}
-              {cliente.endereco && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <MapPin size={11} className="shrink-0" /> <span className="truncate">{cliente.endereco}</span>
-                </div>
-              )}
-              {cliente.atividade && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 italic">
-                  <Building2 size={11} className="shrink-0" /> {cliente.atividade}
-                </div>
-              )}
+          {/* Dados cadastrais */}
+          <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50 space-y-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Dados Cadastrais</p>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Razão Social</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.nome || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Nome Fantasia</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.fantasia || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">CNPJ / CPF</p>
+                <p className="text-xs font-mono text-slate-700 dark:text-slate-200">{cliente.cnpj || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">CNAE / Atividade</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.atividade || '—'}</p>
+              </div>
             </div>
-          )}
+
+            {(cliente.endereco || cliente.telefone || cliente.email) && (
+              <div className="space-y-1 pt-1">
+                {cliente.endereco && (
+                  <div className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <MapPin size={11} className="shrink-0 mt-0.5" />
+                    <span className="leading-snug">{cliente.endereco}</span>
+                  </div>
+                )}
+                {cliente.telefone && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Phone size={11} className="shrink-0" /> {cliente.telefone}
+                  </div>
+                )}
+                {cliente.email && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Mail size={11} className="shrink-0" />
+                    <a href={`mailto:${cliente.email}`} className="hover:text-blue-500 transition-colors truncate">{cliente.email}</a>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Documentos emitidos */}
           <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50">
@@ -357,61 +400,54 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
               <p className="text-[11px] text-slate-400 italic">
                 {!cliente.id ? 'Salve um PDF para este cliente para ver o histórico.' : 'Nenhum documento emitido ainda.'}
               </p>
-            ) : (() => {
-              const recibos    = docs.filter(d => d.tipo === 'recibo');
-              const orcamentos = docs.filter(d => d.tipo === 'orcamento');
-              const totalRec   = recibos.reduce((s, d) => s + (d.valor || 0), 0);
-              const totalOrc   = orcamentos.reduce((s, d) => s + (d.valor || 0), 0);
-              const DocRow = ({ doc }) => (
-                <div className="flex items-center gap-2 py-0.5">
-                  <span className="text-[10px] font-mono text-slate-400 shrink-0">{fmtData(doc.dataCriacao)}</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 flex-1">{doc.numero ? `#${doc.numero}` : '—'}</span>
-                  {doc.valor != null && (
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">{fmtValor(doc.valor)}</span>
-                  )}
-                </div>
-              );
-              return (
-                <div className="space-y-3">
-                  {recibos.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <Receipt size={10} className="text-emerald-500" />
-                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Recibos ({recibos.length})</span>
-                        </div>
-                        {totalRec > 0 && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalRec)}</span>}
+            ) : (
+              <div className="space-y-3">
+                {recibos.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Receipt size={10} className="text-emerald-500" />
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                          Recibos ({recibos.length})
+                        </span>
                       </div>
-                      <div className="pl-2 border-l-2 border-emerald-100 dark:border-emerald-900/50 space-y-0.5">
-                        {recibos.map(doc => <DocRow key={doc.id} doc={doc} />)}
-                      </div>
+                      {totalRec > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalRec)}</span>
+                      )}
                     </div>
-                  )}
-                  {orcamentos.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <Calculator size={10} className="text-amber-500" />
-                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Orçamentos ({orcamentos.length})</span>
-                        </div>
-                        {totalOrc > 0 && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{fmtValor(totalOrc)}</span>}
-                      </div>
-                      <div className="pl-2 border-l-2 border-amber-100 dark:border-amber-900/50 space-y-0.5">
-                        {orcamentos.map(doc => <DocRow key={doc.id} doc={doc} />)}
-                      </div>
+                    <div className="pl-2 border-l-2 border-emerald-100 dark:border-emerald-900/50 space-y-0.5">
+                      {recibos.map(doc => <DocRow key={doc.id} doc={doc} />)}
                     </div>
-                  )}
-                  {totalFaturado > 0 && (
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                        <TrendingUp size={11} /> Total faturado (recibos)
+                  </div>
+                )}
+                {orcamentos.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Calculator size={10} className="text-amber-500" />
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                          Orçamentos ({orcamentos.length})
+                        </span>
                       </div>
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalFaturado)}</span>
+                      {totalOrc > 0 && (
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{fmtValor(totalOrc)}</span>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })()}
+                    <div className="pl-2 border-l-2 border-amber-100 dark:border-amber-900/50 space-y-0.5">
+                      {orcamentos.map(doc => <DocRow key={doc.id} doc={doc} />)}
+                    </div>
+                  </div>
+                )}
+                {totalFaturado > 0 && (
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      <TrendingUp size={11} /> Total faturado (recibos)
+                    </div>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalFaturado)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Agenda do cliente */}
@@ -449,28 +485,28 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
             </div>
           )}
 
+          {/* ── Ações rápidas (dentro do card expandido) ─────────────────── */}
+          <div className="flex gap-1.5 px-4 py-3 flex-wrap bg-slate-50 dark:bg-slate-800/60 rounded-b-2xl">
+            <button onClick={() => onVerAgenda(cliente)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition shadow-sm">
+              <CalendarDays size={12} /> Agenda
+            </button>
+            <button onClick={() => onGerarDoc(cliente, 'laudo')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition shadow-sm">
+              <Bug size={12} /> Laudo
+            </button>
+            <button onClick={() => onGerarDoc(cliente, 'recibo')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition shadow-sm">
+              <Receipt size={12} /> Recibo
+            </button>
+            <button onClick={() => onGerarDoc(cliente, 'orcamento')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition shadow-sm">
+              <Calculator size={12} /> Orçamento
+            </button>
+          </div>
+
         </div>
       )}
-
-      {/* Ações rápidas */}
-      <div className="flex gap-1.5 px-4 pb-4 pt-2 flex-wrap">
-        <button onClick={() => onVerAgenda(cliente)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition">
-          <CalendarDays size={12} /> Agenda
-        </button>
-        <button onClick={() => onGerarDoc(cliente, 'laudo')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition">
-          <Bug size={12} /> Laudo
-        </button>
-        <button onClick={() => onGerarDoc(cliente, 'recibo')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition">
-          <Receipt size={12} /> Recibo
-        </button>
-        <button onClick={() => onGerarDoc(cliente, 'orcamento')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition">
-          <Calculator size={12} /> Orçamento
-        </button>
-      </div>
     </div>
   );
 }
