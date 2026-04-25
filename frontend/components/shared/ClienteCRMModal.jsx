@@ -5,7 +5,7 @@ import { documentoApi, agendaApi } from '../../services/dbService';
 import {
   Building2, MapPin, Tag, Phone, Mail, Pencil, Check, X,
   CalendarDays, Receipt, Calculator, Bug, Wrench, FileText,
-  Clock, ChevronRight, ExternalLink, Loader2, Plus,
+  Clock, ChevronRight, ExternalLink, Loader2, Plus, FolderOpen,
 } from 'lucide-react';
 import { saveCliente, getClientes } from '../../services/clienteCache';
 
@@ -495,6 +495,21 @@ export function ClienteCRMModal({ cliente, onClose, onUpdate, onVerAgenda, onGer
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition shadow-sm shadow-brand-500/20"
                 >
                   <Plus size={12} /> Nova Agenda
+                </button>
+                <button
+                  onClick={() => {
+                    onClose();
+                    navigate('/arquivos', {
+                      state: {
+                        clienteId:   cliente.id,
+                        clienteNome: cliente.nome || cliente.fantasia || '',
+                        clienteCnpj: cliente.cnpj || '',
+                      },
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold transition shadow-sm shadow-violet-500/20"
+                >
+                  <FolderOpen size={12} /> Histórico de Arquivos
                 </button>
                 <button
                   onClick={() => handleGerarDoc(cliente, 'laudo')}

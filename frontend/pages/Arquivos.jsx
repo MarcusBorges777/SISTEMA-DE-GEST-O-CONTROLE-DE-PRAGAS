@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FolderOpen, Download, Eye, Trash2, Search, File, FileText,
   Image as ImageIcon, RefreshCw, Pencil, X, FolderInput,
@@ -249,7 +249,10 @@ function ModalEditar({ arquivo, diretorios, onSalvar, onCancel }) {
 export default function Arquivos() {
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [arquivos, setArquivos]       = useState([]);
+  const [filtroCliente, setFiltroCliente] = useState(null);
+  const [valoresMap, setValoresMap]       = useState({});
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
   const [filtroTipo, setFiltroTipo]   = useState('all');
@@ -264,7 +267,6 @@ export default function Arquivos() {
   const [clientePerfil, setClientePerfil]           = useState(null);
   const [diretorios, setDiretorios]   = useState({ laudos: '', recibos: '', orcamentos: '' });
   const [sortOrder, setSortOrder]     = useState('recente');
-  const [mapaValores, setMapaValores] = useState({});
 
   const loadArquivos = useCallback(async () => {
     setLoading(true);
@@ -294,19 +296,28 @@ export default function Arquivos() {
   useEffect(() => {
     loadArquivos();
     loadDiretorios();
-    documentoApi.getAll()
-      .then(docs => {
-        const mapa = {};
-        (Array.isArray(docs) ? docs : []).forEach(doc => {
-          if (doc.nomeArquivo && doc.valor != null) {
-            const base = doc.nomeArquivo.split(/[\\/]/).pop();
-            mapa[base] = doc;
-          }
+    // Carregar mapa de valores/datas dos documentos via db.json
+    (async () => {
+      try {
+        const docs = await documentoApi.getAll();
+        const map = {};
+        (docs || []).forEach(d => {
+          const key = (d.arquivo || d.filename || '').toLowerCase();
+          if (key) map[key] = d;
         });
-        setMapaValores(mapa);
-      })
-      .catch(() => {});
+        setValoresMap(map);
+      } catch { /* sem db.json, sem problema */ }
+    })();
   }, []);
+
+  // Deep link: receber clienteId/clienteNome/clienteCnpj via location.state
+  useEffect(() => {
+    if (location.state?.clienteNome || location.state?.clienteCnpj) {
+      const { clienteId, clienteNome, clienteCnpj } = location.state;
+      setFiltroCliente({ id: clienteId, nome: clienteNome, cnpj: clienteCnpj });
+      setSearchTerm(clienteNome || clienteCnpj || '');
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const loadVencimentos = async () => {
@@ -350,9 +361,6 @@ export default function Arquivos() {
       // Envia o caminho completo para exclusão direta sem busca
       await api.post('/api/arquivo/excluir', { caminho: caminho || filename });
       addToast('Arquivo excluído', 'success');
-      // Remove registro de valor do db.json
-      documentoApi.deleteByFilename(filename).catch(() => {});
-      setMapaValores(prev => { const n = { ...prev }; delete n[filename]; return n; });
       loadArquivos();
 
       // Marcar evento correspondente na Agenda como deletado
@@ -650,6 +658,24 @@ export default function Arquivos() {
         </div>
       </div>
 
+      {/* Banner: filtro de cliente ativo via deep link */}
+      {filtroCliente && (
+        <div className="flex items-center justify-between gap-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 min-w-0">
+            <User size={14} className="text-brand-500 shrink-0" />
+            <span className="truncate">
+              Mostrando arquivos de <b>{filtroCliente.nome || filtroCliente.cnpj}</b>
+            </span>
+          </div>
+          <button
+            onClick={() => { setFiltroCliente(null); setSearchTerm(''); }}
+            className="flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 shrink-0"
+          >
+            <X size={14} /> Limpar Filtro
+          </button>
+        </div>
+      )}
+
       {/* Lista */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         {loading ? (
@@ -667,13 +693,16 @@ export default function Arquivos() {
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {filteredFiles.map((arquivo, i) => {
-              const filename  = arquivo.nome || arquivo.filename || `arquivo_${i}`;
-              const Icon      = getFileIcon(filename);
-              const badge     = getTipoBadge(arquivo);
-              const lixeira   = isLixeira(arquivo);
-              const docDb     = mapaValores[filename];
-              const temValor  = docDb && docDb.valor != null && (badge?.label === 'Recibo' || badge?.label === 'Orçamento');
-              const fmtV      = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+              const filename = arquivo.nome || arquivo.filename || `arquivo_${i}`;
+              const Icon     = getFileIcon(filename);
+              const badge    = getTipoBadge(arquivo);
+              const lixeira  = isLixeira(arquivo);
+              const docMeta  = valoresMap[filename.toLowerCase()] || null;
+              const valor    = docMeta?.valor;
+              const dataEmissao = docMeta?.dataCriacao || arquivo.data_modificacao || arquivo.data;
+              const fmtBRL   = v => (typeof v === 'number' && !isNaN(v))
+                ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                : null;
 
               return (
                 <div key={i} className={`flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${lixeira ? 'opacity-70' : ''}`}>
@@ -691,21 +720,29 @@ export default function Arquivos() {
                       {badge && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${badge.color}`}>{badge.label}</span>
                       )}
-                      {temValor && (
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
-                          badge?.label === 'Recibo'
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                            : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                        }`}>{fmtV(docDb.valor)}</span>
-                      )}
-                      {lixeira && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">Lixeira</span>
-                      )}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {formatSize(arquivo.tamanho)}
-                      {(arquivo.data_modificacao || arquivo.data) && ` · ${formatDate(arquivo.data_modificacao || arquivo.data)}`}
+                      {dataEmissao && ` · ${formatDate(dataEmissao)}`}
                     </p>
+                  </div>
+
+                  {/* Valor */}
+                  <div className="hidden md:block w-24 text-right shrink-0">
+                    {fmtBRL(valor) ? (
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtBRL(valor)}</span>
+                    ) : (
+                      <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <div className="hidden sm:block w-20 shrink-0">
+                    {lixeira ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">Excluído</span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">Ativo</span>
+                    )}
                   </div>
 
                   {/* Ações — sempre visíveis */}
@@ -740,35 +777,6 @@ export default function Arquivos() {
             })}
           </div>
         )}
-
-        {/* Barra de totais — só para recibos e orçamentos */}
-        {!loading && filteredFiles.length > 0 && (filtroTipo === 'recibo' || filtroTipo === 'orcamento') && (() => {
-          const fmtV = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-          const total = filteredFiles.reduce((acc, arq) => {
-            const nome = arq.nome || arq.filename || '';
-            const doc  = mapaValores[nome];
-            return acc + (doc?.valor || 0);
-          }, 0);
-          const comValor = filteredFiles.filter(arq => {
-            const nome = arq.nome || arq.filename || '';
-            return mapaValores[nome]?.valor != null;
-          }).length;
-          if (total === 0) return null;
-          return (
-            <div className={`flex items-center justify-between px-5 py-3 border-t-2 ${
-              filtroTipo === 'recibo'
-                ? 'border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/10'
-                : 'border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10'
-            }`}>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Total de {comValor} {filtroTipo === 'recibo' ? 'recibos' : 'orçamentos'} com valor registrado
-              </span>
-              <span className={`text-base font-black ${
-                filtroTipo === 'recibo' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
-              }`}>{fmtV(total)}</span>
-            </div>
-          );
-        })()}
       </div>
 
       {/* Modais */}

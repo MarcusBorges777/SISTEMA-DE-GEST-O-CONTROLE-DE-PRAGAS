@@ -349,6 +349,100 @@ function CalendarioMensal({ mes, eventosPorDia, onEventoClick, onMesChange }) {
   );
 }
 
+// ─── Calendário anual (12 mini-meses) ────────────────────────────────────────
+
+function MiniMes({ ano, mes, eventosPorDia, onClick }) {
+  const primeiroDia  = new Date(ano, mes, 1).getDay();
+  const diasNoMes    = new Date(ano, mes + 1, 0).getDate();
+  const totalCelulas = Math.ceil((primeiroDia + diasNoMes) / 7) * 7;
+  const hoje         = hojeStr();
+  const nomeMes      = new Date(ano, mes, 1).toLocaleDateString('pt-BR', { month: 'long' });
+
+  let totalEventos = 0;
+  const celulas = [];
+  for (let i = 0; i < totalCelulas; i++) {
+    const diaDoMes = i - primeiroDia + 1;
+    if (diaDoMes < 1 || diaDoMes > diasNoMes) {
+      celulas.push({ dia: null, iso: null, count: 0 });
+    } else {
+      const iso  = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(diaDoMes).padStart(2, '0')}`;
+      const count = (eventosPorDia[iso] || []).length;
+      totalEventos += count;
+      celulas.push({ dia: diaDoMes, iso, count });
+    }
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-left hover:border-brand-400 dark:hover:border-brand-500 hover:shadow-md transition"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-bold text-slate-800 dark:text-white capitalize">{nomeMes}</span>
+        {totalEventos > 0 && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
+            {totalEventos}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-7 gap-0.5">
+        {['D','S','T','Q','Q','S','S'].map((d, i) => (
+          <div key={i} className="text-center text-[8px] font-bold text-slate-400 leading-none py-0.5">{d}</div>
+        ))}
+        {celulas.map((c, i) => {
+          const ehHoje = c.iso === hoje;
+          return (
+            <div
+              key={i}
+              className={`aspect-square flex items-center justify-center text-[9px] rounded relative
+                ${!c.dia ? '' : ehHoje ? 'bg-brand-500 text-white font-bold' : 'text-slate-500 dark:text-slate-400'}
+              `}
+            >
+              {c.dia || ''}
+              {c.count > 0 && !ehHoje && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand-500" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </button>
+  );
+}
+
+function CalendarioAnual({ ano, eventosPorDia, onSelectMes, onAnoChange }) {
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => onAnoChange(-1)}
+          className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+        >
+          <ChevronLeft size={18} className="text-slate-500" />
+        </button>
+        <h2 className="text-base font-bold text-slate-800 dark:text-white">{ano}</h2>
+        <button
+          onClick={() => onAnoChange(1)}
+          className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+        >
+          <ChevronRight size={18} className="text-slate-500" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {Array.from({ length: 12 }, (_, m) => (
+          <MiniMes
+            key={m}
+            ano={ano}
+            mes={m}
+            eventosPorDia={eventosPorDia}
+            onClick={() => onSelectMes(new Date(ano, m, 1))}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Timeline ─────────────────────────────────────────────────────────────────
 
 function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRapido }) {
@@ -691,6 +785,7 @@ export default function Agenda() {
   const [eventos, setEventos]                     = useState([]);
   const [view, setView]                           = useState('calendario');
   const [mesAtual, setMesAtual]                   = useState(() => new Date());
+  const [anoVisao, setAnoVisao]                   = useState(() => new Date().getFullYear());
   const [filtros, setFiltros]                     = useState({ tipos: [], status: [], tecnicos: [] });
   const [busca, setBusca]                         = useState('');
   const [eventoSelecionado, setEventoSelecionado] = useState(null);
@@ -732,11 +827,13 @@ export default function Agenda() {
   // ── Eventos indexados por data (para o calendário) ──
   const eventosPorDia = useMemo(() => {
     const map = {};
-    eventosFiltrados.forEach(ev => {
-      if (!ev.data) return;
-      if (!map[ev.data]) map[ev.data] = [];
-      map[ev.data].push(ev);
-    });
+    eventosFiltrados
+      .filter(ev => !ev.deletado)
+      .forEach(ev => {
+        if (!ev.data) return;
+        if (!map[ev.data]) map[ev.data] = [];
+        map[ev.data].push(ev);
+      });
     return map;
   }, [eventosFiltrados]);
 
@@ -901,25 +998,44 @@ export default function Agenda() {
             >
               <LayoutList size={15} /> Timeline
             </button>
+            <button
+              onClick={() => setView('ano')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition border
+                ${view === 'ano'
+                  ? 'bg-brand-500 border-brand-500 text-white shadow-sm'
+                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-300'
+                }`}
+            >
+              <CalendarDays size={15} /> Ano
+            </button>
             <span className="ml-auto text-xs text-slate-400">
               {eventosFiltrados.length} evento{eventosFiltrados.length !== 1 ? 's' : ''}
             </span>
           </div>
 
-          {view === 'calendario' ? (
+          {view === 'calendario' && (
             <CalendarioMensal
               mes={mesAtual}
               eventosPorDia={eventosPorDia}
               onEventoClick={setEventoSelecionado}
               onMesChange={handleMesChange}
             />
-          ) : (
+          )}
+          {view === 'timeline' && (
             <TimelineView
               eventos={eventosFiltrados}
               onEventoClick={setEventoSelecionado}
               onEditar={handleEditar}
               onExcluir={handleExcluir}
               onStatusRapido={handleStatusRapido}
+            />
+          )}
+          {view === 'ano' && (
+            <CalendarioAnual
+              ano={anoVisao}
+              eventosPorDia={eventosPorDia}
+              onSelectMes={(d) => { setMesAtual(d); setView('calendario'); }}
+              onAnoChange={(delta) => setAnoVisao(a => a + delta)}
             />
           )}
         </div>
