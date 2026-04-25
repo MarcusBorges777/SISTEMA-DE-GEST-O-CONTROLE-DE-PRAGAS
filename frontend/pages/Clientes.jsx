@@ -19,7 +19,7 @@ import { buscarCNPJ } from '../services/brasilApi';
 import { getAgendamentos } from '../services/agendaService';
 import { api } from '../services/api';
 import { documentoApi } from '../services/dbService';
-import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal';
+import { ClienteCRMModal } from '../components/shared/ClienteCRMModal';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -487,6 +487,10 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
 
           {/* ── Ações rápidas (dentro do card expandido) ─────────────────── */}
           <div className="flex gap-1.5 px-4 py-3 flex-wrap bg-slate-50 dark:bg-slate-800/60 rounded-b-2xl">
+            <button onClick={() => onVerPerfil(cliente)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-brand-500 text-white hover:bg-brand-600 transition shadow-sm">
+              <Users size={12} /> Perfil 360°
+            </button>
             <button onClick={() => onVerAgenda(cliente)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition shadow-sm">
               <CalendarDays size={12} /> Agenda
@@ -746,11 +750,13 @@ export default function Clientes() {
         />
       )}
 
-      {/* Modal perfil do cliente */}
-      <ClientePerfilModal
+      {/* Super Card 360° do cliente */}
+      <ClienteCRMModal
         cliente={clientePerfil}
         onClose={() => setClientePerfil(null)}
         onUpdate={setClientes}
+        onVerAgenda={handleVerAgenda}
+        onGerarDoc={handleGerarDoc}
       />
     </div>
   );
