@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Clock, CalendarX, CalendarCheck, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchGarantiasVencendo } from '../../services/api';
 
-export default function GarantiaAlerts() {
+export default function GarantiaAlerts({ compact = false }) {
   const [data, setData] = useState({ vencidas: [], esta_semana: [], proximas: [] });
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -29,6 +29,47 @@ export default function GarantiaAlerts() {
 
   if (!loading && total === 0) return null;
 
+  // ── Versão compacta: mesmo tamanho dos StatCards ─────────────────────────
+  if (compact) {
+    return (
+      <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg p-4 text-white flex flex-col justify-between h-full">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+              <AlertTriangle size={16} />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm leading-tight">Avisos de Garantia</h3>
+              <p className="text-orange-100 text-[11px] leading-tight">Vencidas ou próximas</p>
+            </div>
+          </div>
+          <button onClick={loadData}
+            className="w-7 h-7 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition shrink-0">
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {/* Contadores */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white/15 rounded-xl p-2 text-center">
+            <p className="text-xl font-bold leading-none">{loading ? '-' : data.vencidas.length}</p>
+            <p className="text-[10px] text-orange-100 mt-0.5">Vencidas</p>
+          </div>
+          <div className="bg-white/15 rounded-xl p-2 text-center">
+            <p className="text-xl font-bold leading-none">{loading ? '-' : data.esta_semana.length}</p>
+            <p className="text-[10px] text-orange-100 mt-0.5">Esta Semana</p>
+          </div>
+          <div className="bg-white/15 rounded-xl p-2 text-center">
+            <p className="text-xl font-bold leading-none">{loading ? '-' : data.proximas.length}</p>
+            <p className="text-[10px] text-orange-100 mt-0.5">Próx. 30d</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Versão completa (coluna lateral) ────────────────────────────────────
   return (
     <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg p-6 text-white">
       <div className="flex items-center justify-between mb-4">

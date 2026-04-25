@@ -16,23 +16,28 @@ export default function Dashboard() {
   const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
-    // Contagens direto do localStorage — sem depender de API com DB
-    try {
-      const clientes   = getClientes();
-      const agendamentos = getAgendamentos();
-      const hojeStr  = new Date().toISOString().slice(0, 7); // YYYY-MM
-      const docsMes  = agendamentos.filter(e =>
-        e.tipo !== 'servico' && (e.data || '').startsWith(hojeStr)
-      ).length;
-      setStats({
-        total_clientes: clientes.length,
-        docs_mes:       docsMes,
-      });
-    } catch {
-      setStats({ total_clientes: 0, docs_mes: 0 });
-    } finally {
-      setLoading(false);
+    // Contagens via db.json
+    async function carregarStats() {
+      try {
+        const [clientes, agendamentos] = await Promise.all([
+          getClientes(),
+          getAgendamentos(),
+        ]);
+        const hojeStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const docsMes = agendamentos.filter(e =>
+          e.tipo !== 'servico' && (e.data || '').startsWith(hojeStr)
+        ).length;
+        setStats({
+          total_clientes: clientes.length,
+          docs_mes:       docsMes,
+        });
+      } catch {
+        setStats({ total_clientes: 0, docs_mes: 0 });
+      } finally {
+        setLoading(false);
+      }
     }
+    carregarStats();
   }, []);
 
   return (
@@ -44,7 +49,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           title="Total de Clientes"
           value={stats?.total_clientes ?? 0}
@@ -63,14 +68,14 @@ export default function Dashboard() {
           loading={loading}
           onClick={() => navigate('/arquivos')}
         />
+        <GarantiaAlerts compact />
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Quick Actions + Garantias */}
+        {/* Left Column: Quick Actions */}
         <div className="space-y-6">
           <QuickActions />
-          <GarantiaAlerts />
         </div>
 
         {/* Right Column: Recent Activity (spans 2 cols) */}
