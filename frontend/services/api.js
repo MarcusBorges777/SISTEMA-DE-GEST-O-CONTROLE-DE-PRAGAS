@@ -52,7 +52,7 @@ export async function fetchAtividadesRecentes() {
 }
 
 export async function fetchGarantiasVencendo() {
-  return api.get('/api/garantias/vencimentos');
+  return api.get('/api/documentos/vencimentos');
 }
 
 // === APIs de Clientes ===
