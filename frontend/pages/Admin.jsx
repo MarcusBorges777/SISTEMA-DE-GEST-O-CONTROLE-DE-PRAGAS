@@ -31,6 +31,13 @@ export default function Admin() {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Usuários CRUD
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userForm, setUserForm] = useState({ id: null, nome: '', email: '', role: 'atendimento', senha: '', ativo: true });
+  const [userSaving, setUserSaving] = useState(false);
+  const [userError, setUserError] = useState('');
+  const [confirmDelUser, setConfirmDelUser] = useState(null);
+
   // Identidade Visual
   const [imagens, setImagens] = useState({ logo: '', mascote: '', alvara: '' });
   const [imagensLoading, setImagensLoading] = useState(true);
@@ -80,6 +87,66 @@ export default function Admin() {
       setUsuarios(Array.isArray(data) ? data : data.usuarios || []);
     } catch (e) { addToast('Erro ao carregar usuarios', 'error'); }
     finally { setLoading(false); }
+  };
+
+  const abrirModalNovoUsuario = () => {
+    setUserForm({ id: null, nome: '', email: '', role: 'atendimento', senha: '', ativo: true });
+    setUserError('');
+    setShowUserModal(true);
+  };
+
+  const abrirModalEditarUsuario = (u) => {
+    setUserForm({ id: u.id, nome: u.nome, email: u.email, role: u.role, senha: '', ativo: !!u.ativo });
+    setUserError('');
+    setShowUserModal(true);
+  };
+
+  const salvarUsuario = async () => {
+    setUserError('');
+    if (!userForm.nome.trim() || !userForm.email.trim()) {
+      setUserError('Nome e email são obrigatórios');
+      return;
+    }
+    if (!userForm.id && !userForm.senha) {
+      setUserError('Defina uma senha para o novo usuário');
+      return;
+    }
+    setUserSaving(true);
+    try {
+      const payload = {
+        nome: userForm.nome.trim(),
+        email: userForm.email.trim(),
+        role: userForm.role,
+        ativo: userForm.ativo,
+      };
+      if (userForm.senha) payload.senha = userForm.senha;
+
+      if (userForm.id) {
+        await api.put(`/api/usuarios/${userForm.id}`, payload);
+        addToast('Usuário atualizado', 'success');
+      } else {
+        await api.post('/api/usuarios', payload);
+        addToast('Usuário criado', 'success');
+      }
+      setShowUserModal(false);
+      loadUsuarios();
+    } catch (e) {
+      setUserError(e.message || 'Erro ao salvar');
+    } finally {
+      setUserSaving(false);
+    }
+  };
+
+  const excluirUsuario = async () => {
+    if (!confirmDelUser) return;
+    try {
+      await api.del(`/api/usuarios/${confirmDelUser.id}`);
+      addToast('Usuário excluído', 'success');
+      setConfirmDelUser(null);
+      loadUsuarios();
+    } catch (e) {
+      addToast(e.message || 'Erro ao excluir', 'error');
+    }
   };
 
   const loadTables = async () => {
@@ -543,44 +610,194 @@ export default function Admin() {
 
       {/* === USUARIOS === */}
       {activeSection === 'usuarios' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-                  {['Nome', 'Email', 'Perfil', 'Status', 'Ultimo Login'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {loading ? (
-                  [1,2].map(i => (
-                    <tr key={i}>{[1,2,3,4,5].map(j => (
-                      <td key={j} className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-3/4" /></td>
-                    ))}</tr>
-                  ))
-                ) : usuarios.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
-                    <td className="px-5 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">{u.nome}</td>
-                    <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">{u.email}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium
-                        ${u.perfil === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                        {u.perfil}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium
-                        ${u.ativo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                        {u.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">{u.ultimo_login || '-'}</td>
+        <div className="space-y-4">
+          {/* Header com botão Novo */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Funcionários cadastrados</h3>
+              <p className="text-xs text-slate-400 mt-0.5">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''}</p>
+            </div>
+            <button onClick={abrirModalNovoUsuario}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold shadow-md shadow-brand-500/25 transition">
+              <Plus size={15} /> Novo Usuário
+            </button>
+          </div>
+
+          {/* Tabela */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                    {['Nome', 'Email', 'Cargo', 'Status', 'Último Login', 'Ações'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {loading ? (
+                    [1, 2].map(i => (
+                      <tr key={i}>{[1, 2, 3, 4, 5, 6].map(j => (
+                        <td key={j} className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-3/4" /></td>
+                      ))}</tr>
+                    ))
+                  ) : usuarios.length === 0 ? (
+                    <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-400">Nenhum usuário cadastrado</td></tr>
+                  ) : usuarios.map(u => {
+                    const roleStyle =
+                      u.role === 'admin'       ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                      u.role === 'atendimento' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+                    const ultLogin = u.ultimoLogin
+                      ? new Date(u.ultimoLogin).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+                      : '—';
+                    return (
+                      <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                        <td className="px-5 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">{u.nome}</td>
+                        <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">{u.email}</td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs px-2 py-1 rounded-full font-bold capitalize ${roleStyle}`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium
+                            ${u.ativo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {u.ativo ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">{ultLogin}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex gap-1">
+                            <button onClick={() => abrirModalEditarUsuario(u)} title="Editar"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => setConfirmDelUser(u)} title="Excluir"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Novo/Editar Usuário */}
+      {showUserModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 dark:text-white text-base">
+                {userForm.id ? 'Editar Usuário' : 'Novo Usuário'}
+              </h3>
+              <button onClick={() => setShowUserModal(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Nome</label>
+                <input type="text" value={userForm.nome}
+                  onChange={e => setUserForm(p => ({ ...p, nome: e.target.value }))}
+                  placeholder="João da Silva"
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">E-mail</label>
+                <input type="email" value={userForm.email}
+                  onChange={e => setUserForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder="usuario@borges.com"
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Cargo</label>
+                <select value={userForm.role}
+                  onChange={e => setUserForm(p => ({ ...p, role: e.target.value }))}
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="admin">Administrador</option>
+                  <option value="atendimento">Atendimento</option>
+                  <option value="tecnico">Técnico</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Senha {userForm.id && <span className="text-slate-400 normal-case font-normal">(deixe em branco para manter)</span>}
+                </label>
+                <input type="password" value={userForm.senha}
+                  onChange={e => setUserForm(p => ({ ...p, senha: e.target.value }))}
+                  placeholder={userForm.id ? '••••••••' : 'Mínimo 4 caracteres'}
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={userForm.ativo}
+                  onChange={e => setUserForm(p => ({ ...p, ativo: e.target.checked }))}
+                  className="w-4 h-4 rounded text-brand-500 focus:ring-brand-500" />
+                <span className="text-sm text-slate-700 dark:text-slate-200">Usuário ativo</span>
+              </label>
+
+              {userError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  {userError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
+              <button onClick={() => setShowUserModal(false)}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                Cancelar
+              </button>
+              <button onClick={salvarUsuario} disabled={userSaving}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white transition disabled:opacity-60 flex items-center gap-1.5">
+                {userSaving && <Loader2 size={13} className="animate-spin" />}
+                {userForm.id ? 'Salvar' : 'Criar Usuário'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação de exclusão de usuário */}
+      {confirmDelUser && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-700 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-500" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 dark:text-white text-sm">Excluir usuário?</p>
+                <p className="text-xs text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2 mb-5">
+              <span className="font-bold">{confirmDelUser.nome}</span>
+              <br/>
+              <span className="text-xs text-slate-400">{confirmDelUser.email}</span>
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelUser(null)}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                Cancelar
+              </button>
+              <button onClick={excluirUsuario}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition">
+                Excluir
+              </button>
+            </div>
           </div>
         </div>
       )}
