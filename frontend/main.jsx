@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
+import { AuthProvider } from './contexts/AuthContext';
 import App from './App';
 
 const container = document.getElementById('root');
@@ -11,13 +12,15 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <ThemeProvider>
-        <SidebarProvider>
-          <EmpresaProvider>
-            <App />
-          </EmpresaProvider>
-        </SidebarProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <SidebarProvider>
+            <EmpresaProvider>
+              <App />
+            </EmpresaProvider>
+          </SidebarProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

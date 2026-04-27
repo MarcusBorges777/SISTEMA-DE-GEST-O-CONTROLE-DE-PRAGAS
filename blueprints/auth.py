@@ -19,82 +19,19 @@ def _is_json_request():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    """GET serve o SPA. POST está DESATIVADO — use /api/auth/login (db.json)."""
     if request.method == 'GET':
         if 'usuario_id' in session:
             if _is_json_request():
                 return jsonify({'autenticado': True, 'redirect': '/'})
             return redirect(url_for('spa_app'))
-        # Serve o React SPA (Login.jsx renderiza via React Router)
         return render_template('app.html')
 
-    # POST - processar login
-    try:
-        # Aceitar JSON (React) ou form data (fallback)
-        if _is_json_request() or request.is_json:
-            dados = request.get_json(silent=True) or {}
-        else:
-            dados = request.form
-
-        email = dados.get('email', '').strip()
-        senha = dados.get('senha', '').strip()
-
-        if not email or not senha:
-            if _is_json_request():
-                return jsonify({'erro': 'Preencha email e senha'}), 400
-            flash('Preencha email e senha', 'erro')
-            return render_template('app.html')
-
-        conn = get_db()
-        usuario = conn.execute('SELECT * FROM usuarios WHERE email = ? AND ativo = 1', (email,)).fetchone()
-
-        if not usuario:
-            if _is_json_request():
-                return jsonify({'erro': 'Email ou senha incorretos'}), 401
-            flash('Email ou senha incorretos', 'erro')
-            return render_template('app.html')
-
-        # Verificar senha (proteger contra senha_hash None)
-        senha_hash = usuario['senha_hash']
-        if not senha_hash or not check_password_hash(senha_hash, senha):
-            if _is_json_request():
-                return jsonify({'erro': 'Email ou senha incorretos'}), 401
-            flash('Email ou senha incorretos', 'erro')
-            return render_template('app.html')
-
-        # Login valido - configurar sessao
-        session['usuario_id'] = usuario['id']
-        session['usuario_nome'] = usuario['nome']
-        session['usuario_email'] = usuario['email']
-        session['usuario_perfil'] = usuario['perfil']
-
-        # Atualizar ultimo login (nao bloquear se falhar)
-        try:
-            conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?',
-                         (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), usuario['id']))
-            conn.commit()
-        except Exception:
-            pass
-
-        next_url = request.args.get('next') or '/'
-        if _is_json_request():
-            return jsonify({
-                'sucesso': True,
-                'redirect': next_url,
-                'usuario': {
-                    'nome': usuario['nome'],
-                    'email': usuario['email'],
-                    'perfil': usuario['perfil'],
-                }
-            })
-        return redirect(next_url)
-
-    except Exception as e:
-        print(f'[ERRO LOGIN] {e}')
-        traceback.print_exc()
-        if _is_json_request():
-            return jsonify({'erro': 'Erro interno do servidor'}), 500
-        flash('Erro interno do servidor', 'erro')
-        return render_template('app.html'), 500
+    # POST desativado — frontend deve usar /api/auth/login
+    if _is_json_request():
+        return jsonify({'erro': 'Use /api/auth/login'}), 410
+    flash('Login antigo desativado.', 'erro')
+    return render_template('app.html'), 410
 
 
 @auth_bp.route('/logout')

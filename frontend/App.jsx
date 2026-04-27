@@ -1,7 +1,7 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { ToastProvider } from './components/shared/Toast';
 import MainLayout from './layouts/MainLayout';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Documentos from './pages/Documentos';
 import Arquivos from './pages/Arquivos';
@@ -16,20 +16,29 @@ export default function App() {
   return (
     <ToastProvider>
       <Routes>
-        {/* Login fora do MainLayout (sem sidebar) */}
+        {/* Rota pública */}
         <Route path="/login" element={<Login />} />
 
         {/* Rotas protegidas com layout principal */}
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route path="/"           element={<Dashboard />} />
+          <Route path="/dashboard"  element={<Dashboard />} />
           <Route path="/documentos" element={<Documentos />} />
-          <Route path="/arquivos" element={<Arquivos />} />
-          <Route path="/agenda" element={<Agenda />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/arquivos"   element={<Arquivos />} />
+          <Route path="/agenda"     element={<Agenda />} />
           <Route path="/prospeccao" element={<Prospeccao />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/garantias" element={<Garantias />} />
+          <Route path="/clientes"   element={<Clientes />} />
+          <Route path="/garantias"  element={<Garantias />} />
+
+          {/* Barreira dupla: login + role admin */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
     </ToastProvider>

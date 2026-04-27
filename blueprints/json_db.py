@@ -1,10 +1,21 @@
 from flask import Blueprint, request, jsonify, current_app
+from blueprints.auth_db import current_user_summary
 
 json_db_bp = Blueprint('json_db', __name__, url_prefix='/api/db')
 
 
 def _db():
     return current_app.json_db_service
+
+
+def _attach_audit(data: dict, is_create: bool = True) -> dict:
+    """Adiciona criadoPor (na criação) e atualizadoPor (sempre) com base na sessão."""
+    user = current_user_summary()
+    if user:
+        if is_create and 'criadoPor' not in data:
+            data['criadoPor'] = user
+        data['atualizadoPor'] = user
+    return data
 
 
 # ── Clientes ──────────────────────────────────────────────────────────────
@@ -21,6 +32,8 @@ def criar_ou_atualizar_cliente():
     data = request.get_json(force=True) or {}
     if not data.get('cnpj') and not data.get('nome'):
         return jsonify({'erro': 'cnpj ou nome obrigatório'}), 400
+    is_create = not data.get('id')
+    _attach_audit(data, is_create=is_create)
     entry = _db().upsert_cliente(data)
     return jsonify(entry), 201
 
@@ -28,6 +41,7 @@ def criar_ou_atualizar_cliente():
 @json_db_bp.put('/clientes/<cliente_id>')
 def atualizar_cliente(cliente_id):
     data = request.get_json(force=True) or {}
+    _attach_audit(data, is_create=False)
     entry = _db().update_cliente(cliente_id, data)
     if entry is None:
         return jsonify({'erro': 'Cliente não encontrado'}), 404
@@ -58,6 +72,8 @@ def listar_agenda():
 @json_db_bp.post('/agenda')
 def criar_agendamento():
     data = request.get_json(force=True) or {}
+    is_create = not data.get('id')
+    _attach_audit(data, is_create=is_create)
     entry = _db().upsert_agendamento(data)
     return jsonify(entry), 201
 
@@ -65,6 +81,7 @@ def criar_agendamento():
 @json_db_bp.put('/agenda/<ag_id>')
 def atualizar_agendamento(ag_id):
     data = request.get_json(force=True) or {}
+    _attach_audit(data, is_create=False)
     entry = _db().update_agendamento(ag_id, data)
     if entry is None:
         return jsonify({'erro': 'Agendamento não encontrado'}), 404
@@ -98,14 +115,9 @@ def registrar_documento():
     data = request.get_json(force=True) or {}
     if not data.get('tipo'):
         return jsonify({'erro': 'tipo obrigatório'}), 400
+    _attach_audit(data, is_create=True)
     entry = _db().registrar_documento(data)
     return jsonify(entry), 201
-
-
-@json_db_bp.delete('/documentos/por-arquivo/<path:nome_arquivo>')
-def excluir_documento_por_arquivo(nome_arquivo):
-    _db().delete_documento_by_filename(nome_arquivo)
-    return jsonify({'ok': True})
 
 
 # ── Configurações ─────────────────────────────────────────────────────────

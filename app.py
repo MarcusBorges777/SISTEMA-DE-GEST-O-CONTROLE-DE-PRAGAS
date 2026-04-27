@@ -69,6 +69,7 @@ from blueprints.admin import init as admin_init
 from blueprints.ia import ia_bp
 from blueprints.ia import init as ia_init, init_upload_helpers as ia_init_upload_helpers
 from blueprints.json_db import json_db_bp
+from blueprints.auth_db import auth_db_bp, usuarios_db_bp, current_user_summary
 from services.json_db import JsonDbService, resolve_db_path
 
 # Data Bridge - Ponte entre cnpj_filtrado e gestao_documentos
@@ -96,6 +97,8 @@ app.register_blueprint(boletos_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(ia_bp)
 app.register_blueprint(json_db_bp)
+app.register_blueprint(auth_db_bp)
+app.register_blueprint(usuarios_db_bp)
 
 # Gerar SECRET_KEY segura e persistente
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY')
@@ -164,6 +167,8 @@ RATE_LIMITS = {
 # Rotas públicas que NÃO exigem autenticação
 ROTAS_PUBLICAS = {
     'login', 'logout', 'reset_admin', 'static',
+    # Endpoints da nova auth db.json
+    'api_login', 'api_logout', 'api_me',
 }
 
 # Rotas que exigem perfil de administrador

@@ -15,7 +15,8 @@ EMPTY_DB = {
     },
     "clientes": [],
     "agenda": [],
-    "documentos": []
+    "documentos": [],
+    "usuarios": []
 }
 
 
@@ -46,7 +47,33 @@ class JsonDbService:
     def __init__(self, path: Path):
         self.path = path
         if not path.exists():
-            self._write(dict(EMPTY_DB))
+            self._write({k: (dict(v) if isinstance(v, dict) else list(v)) for k, v in EMPTY_DB.items()})
+        self._seed_admin_if_empty()
+
+    # ── Seed inicial de admin (se "usuarios" estiver vazia) ───────────────
+
+    def _seed_admin_if_empty(self):
+        try:
+            from werkzeug.security import generate_password_hash
+            db = self.read()
+            if db.get('usuarios'):
+                return
+            now = datetime.utcnow().isoformat()
+            db['usuarios'] = [{
+                'id': str(uuid.uuid4()),
+                'nome': 'Administrador',
+                'email': 'admin@borges.com',
+                'role': 'admin',
+                'senhaHash': generate_password_hash('admin123', method='pbkdf2:sha256'),
+                'ativo': True,
+                'criadoEm': now,
+                'atualizadoEm': now,
+                'ultimoLogin': None,
+            }]
+            self._write(db)
+            print('[seed] Usuário admin@borges.com criado em db.json (senha inicial: admin123)')
+        except Exception as e:
+            print(f'[seed] Falha ao criar admin: {e}')
 
     # ── Core I/O ──────────────────────────────────────────────────────────
 
@@ -219,16 +246,6 @@ class JsonDbService:
         self._write(db)
         return entry
 
-    def delete_documento_by_filename(self, nome_arquivo: str):
-        """Remove document record whose nomeArquivo basename matches."""
-        db = self.read()
-        base = nome_arquivo.replace('\\', '/').split('/')[-1]
-        db['documentos'] = [
-            d for d in db['documentos']
-            if d.get('nomeArquivo', '').replace('\\', '/').split('/')[-1] != base
-        ]
-        self._write(db)
-
     def get_documentos(self, cliente_id: str = None, tipo: str = None) -> list:
         docs = self.read()['documentos']
         if cliente_id:
@@ -267,3 +284,96 @@ class JsonDbService:
 
     def get_configuracoes(self) -> dict:
         return self.read()['configuracoes']
+
+    # ── Usuários (auth + RBAC) ────────────────────────────────────────────
+
+    def get_usuarios(self) -> list:
+        """Retorna usuários sem o campo senhaHash (seguro p/ envio ao cliente)."""
+        return [self._sanitize_user(u) for u in self.read().get('usuarios', [])]
+
+    def get_usuario_by_id(self, user_id: str) -> dict | None:
+        u = next((u for u in self.read().get('usuarios', []) if u['id'] == user_id), None)
+        return self._sanitize_user(u) if u else None
+
+    def get_usuario_raw_by_email(self, email: str) -> dict | None:
+        """Inclui senhaHash — uso INTERNO apenas (validação de login)."""
+        e = (email or '').strip().lower()
+        return next(
+            (u for u in self.read().get('usuarios', []) if (u.get('email', '').lower() == e)),
+            None
+        )
+
+    def criar_usuario(self, data: dict) -> dict:
+        from werkzeug.security import generate_password_hash
+        db = self.read()
+        email = (data.get('email') or '').strip().lower()
+        if not email or not data.get('nome') or not data.get('senha'):
+            raise ValueError('nome, email e senha são obrigatórios')
+        if any((u.get('email', '').lower() == email) for u in db.get('usuarios', [])):
+            raise ValueError('Já existe um usuário com este email')
+        role = data.get('role', 'atendimento')
+        if role not in ('admin', 'atendimento', 'tecnico'):
+            raise ValueError('role inválido')
+        now = datetime.utcnow().isoformat()
+        entry = {
+            'id': str(uuid.uuid4()),
+            'nome': data['nome'].strip(),
+            'email': email,
+            'role': role,
+            'senhaHash': generate_password_hash(data['senha'], method='pbkdf2:sha256'),
+            'ativo': bool(data.get('ativo', True)),
+            'criadoEm': now,
+            'atualizadoEm': now,
+            'ultimoLogin': None,
+        }
+        db.setdefault('usuarios', []).append(entry)
+        self._write(db)
+        return self._sanitize_user(entry)
+
+    def atualizar_usuario(self, user_id: str, data: dict) -> dict | None:
+        from werkzeug.security import generate_password_hash
+        db = self.read()
+        idx = next((i for i, u in enumerate(db.get('usuarios', [])) if u['id'] == user_id), None)
+        if idx is None:
+            return None
+        atual = db['usuarios'][idx]
+        atualizado = dict(atual)
+        if 'nome' in data and data['nome']:
+            atualizado['nome'] = data['nome'].strip()
+        if 'email' in data and data['email']:
+            novo_email = data['email'].strip().lower()
+            if novo_email != atual.get('email', '').lower() and any(
+                (u.get('email', '').lower() == novo_email and u['id'] != user_id) for u in db['usuarios']
+            ):
+                raise ValueError('Já existe um usuário com este email')
+            atualizado['email'] = novo_email
+        if 'role' in data and data['role']:
+            if data['role'] not in ('admin', 'atendimento', 'tecnico'):
+                raise ValueError('role inválido')
+            atualizado['role'] = data['role']
+        if 'ativo' in data:
+            atualizado['ativo'] = bool(data['ativo'])
+        if data.get('senha'):
+            atualizado['senhaHash'] = generate_password_hash(data['senha'], method='pbkdf2:sha256')
+        atualizado['atualizadoEm'] = datetime.utcnow().isoformat()
+        db['usuarios'][idx] = atualizado
+        self._write(db)
+        return self._sanitize_user(atualizado)
+
+    def deletar_usuario(self, user_id: str):
+        db = self.read()
+        db['usuarios'] = [u for u in db.get('usuarios', []) if u['id'] != user_id]
+        self._write(db)
+
+    def registrar_ultimo_login(self, user_id: str):
+        db = self.read()
+        idx = next((i for i, u in enumerate(db.get('usuarios', [])) if u['id'] == user_id), None)
+        if idx is not None:
+            db['usuarios'][idx]['ultimoLogin'] = datetime.utcnow().isoformat()
+            self._write(db)
+
+    @staticmethod
+    def _sanitize_user(u: dict) -> dict:
+        if not u:
+            return u
+        return {k: v for k, v in u.items() if k != 'senhaHash'}
