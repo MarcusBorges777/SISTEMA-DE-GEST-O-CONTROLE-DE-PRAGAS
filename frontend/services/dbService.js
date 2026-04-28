@@ -81,9 +81,43 @@ export const documentoApi = {
       headers: JSON_HEADERS,
       body: JSON.stringify(data),
     }),
+};
 
-  deleteByFilename: (filename) =>
-    req(`${BASE}/documentos/por-arquivo/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+// ── Contratos ─────────────────────────────────────────────────────────────
+
+export const contratoApi = {
+  getAll: (ativosApenas = false) =>
+    req(`${BASE}/contratos${ativosApenas ? '?ativos=1' : ''}`),
+
+  getById: (id) =>
+    req(`${BASE}/contratos/${id}`),
+
+  create: (data) =>
+    req(`${BASE}/contratos`, {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(data),
+    }),
+
+  update: (id, data) =>
+    req(`${BASE}/contratos/${id}`, {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id) =>
+    req(`${BASE}/contratos/${id}`, { method: 'DELETE' }),
+
+  criarPasta: (id) =>
+    fetch(`/api/contratos/${id}/criar-pasta`, { method: 'POST', credentials: 'same-origin' })
+      .then(async r => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.erro || `HTTP ${r.status}`);
+        }
+        return r.json();
+      }),
 };
 
 // ── Configurações ─────────────────────────────────────────────────────────

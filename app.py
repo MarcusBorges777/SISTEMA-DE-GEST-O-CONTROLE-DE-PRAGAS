@@ -3377,6 +3377,52 @@ def api_vencimentos_garantia():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/contratos/<contrato_id>/criar-pasta', methods=['POST'])
+def criar_pasta_contrato(contrato_id):
+    """Cria a estrutura {Principal}/Contratos/{Empresa}/{Ano}/Laudos/ no OneDrive."""
+    try:
+        contrato = app.json_db_service.get_contrato_by_id(contrato_id)
+        if not contrato:
+            return jsonify({'erro': 'Contrato não encontrado'}), 404
+
+        # Resolve a pasta principal do OneDrive
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        if not config_duplos.exists():
+            return jsonify({'erro': 'Pasta principal não configurada (Admin → Arquivos)'}), 400
+        with open(config_duplos, 'r', encoding='utf-8') as _f:
+            cfg = json.load(_f)
+        pasta_principal = (cfg.get('principal') or '').strip()
+        if not pasta_principal or not Path(pasta_principal).exists():
+            return jsonify({'erro': 'Pasta principal inválida ou inexistente'}), 400
+
+        # Sanitiza nome da empresa para nome de pasta
+        nome_empresa = (contrato.get('clienteFantasia') or contrato.get('clienteNome') or 'Cliente').strip()
+        nome_seguro = re.sub(r'[<>:"/\\|?*]', '', nome_empresa).strip()[:80] or 'Cliente'
+
+        # Determina ano: dataInicio.year ou ano atual
+        ano = str(datetime.now().year)
+        try:
+            di = contrato.get('dataInicio', '')
+            if di:
+                ano = str(datetime.strptime(di[:10], '%Y-%m-%d').year)
+        except Exception:
+            pass
+
+        # Cria pasta: {Principal}/Contratos/{Empresa}/{Ano}/Laudos/
+        pasta_contrato = Path(pasta_principal) / 'Contratos' / nome_seguro / ano
+        pasta_laudos = pasta_contrato / 'Laudos'
+        pasta_laudos.mkdir(parents=True, exist_ok=True)
+
+        # Atualiza contrato com o caminho
+        caminho_str = str(pasta_contrato)
+        app.json_db_service.atualizar_contrato(contrato_id, {'pasta': caminho_str})
+
+        return jsonify({'ok': True, 'pasta': caminho_str, 'pastaLaudos': str(pasta_laudos)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+
 @app.route('/api/admin/limpar-lixeira', methods=['POST'])
 def limpar_lixeira():
     """Remove arquivos da Lixeira com mais de 90 dias"""

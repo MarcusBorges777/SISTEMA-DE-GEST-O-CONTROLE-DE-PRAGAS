@@ -12,25 +12,27 @@ function gerarId() {
 
 function _buildEvento(dados) {
   return {
-    id:              dados.id            || gerarId(),
-    tipo:            dados.tipo            || 'servico',
-    clienteId:       dados.clienteId      || null,
-    clienteNome:     dados.clienteNome     || '',
-    clienteFantasia: dados.clienteFantasia || '',
-    clienteCnpj:     dados.clienteCnpj     || '',
-    clienteTelefone: dados.clienteTelefone || '',
-    clienteEndereco: dados.clienteEndereco || '',
-    tipoServico:     dados.tipoServico     || '',
-    tecnico:         dados.tecnico         || '',
-    recorrente:      dados.recorrente      || false,
-    frequenciaMeses: dados.frequenciaMeses || 0,
-    recorrenciaId:   dados.recorrenciaId   || '',
-    numeroDoc:       dados.numeroDoc       || '',
-    data:            dados.data            || '',
-    hora:            dados.hora            || '',
-    status:          dados.status          || 'Agendado',
-    observacao:      dados.observacao      || '',
-    criadoEm:        dados.criadoEm        || new Date().toISOString(),
+    id:               dados.id              || gerarId(),
+    tipo:             dados.tipo             || 'servico',
+    clienteId:        dados.clienteId       || null,
+    clienteNome:      dados.clienteNome      || '',
+    clienteFantasia:  dados.clienteFantasia  || '',
+    clienteCnpj:      dados.clienteCnpj      || '',
+    clienteTelefone:  dados.clienteTelefone  || '',
+    clienteEndereco:  dados.clienteEndereco  || '',
+    tipoServico:      dados.tipoServico      || '',
+    categoriaServico: dados.categoriaServico || '',  // Cor visual (Contrato, Dedet+Caixa, etc.)
+    contratoId:       dados.contratoId       || null,  // Vínculo com /contratos
+    tecnico:          dados.tecnico          || '',
+    recorrente:       dados.recorrente       || false,
+    frequenciaMeses:  dados.frequenciaMeses  || 0,
+    recorrenciaId:    dados.recorrenciaId    || '',
+    numeroDoc:        dados.numeroDoc        || '',
+    data:             dados.data             || '',
+    hora:             dados.hora             || '',
+    status:           dados.status           || 'Agendado',
+    observacao:       dados.observacao       || '',
+    criadoEm:         dados.criadoEm         || new Date().toISOString(),
   };
 }
 
@@ -73,8 +75,11 @@ export async function criarAgendamentoComRecorrencia(dados) {
 
   const freq = parseInt(dados.frequenciaMeses, 10) || 1;
   const [baseYear, baseMonth, baseDay] = dados.data.split('-').map(Number);
-  const MAX_MESES = 12;
-  const passos = Math.floor(MAX_MESES / freq);
+  // quantidadeVisitas vem dos contratos (duracaoMeses / freq).
+  // Para serviços avulsos, default = 12 / freq (1 ano).
+  const passos = dados.quantidadeVisitas
+    ? Math.max(0, parseInt(dados.quantidadeVisitas, 10) - 1) // -1 porque já criou o primeiro
+    : Math.floor(12 / freq);
 
   for (let i = 1; i <= passos; i++) {
     const totalMeses = (baseYear * 12 + baseMonth - 1) + i * freq;

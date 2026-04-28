@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   CalendarDays, LayoutList, Plus, Bell, ChevronDown, ChevronUp,
   Bug, Calendar, Phone, User, Clock, Wrench, Trash2,
@@ -833,6 +833,7 @@ function PainelFiltros({ filtros, onChange }) {
 
 export default function Agenda() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [eventos, setEventos]                     = useState([]);
   const [view, setView]                           = useState('calendario');
   const [mesAtual, setMesAtual]                   = useState(() => new Date());
@@ -923,6 +924,28 @@ export default function Agenda() {
 
   const handleStatusRapido = async (id, status) => {
     await atualizarAgendamento(id, { status });
+    // Se foi concluído E é uma visita de contrato → abre Laudo pré-preenchido
+    if (status === 'Concluído') {
+      const ev = eventos.find(e => e.id === id);
+      if (ev?.contratoId && ev?.categoriaServico === 'contrato') {
+        navigate('/documentos', {
+          state: {
+            tab: 'laudo',
+            cliente: {
+              nome:     ev.clienteNome     || '',
+              fantasia: ev.clienteFantasia || '',
+              cnpj:     ev.clienteCnpj     || '',
+              telefone: ev.clienteTelefone || '',
+              endereco: ev.clienteEndereco || '',
+            },
+            contratoId:  ev.contratoId,
+            agendamentoId: ev.id,
+            // Sinaliza para Documentos/Laudos pré-carregar template do contrato
+            modoContrato: true,
+          },
+        });
+      }
+    }
     recarregar();
   };
 

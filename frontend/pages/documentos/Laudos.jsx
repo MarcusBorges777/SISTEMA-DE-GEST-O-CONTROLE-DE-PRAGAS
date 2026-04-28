@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { contratoApi } from '../../services/dbService';
 import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Search } from 'lucide-react';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
@@ -226,6 +228,42 @@ export default function Laudos() {
   useEffect(() => {
     getClientes().then(setClientesSalvos).catch(() => {});
   }, []);
+
+  // ── Modo Contrato: chegou via Agenda 'Concluir' visita de contrato ─────────
+  // Pré-popula pragas, garantia e telefone/endereço do template do contrato
+  const location = useLocation();
+  const [contratoAtivo, setContratoAtivo] = useState(null);
+
+  useEffect(() => {
+    const st = location.state;
+    if (!st?.modoContrato || !st?.contratoId) return;
+
+    let alive = true;
+    contratoApi.getById(st.contratoId)
+      .then(contrato => {
+        if (!alive || !contrato) return;
+        setContratoAtivo(contrato);
+        setFormData(prev => ({
+          ...prev,
+          cliente: {
+            nome:               contrato.clienteNome     || prev.cliente.nome,
+            fantasia:           contrato.clienteFantasia || prev.cliente.fantasia,
+            cnpj:               contrato.clienteCnpj     || prev.cliente.cnpj,
+            endereco:           contrato.clienteEndereco || prev.cliente.endereco,
+            telefone:           contrato.clienteTelefone || prev.cliente.telefone,
+            atividadeEconomica: prev.cliente.atividadeEconomica || '',
+          },
+          // Carrega pragas + garantia do template
+          selectedPests: Array.isArray(contrato.pragas) && contrato.pragas.length > 0
+            ? contrato.pragas
+            : prev.selectedPests,
+          garantiaMeses: contrato.garantiaMeses || prev.garantiaMeses || 1,
+          contratoId:    contrato.id,
+        }));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [location.state]);
 
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
   useEffect(() => {
@@ -640,6 +678,9 @@ export default function Laudos() {
           showPestControl,
           showWaterTank,
           showGreaseTrap,
+          // Vínculo com contrato (rastreabilidade)
+          contratoId: contratoAtivo?.id || formDataAtualizado.contratoId || null,
+          pastaContrato: contratoAtivo?.pasta || null,
         },
       });
       if (result.sucesso) {
@@ -1115,7 +1156,29 @@ export default function Laudos() {
 
   return (
     <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
-      
+
+      {/* Banner: visita de contrato (template carregado automaticamente) */}
+      {contratoAtivo && (
+        <div className="w-full max-w-4xl mx-auto px-4 mb-2 no-print">
+          <div className="flex items-start gap-3 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-slate-800 border-2 border-emerald-300 dark:border-emerald-700 rounded-xl p-4 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/30">
+              <Shield size={18} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-emerald-900 dark:text-emerald-200">
+                Visita de Contrato · {contratoAtivo.clienteFantasia || contratoAtivo.clienteNome}
+              </p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                Pragas e garantia carregadas do template do contrato.
+                {contratoAtivo.pasta && (
+                  <> O laudo ficará na pasta: <span className="font-mono text-[10px]">{contratoAtivo.pasta}</span></>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {renderEditorPanel()}
 
       {/* BOTÕES FLUTUANTES */}

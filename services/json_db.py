@@ -17,7 +17,8 @@ EMPTY_DB = {
     "agenda": [],
     "documentos": [],
     "usuarios": [],
-    "contatosGarantia": []
+    "contatosGarantia": [],
+    "contratos": []
 }
 
 
@@ -405,4 +406,68 @@ class JsonDbService:
     def deletar_contato_garantia(self, contato_id: str):
         db = self.read()
         db['contatosGarantia'] = [c for c in db.get('contatosGarantia', []) if c.get('id') != contato_id]
+        self._write(db)
+
+    # ── Contratos (clientes recorrentes) ──────────────────────────────────
+
+    def get_contratos(self, ativos_apenas: bool = False) -> list:
+        items = self.read().get('contratos', [])
+        if ativos_apenas:
+            items = [c for c in items if c.get('ativo', True)]
+        return sorted(items, key=lambda x: x.get('atualizadoEm', ''), reverse=True)
+
+    def get_contrato_by_id(self, contrato_id: str) -> dict | None:
+        return next((c for c in self.read().get('contratos', []) if c.get('id') == contrato_id), None)
+
+    def criar_contrato(self, data: dict) -> dict:
+        if not (data.get('clienteNome') or data.get('clienteCnpj')):
+            raise ValueError('clienteNome ou clienteCnpj obrigatório')
+        db = self.read()
+        now = datetime.utcnow().isoformat()
+        entry = {
+            'id': data.get('id') or str(uuid.uuid4()),
+            'clienteId':       data.get('clienteId', ''),
+            'clienteNome':     data.get('clienteNome', ''),
+            'clienteFantasia': data.get('clienteFantasia', ''),
+            'clienteCnpj':     data.get('clienteCnpj', ''),
+            'clienteTelefone': data.get('clienteTelefone', ''),
+            'clienteEndereco': data.get('clienteEndereco', ''),
+            'dataInicio':      data.get('dataInicio', ''),
+            'duracaoMeses':    int(data.get('duracaoMeses', 12)),
+            'frequenciaMeses': int(data.get('frequenciaMeses', 1)),
+            'diaPreferencial': int(data.get('diaPreferencial', 1) or 1),
+            'horaPreferencial': data.get('horaPreferencial', '08:00'),
+            'valorMensal':     float(data.get('valorMensal', 0) or 0),
+            'pragas':          data.get('pragas', []) or [],
+            'produtos':        data.get('produtos', []) or [],
+            'garantiaMeses':   int(data.get('garantiaMeses', 1) or 1),
+            'tecnico':         data.get('tecnico', ''),
+            'observacoes':     data.get('observacoes', ''),
+            'pasta':           data.get('pasta', ''),
+            'ativo':           bool(data.get('ativo', True)),
+            'criadoEm':        now,
+            'atualizadoEm':    now,
+            'criadoPor':       data.get('criadoPor'),
+        }
+        db.setdefault('contratos', []).append(entry)
+        self._write(db)
+        return entry
+
+    def atualizar_contrato(self, contrato_id: str, data: dict) -> dict | None:
+        db = self.read()
+        idx = next((i for i, c in enumerate(db.get('contratos', [])) if c.get('id') == contrato_id), None)
+        if idx is None:
+            return None
+        db['contratos'][idx] = {
+            **db['contratos'][idx],
+            **data,
+            'id': contrato_id,
+            'atualizadoEm': datetime.utcnow().isoformat()
+        }
+        self._write(db)
+        return db['contratos'][idx]
+
+    def deletar_contrato(self, contrato_id: str):
+        db = self.read()
+        db['contratos'] = [c for c in db.get('contratos', []) if c.get('id') != contrato_id]
         self._write(db)

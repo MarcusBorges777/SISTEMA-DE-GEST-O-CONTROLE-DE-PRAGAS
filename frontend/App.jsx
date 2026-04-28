@@ -8,6 +8,7 @@ import Arquivos from './pages/Arquivos';
 import Admin from './pages/Admin';
 import Prospeccao from './pages/Prospeccao';
 import Clientes from './pages/Clientes';
+import Contratos from './pages/Contratos';
 import Garantias from './pages/Garantias';
 import Agenda from './pages/Agenda';
 import Login from './pages/Login';
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/agenda"     element={<Agenda />} />
           <Route path="/prospeccao" element={<Prospeccao />} />
           <Route path="/clientes"   element={<Clientes />} />
+          <Route path="/contratos"  element={<Contratos />} />
           <Route path="/garantias"  element={<Garantias />} />
 
           {/* Barreira dupla: login + role admin */}
