@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, FolderOpen, Shield,
   ChevronLeft, ChevronRight, Bug, Users, CalendarDays, Bell,
-  LogOut,
+  LogOut, Briefcase,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/arquivos',   icon: FolderOpen,      label: 'Arquivos'   },
   { to: '/agenda',     icon: CalendarDays,    label: 'Agenda'     },
   { to: '/clientes',   icon: Users,           label: 'Clientes'   },
+  { to: '/contratos',  icon: Briefcase,       label: 'Contratos', roles: ['admin', 'atendimento'] },
   { to: '/garantias',  icon: Bell,            label: 'Garantias'  },
   // Admin só para admin
   { to: '/admin',      icon: Shield,          label: 'Admin', roles: ['admin'] },

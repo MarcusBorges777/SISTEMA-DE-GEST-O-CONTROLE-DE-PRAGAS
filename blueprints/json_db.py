@@ -162,3 +162,46 @@ def listar_contatos_garantia():
 def deletar_contato_garantia(contato_id):
     _db().deletar_contato_garantia(contato_id)
     return jsonify({'ok': True})
+
+
+# ── Contratos (clientes recorrentes) ──────────────────────────────────────
+
+@json_db_bp.get('/contratos')
+def listar_contratos():
+    ativos = request.args.get('ativos') == '1'
+    return jsonify(_db().get_contratos(ativos_apenas=ativos))
+
+
+@json_db_bp.get('/contratos/<contrato_id>')
+def obter_contrato(contrato_id):
+    contrato = _db().get_contrato_by_id(contrato_id)
+    if not contrato:
+        return jsonify({'erro': 'Contrato não encontrado'}), 404
+    return jsonify(contrato)
+
+
+@json_db_bp.post('/contratos')
+def criar_contrato():
+    data = request.get_json(force=True) or {}
+    _attach_audit(data, is_create=True)
+    try:
+        entry = _db().criar_contrato(data)
+        return jsonify(entry), 201
+    except ValueError as e:
+        return jsonify({'erro': str(e)}), 400
+
+
+@json_db_bp.put('/contratos/<contrato_id>')
+def atualizar_contrato(contrato_id):
+    data = request.get_json(force=True) or {}
+    _attach_audit(data, is_create=False)
+    entry = _db().atualizar_contrato(contrato_id, data)
+    if entry is None:
+        return jsonify({'erro': 'Contrato não encontrado'}), 404
+    return jsonify(entry)
+
+
+@json_db_bp.delete('/contratos/<contrato_id>')
+def deletar_contrato(contrato_id):
+    _db().deletar_contrato(contrato_id)
+    return jsonify({'ok': True})
