@@ -4,7 +4,7 @@ import {
   CalendarDays, LayoutList, Plus, Bell, ChevronDown, ChevronUp,
   Bug, Calendar, Phone, User, Clock, Wrench, Trash2,
   CheckCircle2, XCircle, RefreshCw, Edit2, ChevronLeft, ChevronRight,
-  FileText, X, Repeat, Search,
+  FileText, X, Repeat, Search, AlertTriangle,
 } from 'lucide-react';
 import {
   getAgendamentos,
@@ -172,9 +172,21 @@ function EventoDetalheModal({ evento, onClose, onEditar, onStatusRapido, onExclu
           )}
         </div>
 
-        {/* Ações (só para serviços) */}
-        {!isDoc && (
-          <div className="px-5 pb-5 space-y-2">
+        {/* Ações */}
+        <div className="px-5 pb-5 space-y-2">
+          {/* Aviso para eventos gerados automaticamente por documentos */}
+          {isDoc && (
+            <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-xl px-3 py-2 mb-1">
+              <FileText size={13} className="text-blue-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-snug">
+                Evento gerado automaticamente pela emissão de um {TIPO_LABEL[evento.tipo]?.toLowerCase()}.
+                Excluir aqui remove apenas da agenda — o documento permanece em Arquivos.
+              </p>
+            </div>
+          )}
+
+          {/* Status rápido — só faz sentido para serviços */}
+          {!isDoc && (
             <div className="flex gap-2">
               {evento.status !== 'Concluído' && (
                 <button
@@ -192,31 +204,34 @@ function EventoDetalheModal({ evento, onClose, onEditar, onStatusRapido, onExclu
                   <XCircle size={13} /> Cancelar
                 </button>
               )}
-              <button
-                onClick={() => { onEditar(evento); onClose(); }}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
-              >
-                <Edit2 size={13} /> Editar
-              </button>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { onExcluir(evento.id); onClose(); }}
-                className="flex-1 py-2 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 transition border border-red-100 dark:border-red-800/30"
-              >
-                Excluir este evento
-              </button>
-              {evento.recorrenciaId && (
-                <button
-                  onClick={() => { onExcluirSerie(evento.recorrenciaId); onClose(); }}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200 transition"
-                >
-                  Excluir toda a série
-                </button>
-              )}
-            </div>
+          )}
+
+          {/* Editar + Excluir (TODOS os tipos) */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => { onEditar(evento); onClose(); }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
+            >
+              <Edit2 size={13} /> Editar
+            </button>
+            <button
+              onClick={() => { onExcluir(evento); onClose(); }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 transition border border-red-100 dark:border-red-800/30"
+            >
+              <Trash2 size={13} /> Excluir
+            </button>
           </div>
-        )}
+
+          {evento.recorrenciaId && (
+            <button
+              onClick={() => { onExcluirSerie(evento.recorrenciaId); onClose(); }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200 transition"
+            >
+              <Trash2 size={13} /> Excluir toda a série
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -854,17 +869,38 @@ export default function Agenda() {
     recarregar();
   };
 
-  const handleExcluir = async (id) => {
-    if (window.confirm('Remover este agendamento?')) {
-      await excluirAgendamento(id);
-      recarregar();
+  // Modal de confirmação de exclusão (substitui window.confirm)
+  // shape: { tipo: 'evento' | 'serie', id: string, evento?: object }
+  const [confirmExcluir, setConfirmExcluir] = useState(null);
+  const [excluindo, setExcluindo]           = useState(false);
+
+  // onExcluir do EventoDetalheModal agora recebe o evento inteiro
+  const handleExcluir = (evento) => {
+    // Compat: também aceita string id (callbacks da Timeline)
+    if (typeof evento === 'string') {
+      setConfirmExcluir({ tipo: 'evento', id: evento, evento: null });
+    } else {
+      setConfirmExcluir({ tipo: 'evento', id: evento?.id, evento });
     }
   };
 
-  const handleExcluirSerie = async (recorrenciaId) => {
-    if (window.confirm('Remover TODOS os eventos desta série?')) {
-      await excluirSerieRecorrente(recorrenciaId);
+  const handleExcluirSerie = (recorrenciaId) => {
+    setConfirmExcluir({ tipo: 'serie', id: recorrenciaId });
+  };
+
+  const confirmarExclusao = async () => {
+    if (!confirmExcluir) return;
+    setExcluindo(true);
+    try {
+      if (confirmExcluir.tipo === 'serie') {
+        await excluirSerieRecorrente(confirmExcluir.id);
+      } else {
+        await excluirAgendamento(confirmExcluir.id);
+      }
+      setConfirmExcluir(null);
       recarregar();
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -1059,6 +1095,71 @@ export default function Agenda() {
         clienteInicial={clienteInicial}
         eventoEditar={eventoEditar}
       />
+
+      {/* Modal de confirmação de exclusão (premium, substitui window.confirm) */}
+      {confirmExcluir && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => !excluindo && setConfirmExcluir(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-700 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-11 h-11 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={20} className="text-red-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-slate-800 dark:text-white text-base">
+                    {confirmExcluir.tipo === 'serie' ? 'Excluir toda a série?' : 'Excluir agendamento?'}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
+                </div>
+              </div>
+
+              {confirmExcluir.tipo === 'serie' ? (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2.5 mb-2">
+                  <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
+                    <strong>TODOS</strong> os eventos recorrentes desta série serão removidos
+                    permanentemente da agenda.
+                  </p>
+                </div>
+              ) : confirmExcluir.evento ? (
+                <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2.5 mb-2 space-y-0.5">
+                  <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                    {confirmExcluir.evento.clienteNome || 'Sem cliente'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {(TIPO_LABEL?.[confirmExcluir.evento.tipo]) || confirmExcluir.evento.tipo}
+                    {' · '}
+                    {isoParaDisplay(confirmExcluir.evento.data)}
+                    {confirmExcluir.evento.hora && ` ${confirmExcluir.evento.hora}`}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end bg-slate-50 dark:bg-slate-900/30">
+              <button
+                onClick={() => setConfirmExcluir(null)}
+                disabled={excluindo}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarExclusao}
+                disabled={excluindo}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition shadow-md shadow-red-500/30 disabled:opacity-60"
+              >
+                <Trash2 size={13} /> {excluindo ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
