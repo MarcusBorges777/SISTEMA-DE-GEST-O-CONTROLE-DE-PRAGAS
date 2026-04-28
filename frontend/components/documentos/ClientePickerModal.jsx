@@ -67,7 +67,7 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes, onVerP
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Carregar Cliente Salvo" maxWidth="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Carregar Cliente Salvo" maxWidth="max-w-2xl" zClassName="z-[99999]">
       <div className="space-y-3">
         {/* Input de busca */}
         <div className="relative">

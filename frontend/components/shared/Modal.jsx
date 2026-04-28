@@ -8,8 +8,9 @@ import { X } from 'lucide-react';
  * - Fechamento via Escape
  * - Animação suave scale+fade na entrada
  * - Backdrop com blur e fade animado
+ * - zClassName: permite sobrescrever z-index (default z-50)
  */
-export default function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) {
+export default function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', zClassName = 'z-50' }) {
   const modalRef   = useRef(null);
   const titleId    = useId();
 
@@ -57,7 +58,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = 'ma
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden"
+      className={`fixed inset-0 ${zClassName} flex items-center justify-center p-4 print:hidden`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
