@@ -5,15 +5,15 @@
  *   isOpen          boolean
  *   onClose         () => void
  *   onSalvar        (dados) => void
- *   clienteInicial  object | null  — pré-preenche dados do cliente
+ *   clienteInicial  object | null  — pré-preenche dados do cliente (ex: "Agendar Retorno")
  *   eventoEditar    object | null  — se passado, modo de edição
  */
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect } from 'react';
 import { X, User, Calendar, Clock, Wrench, FileText, Search } from 'lucide-react';
 import Modal from '../shared/Modal';
 import { ClientePickerModal } from '../documentos/ClientePickerModal';
 import { getClientes } from '../../services/clienteCache';
-import { TIPOS_SERVICO, STATUS_OPTIONS, getTecnicos, getEquipes } from '../../services/agendaService';
+import { TIPOS_SERVICO, STATUS_OPTIONS, CATEGORIAS_SERVICO, getTecnicos, getEquipes } from '../../services/agendaService';
 
 export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial = null, eventoEditar = null }) {
   const hoje = (() => {
@@ -22,37 +22,46 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
   })();
 
   const emptyForm = {
-    clienteNome:     '',
-    clienteFantasia: '',
-    clienteCnpj:     '',
-    clienteTelefone: '',
-    clienteEndereco: '',
-    tipoServico:     TIPOS_SERVICO[0],
-    tecnico:         '',
-    recorrente:      false,
-    frequenciaMeses: 3,
-    data:            hoje,
-    hora:            '08:00',
-    status:          'Agendado',
-    observacao:      '',
+    clienteNome:      '',
+    clienteFantasia:  '',
+    clienteCnpj:      '',
+    clienteTelefone:  '',
+    clienteEndereco:  '',
+    tipoServico:      TIPOS_SERVICO[0],
+    categoriaServico: 'dedetizacao',  // categoria visual (cor) — default: dedetização
+    tecnico:          '',
+    recorrente:       false,
+    frequenciaMeses:  3,
+    data:             hoje,
+    hora:             '08:00',
+    status:           'Agendado',
+    observacao:       '',
   };
 
-  const [form, setForm]                   = useState(emptyForm);
-  const [pickerOpen, setPickerOpen]       = useState(false);
+  const [form, setForm]                 = useState(emptyForm);
+  const [pickerOpen, setPickerOpen]     = useState(false);
   const [clientesSalvos, setClientesSalvos] = useState([]);
   const [opcoesTecnico, setOpcoesTecnico]   = useState([]);
 
-  // IDs únicos para acessibilidade
-  const uid = useId();
-  const id = (name) => `${uid}-${name}`;
-
+  // Carrega clientes salvos e lista de técnicos+equipes
   useEffect(() => {
-    setClientesSalvos(getClientes());
+    if (!isOpen) return;
+    let alive = true;
+    (async () => {
+      try {
+        const lista = await getClientes();
+        if (alive) setClientesSalvos(Array.isArray(lista) ? lista : []);
+      } catch {
+        if (alive) setClientesSalvos([]);
+      }
+    })();
     const tecs = getTecnicos();
     const eqs  = getEquipes().map(e => e.nome);
     setOpcoesTecnico([...tecs, ...eqs]);
+    return () => { alive = false; };
   }, [isOpen]);
 
+  // Inicializa form ao abrir
   useEffect(() => {
     if (!isOpen) return;
     if (eventoEditar) {
@@ -60,11 +69,13 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
     } else if (clienteInicial) {
       setForm({
         ...emptyForm,
-        clienteNome:     clienteInicial.nome      || clienteInicial.clienteNome     || '',
-        clienteFantasia: clienteInicial.fantasia  || clienteInicial.clienteFantasia || '',
-        clienteCnpj:     clienteInicial.cnpj      || clienteInicial.clienteCnpj     || '',
-        clienteTelefone: clienteInicial.telefone  || clienteInicial.clienteTelefone || '',
-        clienteEndereco: clienteInicial.endereco  || clienteInicial.clienteEndereco || '',
+        clienteNome:      clienteInicial.nome      || clienteInicial.clienteNome     || '',
+        clienteFantasia:  clienteInicial.fantasia  || clienteInicial.clienteFantasia || '',
+        clienteCnpj:      clienteInicial.cnpj      || clienteInicial.clienteCnpj     || '',
+        clienteTelefone:  clienteInicial.telefone  || clienteInicial.clienteTelefone || '',
+        clienteEndereco:  clienteInicial.endereco  || clienteInicial.clienteEndereco || '',
+        // Categoria sugerida pelo deep link (ex: 'contrato' vindo de Garantias)
+        categoriaServico: clienteInicial.categoriaSugerida || emptyForm.categoriaServico,
       });
     } else {
       setForm(emptyForm);
@@ -89,29 +100,8 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
     onClose();
   };
 
-  // Classes base reutilizadas (compatíveis com o Design System)
   const labelCls = 'block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide';
-  const inputCls = `w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600
-    bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white
-    focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500
-    transition-all duration-150`;
-
-  // Classe de botão toggle (frequência / status)
-  const toggleBtn = (active, colorActive = 'brand') => {
-    const activeColors = {
-      brand:   'bg-brand-500 border-brand-500 text-white',
-      blue:    'bg-blue-500 border-blue-500 text-white',
-      green:   'bg-emerald-500 border-emerald-500 text-white',
-      red:     'bg-red-500 border-red-500 text-white',
-    };
-    return `flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-150 border-2
-      active:scale-[0.97]
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1
-      ${active
-        ? `${activeColors[colorActive] || activeColors.brand} focus-visible:ring-brand-400/60`
-        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 focus-visible:ring-slate-400/40'
-      }`;
-  };
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition';
 
   const clienteSelecionado = !!form.clienteNome;
   const titulo = eventoEditar ? 'Editar Agendamento' : 'Novo Agendamento';
@@ -119,19 +109,14 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={titulo} maxWidth="max-w-lg">
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* ── Cliente ─────────────────────────────────────────── */}
           <div>
-            <label id={id('cliente-label')} className={labelCls}>
-              Cliente <span className="text-red-400 ml-0.5" aria-hidden="true">*</span>
-            </label>
+            <label className={labelCls}>Cliente</label>
             {clienteSelecionado ? (
-              <div
-                className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700"
-                aria-labelledby={id('cliente-label')}
-              >
-                <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-800 flex items-center justify-center shrink-0" aria-hidden="true">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
+                <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-800 flex items-center justify-center shrink-0">
                   <User size={18} className="text-blue-600 dark:text-blue-300" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -143,9 +128,7 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
                 <button
                   type="button"
                   onClick={() => setPickerOpen(true)}
-                  aria-label={`Trocar cliente — atualmente: ${form.clienteNome}`}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 font-medium
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 rounded px-1"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 font-medium"
                 >
                   Trocar
                 </button>
@@ -154,17 +137,9 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
-                aria-required="true"
-                aria-label="Selecionar cliente para o agendamento"
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl
-                  border-2 border-dashed border-slate-300 dark:border-slate-600
-                  text-slate-500 dark:text-slate-400
-                  hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 dark:hover:text-brand-400
-                  active:scale-[0.98]
-                  transition-all duration-150 text-sm font-medium
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-600 dark:hover:border-brand-500 dark:hover:text-brand-400 transition text-sm font-medium"
               >
-                <Search size={16} aria-hidden="true" />
+                <Search size={16} />
                 Selecionar cliente...
               </button>
             )}
@@ -173,26 +148,22 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
           {/* ── Data e Hora ─────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor={id('data')} className={labelCls}>
-                <Calendar size={11} className="inline mr-1" aria-hidden="true" /> Data
-                <span className="text-red-400 ml-0.5" aria-hidden="true">*</span>
+              <label className={labelCls}>
+                <Calendar size={11} className="inline mr-1" /> Data
               </label>
               <input
-                id={id('data')}
                 type="date"
                 value={form.data}
                 onChange={e => set('data', e.target.value)}
                 required
-                aria-required="true"
                 className={inputCls}
               />
             </div>
             <div>
-              <label htmlFor={id('hora')} className={labelCls}>
-                <Clock size={11} className="inline mr-1" aria-hidden="true" /> Hora
+              <label className={labelCls}>
+                <Clock size={11} className="inline mr-1" /> Hora
               </label>
               <input
-                id={id('hora')}
                 type="time"
                 value={form.hora}
                 onChange={e => set('hora', e.target.value)}
@@ -203,11 +174,10 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
 
           {/* ── Tipo de Serviço ─────────────────────────────────── */}
           <div>
-            <label htmlFor={id('tipo-servico')} className={labelCls}>
-              <Wrench size={11} className="inline mr-1" aria-hidden="true" /> Tipo de Serviço
+            <label className={labelCls}>
+              <Wrench size={11} className="inline mr-1" /> Tipo de Serviço
             </label>
             <select
-              id={id('tipo-servico')}
               value={form.tipoServico}
               onChange={e => set('tipoServico', e.target.value)}
               className={inputCls}
@@ -218,11 +188,42 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
             </select>
           </div>
 
+          {/* ── Categoria (cor visual no calendário) ───────────────── */}
+          <div>
+            <label className={labelCls}>Categoria · cor no calendário</label>
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORIAS_SERVICO.map(cat => {
+                const ativo = form.categoriaServico === cat.value;
+                return (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => set('categoriaServico', cat.value)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition
+                      ${ativo
+                        ? `${cat.bg} ${cat.border} text-white shadow-md`
+                        : `bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:${cat.border}`
+                      }`}
+                  >
+                    <span className={`w-3 h-3 rounded-full shrink-0 ${ativo ? 'bg-white/40' : cat.dot}`} />
+                    <span className="min-w-0">
+                      <p className={`text-xs font-bold leading-tight truncate ${ativo ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+                        {cat.label}
+                      </p>
+                      <p className={`text-[10px] truncate ${ativo ? 'text-white/80' : 'text-slate-400'}`}>
+                        {cat.desc}
+                      </p>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* ── Técnico Responsável ─────────────────────────────── */}
           <div>
-            <label htmlFor={id('tecnico')} className={labelCls}>Técnico Responsável</label>
+            <label className={labelCls}>Técnico Responsável</label>
             <select
-              id={id('tecnico')}
               value={form.tecnico}
               onChange={e => set('tecnico', e.target.value)}
               className={inputCls}
@@ -236,31 +237,31 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
 
           {/* ── Recorrência ─────────────────────────────────────── */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer select-none group">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
-                id={id('recorrente')}
                 type="checkbox"
                 checked={form.recorrente}
                 onChange={e => set('recorrente', e.target.checked)}
-                className="w-4 h-4 rounded accent-brand-500
-                  focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-1"
+                className="w-4 h-4 rounded accent-brand-500"
               />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Serviço Recorrente (Contrato)
               </span>
             </label>
-
             {form.recorrente && (
-              <div className="ml-6 animate-[slideUp_0.2s_cubic-bezier(0.16,1,0.3,1)_both]">
-                <p id={id('freq-label')} className={`${labelCls} mb-2`}>Frequência</p>
-                <div className="flex gap-2" role="group" aria-labelledby={id('freq-label')}>
+              <div className="ml-6">
+                <label className={labelCls}>Frequência</label>
+                <div className="flex gap-2">
                   {[1, 3, 6].map(f => (
                     <button
                       key={f}
                       type="button"
-                      aria-pressed={form.frequenciaMeses === f}
                       onClick={() => set('frequenciaMeses', f)}
-                      className={toggleBtn(form.frequenciaMeses === f, 'brand')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition border-2
+                        ${form.frequenciaMeses === f
+                          ? 'bg-brand-500 border-brand-500 text-white'
+                          : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                        }`}
                     >
                       {f === 1 ? 'Mensal' : f === 3 ? 'Trimestral' : 'Semestral'}
                     </button>
@@ -272,18 +273,20 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
 
           {/* ── Status ──────────────────────────────────────────── */}
           <div>
-            <p id={id('status-label')} className={labelCls}>Status</p>
-            <div className="flex gap-2" role="group" aria-labelledby={id('status-label')}>
+            <label className={labelCls}>Status</label>
+            <div className="flex gap-2">
               {STATUS_OPTIONS.map(s => (
                 <button
                   key={s.value}
                   type="button"
-                  aria-pressed={form.status === s.value}
                   onClick={() => set('status', s.value)}
-                  className={toggleBtn(
-                    form.status === s.value,
-                    s.color === 'blue' ? 'blue' : s.color === 'green' ? 'green' : 'red'
-                  )}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition border-2
+                    ${form.status === s.value
+                      ? s.color === 'blue'  ? 'bg-blue-500 border-blue-500 text-white'
+                      : s.color === 'green' ? 'bg-emerald-500 border-emerald-500 text-white'
+                      :                       'bg-red-500 border-red-500 text-white'
+                      : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'
+                    }`}
                 >
                   {s.label}
                 </button>
@@ -293,11 +296,10 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
 
           {/* ── Observação ──────────────────────────────────────── */}
           <div>
-            <label htmlFor={id('observacao')} className={labelCls}>
-              <FileText size={11} className="inline mr-1" aria-hidden="true" /> Observação
+            <label className={labelCls}>
+              <FileText size={11} className="inline mr-1" /> Observação
             </label>
             <textarea
-              id={id('observacao')}
               value={form.observacao}
               onChange={e => set('observacao', e.target.value)}
               rows={2}
@@ -311,25 +313,14 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium
-                border border-slate-200 dark:border-slate-600
-                text-slate-600 dark:text-slate-300
-                hover:bg-slate-50 dark:hover:bg-slate-700
-                active:scale-[0.97]
-                transition-all duration-150
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!clienteSelecionado || !form.data}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white
-                bg-brand-500 hover:bg-brand-600
-                active:scale-[0.97]
-                disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
-                transition-all duration-150
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/50"
+              className="flex-1 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold hover:bg-brand-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {eventoEditar ? 'Salvar Alterações' : 'Agendar'}
             </button>
@@ -337,6 +328,7 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
         </form>
       </Modal>
 
+      {/* Picker de clientes */}
       <ClientePickerModal
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}

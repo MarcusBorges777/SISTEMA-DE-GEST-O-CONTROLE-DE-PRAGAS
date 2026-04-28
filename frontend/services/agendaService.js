@@ -208,6 +208,60 @@ export const TIPO_CORES = {
   orcamento: { bg: 'bg-yellow-500', light: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300', dot: 'bg-yellow-500' },
 };
 
+// ─── Categorias de Serviço (cor diferente por tipo de visita) ───────────────
+// Permite filtrar e identificar visualmente Contratos vs serviços avulsos.
+export const CATEGORIAS_SERVICO = [
+  {
+    value: 'contrato',
+    label: 'Contrato',
+    desc:  'Cliente recorrente / mensalidade',
+    bg:    'bg-emerald-500',
+    light: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+    border:'border-emerald-300 dark:border-emerald-700',
+    dot:   'bg-emerald-500',
+  },
+  {
+    value: 'dedetizacao_caixa',
+    label: 'Dedetização + Caixa',
+    desc:  'Combo de dedetização e higienização',
+    bg:    'bg-violet-500',
+    light: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+    border:'border-violet-300 dark:border-violet-700',
+    dot:   'bg-violet-500',
+  },
+  {
+    value: 'dedetizacao',
+    label: 'Apenas Dedetização',
+    desc:  'Controle de pragas',
+    bg:    'bg-blue-500',
+    light: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+    border:'border-blue-300 dark:border-blue-700',
+    dot:   'bg-blue-500',
+  },
+  {
+    value: 'caixa',
+    label: "Apenas Caixa d'Água",
+    desc:  'Higienização de caixa',
+    bg:    'bg-cyan-500',
+    light: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
+    border:'border-cyan-300 dark:border-cyan-700',
+    dot:   'bg-cyan-500',
+  },
+  {
+    value: 'outro',
+    label: 'Outro',
+    desc:  'Serviço pontual',
+    bg:    'bg-slate-500',
+    light: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+    border:'border-slate-300 dark:border-slate-600',
+    dot:   'bg-slate-500',
+  },
+];
+
+export function getCategoriaCor(categoria) {
+  return CATEGORIAS_SERVICO.find(c => c.value === categoria) || CATEGORIAS_SERVICO[CATEGORIAS_SERVICO.length - 1];
+}
+
 export const STATUS_CORES = {
   'Agendado':  'bg-blue-500',
   'Concluído': 'bg-emerald-500',

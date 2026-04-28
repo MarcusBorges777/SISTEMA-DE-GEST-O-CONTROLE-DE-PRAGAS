@@ -15,6 +15,8 @@ import {
   excluirSerieRecorrente,
   STATUS_OPTIONS,
   TIPO_CORES,
+  CATEGORIAS_SERVICO,
+  getCategoriaCor,
   getTecnicos,
   getEquipes,
 } from '../services/agendaService';
@@ -336,7 +338,11 @@ function CalendarioMensal({ mes, eventosPorDia, onEventoClick, onMesChange }) {
                       {/* Pills de eventos */}
                       <div className="space-y-0.5">
                         {visivel.map(ev => {
-                          const cor = (TIPO_CORES && TIPO_CORES[ev.tipo]) || { light: 'bg-blue-100 text-blue-700' };
+                          // Para 'servico' usa a cor da categoriaServico (Contrato/Dedet+Caixa/etc).
+                          // Para documentos (laudo/recibo/orcamento) usa a cor de TIPO_CORES.
+                          const cor = ev.tipo === 'servico'
+                            ? getCategoriaCor(ev.categoriaServico)
+                            : ((TIPO_CORES && TIPO_CORES[ev.tipo]) || { light: 'bg-blue-100 text-blue-700' });
                           return (
                             <button
                               key={ev.id}
@@ -504,9 +510,12 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {evs.map(ev => {
-                const cor   = (TIPO_CORES && TIPO_CORES[ev.tipo]) || { light: 'bg-blue-100 text-blue-700' };
+                const cor   = ev.tipo === 'servico'
+                  ? getCategoriaCor(ev.categoriaServico)
+                  : ((TIPO_CORES && TIPO_CORES[ev.tipo]) || { light: 'bg-blue-100 text-blue-700' });
                 const st    = STATUS_STYLE[ev.status] || STATUS_STYLE['Agendado'];
                 const isDoc = ev.tipo !== 'servico';
+                const cat   = ev.tipo === 'servico' ? getCategoriaCor(ev.categoriaServico) : null;
 
                 return (
                   <div
@@ -523,6 +532,11 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cor.light}`}>
                           {TIPO_LABEL[ev.tipo] || ev.tipo}
                         </span>
+                        {cat && cat.value !== 'outro' && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cat.light}`}>
+                            {cat.label}
+                          </span>
+                        )}
                         {ev.deletado ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
                             Excluído
@@ -734,8 +748,8 @@ function PainelFiltros({ filtros, onChange }) {
     });
   };
 
-  const limpar = () => onChange({ tipos: [], status: [], tecnicos: [] });
-  const temFiltros = filtros.tipos.length > 0 || filtros.status.length > 0 || filtros.tecnicos.length > 0;
+  const limpar = () => onChange({ tipos: [], status: [], tecnicos: [], categorias: [] });
+  const temFiltros = filtros.tipos.length > 0 || filtros.status.length > 0 || filtros.tecnicos.length > 0 || (filtros.categorias?.length || 0) > 0;
 
   const chipBase  = 'px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer';
   const chipAtivo = 'border-brand-500 bg-brand-500 text-white';
@@ -765,6 +779,28 @@ function PainelFiltros({ filtros, onChange }) {
               className={`${chipBase} ${filtros.tipos.includes(c.value) ? chipAtivo : chipOff}`}
             >{c.label}</button>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] text-slate-400 mb-1.5">Categoria</p>
+        <div className="flex flex-wrap gap-1.5">
+          {CATEGORIAS_SERVICO.map(c => {
+            const ativo = (filtros.categorias || []).includes(c.value);
+            return (
+              <button key={c.value} onClick={() => toggle('categorias', c.value)}
+                title={c.desc}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition border-2
+                  ${ativo
+                    ? `${c.bg} text-white border-transparent shadow-sm`
+                    : `bg-white dark:bg-slate-800 ${c.border} text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50`
+                  }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${ativo ? 'bg-white/70' : c.dot}`} />
+                {c.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -801,7 +837,7 @@ export default function Agenda() {
   const [view, setView]                           = useState('calendario');
   const [mesAtual, setMesAtual]                   = useState(() => new Date());
   const [anoVisao, setAnoVisao]                   = useState(() => new Date().getFullYear());
-  const [filtros, setFiltros]                     = useState({ tipos: [], status: [], tecnicos: [] });
+  const [filtros, setFiltros]                     = useState({ tipos: [], status: [], tecnicos: [], categorias: [] });
   const [busca, setBusca]                         = useState('');
   const [eventoSelecionado, setEventoSelecionado] = useState(null);
   const [modalOpen, setModalOpen]                 = useState(false);
@@ -818,16 +854,37 @@ export default function Agenda() {
       const termo = c.nome || c.fantasia || c.cnpj || '';
       setBusca(termo);
       setView('timeline');
+
+      // Se veio com flag abrirModal (ex: "Agendar Retorno" das Garantias),
+      // abre o modal já pré-preenchido com o cliente.
+      if (location.state.abrirModal) {
+        setEventoEditar(null);
+        setClienteInicial({
+          ...c,
+          // Categoria sugerida (cor) — útil para retornos de garantia
+          categoriaSugerida: location.state.categoriaSugerida || null,
+        });
+        setModalOpen(true);
+        // Limpa o state da rota pra não reabrir o modal ao voltar
+        window.history.replaceState({}, document.title);
+      }
     }
   }, [location.state]);
 
   // ── Filtro ──
   const eventosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
+    const cats = filtros.categorias || [];
     return eventos.filter(ev => {
       if (filtros.tipos.length    > 0 && !filtros.tipos.includes(ev.tipo))       return false;
       if (filtros.status.length   > 0 && !filtros.status.includes(ev.status))    return false;
       if (filtros.tecnicos.length > 0 && !filtros.tecnicos.includes(ev.tecnico)) return false;
+      // Filtro por categoria (cor): aplica só em serviços
+      if (cats.length > 0) {
+        if (ev.tipo !== 'servico') return false;
+        const cat = ev.categoriaServico || 'outro';
+        if (!cats.includes(cat)) return false;
+      }
       if (q) {
         const nome     = (ev.clienteNome     || '').toLowerCase();
         const fantasia = (ev.clienteFantasia || '').toLowerCase();
