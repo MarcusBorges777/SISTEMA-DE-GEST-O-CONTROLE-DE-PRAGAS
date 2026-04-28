@@ -3354,6 +3354,22 @@ def api_vencimentos_garantia():
                 except Exception:
                     continue
 
+        # Anexa contatos do db.json a cada laudo (rastreabilidade do remarketing)
+        try:
+            contatos_por_laudo = {}
+            for c in app.json_db_service.get_contatos_garantia():
+                key = str(c.get('laudoNumero', ''))
+                contatos_por_laudo.setdefault(key, []).append(c)
+            for r in resultado:
+                key = str(r.get('laudo_numero', ''))
+                contatos = contatos_por_laudo.get(key, [])
+                r['contatos'] = contatos
+                r['ja_contatado'] = len(contatos) > 0
+        except Exception:
+            for r in resultado:
+                r.setdefault('contatos', [])
+                r.setdefault('ja_contatado', False)
+
         resultado.sort(key=lambda x: x['dias_restantes'])
         return jsonify(resultado)
     except Exception as e:

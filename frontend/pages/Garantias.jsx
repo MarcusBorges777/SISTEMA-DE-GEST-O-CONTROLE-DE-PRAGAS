@@ -9,11 +9,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, CalendarDays, Phone, RefreshCw, Search, X,
   AlertTriangle, Clock, CheckCircle2, ChevronDown, ChevronUp,
-  Bug, MapPin,
+  Bug, MapPin, PhoneCall,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { saveCliente } from '../services/clienteCache';
 import { registrarDocumentoNaAgenda } from '../services/agendaService';
+import { useToast } from '../components/shared/Toast';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,17 +53,21 @@ const FILTROS = [
 
 export default function Garantias() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [dados, setDados]       = useState([]);
   const [loading, setLoading]   = useState(true);
   const [filtro, setFiltro]     = useState('todas');
   const [busca, setBusca]       = useState('');
   const [expandidos, setExpandidos] = useState({});
+  const [marcandoContato, setMarcandoContato] = useState(null);
+  const [soNaoContatados, setSoNaoContatados] = useState(false);
 
   const carregar = () => {
     setLoading(true);
     api.get('/api/documentos/vencimentos?dias=365')
-      .then(r => {
-        const lista = Array.isArray(r.data) ? r.data : [];
+      .then(resposta => {
+        // /api/documentos/vencimentos retorna lista direta (não envelopada)
+        const lista = Array.isArray(resposta) ? resposta : (Array.isArray(resposta?.data) ? resposta.data : []);
         setDados(lista);
 
         // ── Integração automática ────────────────────────────────────────────
@@ -113,6 +118,9 @@ export default function Garantias() {
     else if (filtro === '15dias') lista = lista.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 15);
     else if (filtro === '30dias') lista = lista.filter(d => d.dias_restantes >= 0 && d.dias_restantes <= 30);
 
+    // Filtro: só não contatados
+    if (soNaoContatados) lista = lista.filter(d => !d.ja_contatado);
+
     // Filtro por busca textual
     if (busca.trim()) {
       const q = busca.trim().toLowerCase();
@@ -124,7 +132,26 @@ export default function Garantias() {
     }
 
     return lista;
-  }, [dados, filtro, busca]);
+  }, [dados, filtro, busca, soNaoContatados]);
+
+  // Marca um laudo como contatado (rastreabilidade do remarketing)
+  const handleMarcarContatado = async (item) => {
+    if (item.ja_contatado) return;
+    setMarcandoContato(item.laudo_numero || item.cnpj);
+    try {
+      await api.post('/api/db/contatos-garantia', {
+        laudoNumero: item.laudo_numero || '',
+        clienteCnpj: item.cnpj || '',
+        clienteNome: item.nome_cliente || item.fantasia || '',
+      });
+      addToast('Marcado como contatado', 'success');
+      carregar();
+    } catch (e) {
+      addToast(e.message || 'Erro ao marcar contato', 'error');
+    } finally {
+      setMarcandoContato(null);
+    }
+  };
 
   const toggleExpandido = (idx) => setExpandidos(p => ({ ...p, [idx]: !p[idx] }));
 
@@ -238,6 +265,19 @@ export default function Garantias() {
               </button>
             );
           })}
+
+          {/* Toggle: só não contatados */}
+          <button
+            onClick={() => setSoNaoContatados(s => !s)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition border ${
+              soNaoContatados
+                ? 'bg-emerald-500 border-emerald-500 text-white'
+                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-emerald-300'
+            }`}
+            title="Mostrar apenas garantias que ninguém contatou ainda"
+          >
+            <PhoneCall size={11} /> Não contatados
+          </button>
         </div>
       </div>
 
@@ -323,17 +363,39 @@ export default function Garantias() {
                     </div>
 
                     {/* Status */}
-                    <div>
+                    <div className="flex flex-col gap-1">
                       <StatusBadge dias={item.dias_restantes} />
+                      {item.ja_contatado && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                          <PhoneCall size={9} /> Contatado
+                          {item.contatos?.[0]?.usuario?.nome && (
+                            <span className="opacity-70">por {item.contatos[0].usuario.nome.split(' ')[0]}</span>
+                          )}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Ação */}
-                    <button
-                      onClick={() => handleAgendarRetorno(item)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition whitespace-nowrap"
-                    >
-                      <CalendarDays size={13} /> Agendar Retorno
-                    </button>
+                    {/* Ações */}
+                    <div className="flex gap-1.5 whitespace-nowrap">
+                      <button
+                        onClick={() => handleMarcarContatado(item)}
+                        disabled={item.ja_contatado || marcandoContato === (item.laudo_numero || item.cnpj)}
+                        title={item.ja_contatado ? 'Já contatado' : 'Marcar como contatado'}
+                        className={`flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-bold transition ${
+                          item.ja_contatado
+                            ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 cursor-not-allowed opacity-60'
+                            : 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
+                        }`}
+                      >
+                        <PhoneCall size={12} /> {item.ja_contatado ? '✓' : 'Contatar'}
+                      </button>
+                      <button
+                        onClick={() => handleAgendarRetorno(item)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition"
+                      >
+                        <CalendarDays size={13} /> Retorno
+                      </button>
+                    </div>
                   </div>
 
                   {/* Layout mobile: stacked */}
@@ -375,12 +437,32 @@ export default function Garantias() {
                       </div>
                     )}
 
-                    <button
-                      onClick={() => handleAgendarRetorno(item)}
-                      className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition"
-                    >
-                      <CalendarDays size={13} /> Agendar Retorno
-                    </button>
+                    {item.ja_contatado && (
+                      <p className="mt-2 flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                        <PhoneCall size={10} /> Já contatado
+                        {item.contatos?.[0]?.usuario?.nome && ` por ${item.contatos[0].usuario.nome.split(' ')[0]}`}
+                      </p>
+                    )}
+
+                    <div className="mt-3 grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => handleMarcarContatado(item)}
+                        disabled={item.ja_contatado || marcandoContato === (item.laudo_numero || item.cnpj)}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition ${
+                          item.ja_contatado
+                            ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 cursor-not-allowed opacity-60'
+                            : 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100'
+                        }`}
+                      >
+                        <PhoneCall size={13} /> {item.ja_contatado ? '✓ Contatado' : 'Contatar'}
+                      </button>
+                      <button
+                        onClick={() => handleAgendarRetorno(item)}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition"
+                      >
+                        <CalendarDays size={13} /> Retorno
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

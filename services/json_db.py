@@ -16,7 +16,8 @@ EMPTY_DB = {
     "clientes": [],
     "agenda": [],
     "documentos": [],
-    "usuarios": []
+    "usuarios": [],
+    "contatosGarantia": []
 }
 
 
@@ -377,3 +378,31 @@ class JsonDbService:
         if not u:
             return u
         return {k: v for k, v in u.items() if k != 'senhaHash'}
+
+    # ── Contatos de Garantia (rastreabilidade do remarketing) ─────────────
+
+    def registrar_contato_garantia(self, data: dict) -> dict:
+        db = self.read()
+        entry = {
+            'id': str(uuid.uuid4()),
+            'laudoNumero': str(data.get('laudoNumero', '') or ''),
+            'clienteCnpj': data.get('clienteCnpj', '') or '',
+            'clienteNome': data.get('clienteNome', '') or '',
+            'dataContato': datetime.utcnow().isoformat(),
+            'usuario': data.get('usuario'),
+            'observacao': data.get('observacao', '') or '',
+        }
+        db.setdefault('contatosGarantia', []).append(entry)
+        self._write(db)
+        return entry
+
+    def get_contatos_garantia(self, laudo_numero: str = None) -> list:
+        items = self.read().get('contatosGarantia', [])
+        if laudo_numero is not None:
+            items = [c for c in items if str(c.get('laudoNumero', '')) == str(laudo_numero)]
+        return sorted(items, key=lambda x: x.get('dataContato', ''), reverse=True)
+
+    def deletar_contato_garantia(self, contato_id: str):
+        db = self.read()
+        db['contatosGarantia'] = [c for c in db.get('contatosGarantia', []) if c.get('id') != contato_id]
+        self._write(db)

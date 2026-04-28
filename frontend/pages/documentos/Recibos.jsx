@@ -11,6 +11,7 @@ import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
+import GarantiaModal from '../../components/documentos/GarantiaModal';
 import { registrarRecibo } from '../../services/reciboHistorico';
 import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 
@@ -129,8 +130,24 @@ export default function Recibos() {
     setClientData(prev => ({ ...prev, cnpj: cnpjValue }));
   }, [cnpjValue]);
 
-  // Idêntico ao Laudos
-  const handleSalvarPdf = async () => {
+  // Modal de garantia obrigatório antes da emissão
+  const [showGarantiaModal, setShowGarantiaModal] = useState(false);
+
+  const handleSalvarPdf = () => {
+    if (!clientData.nome && !clientData.fantasia) {
+      alert("Selecione o cliente antes de emitir o recibo.");
+      return;
+    }
+    setShowGarantiaModal(true);
+  };
+
+  const executarSalvarPdf = async ({ dataExecucao: novaData, garantiaMeses: novaGarantia }) => {
+    setShowGarantiaModal(false);
+    // Atualiza estados antes de gerar o PDF para refletir no DOM
+    setDataExecucao(novaData);
+    setGarantiaMeses(String(novaGarantia));
+    await new Promise(r => setTimeout(r, 50)); // tick para o React aplicar
+
     setSalvandoPdf(true);
     try {
       const nomeEmpresa = clientData.nome || clientData.fantasia || 'Empresa';
@@ -144,8 +161,8 @@ export default function Recibos() {
           clientData,
           items,
           reciboNumero,
-          dataExecucao,
-          garantiaMeses,
+          dataExecucao: novaData,
+          garantiaMeses: String(novaGarantia),
           proximaManutencao,
           paymentMethod,
         },
@@ -157,7 +174,7 @@ export default function Recibos() {
           { nome: clientData.nome, fantasia: clientData.fantasia,
             cnpj: clientData.cnpj, telefone: clientData.telefone,
             endereco: clientData.endereco },
-          dataExecucao,
+          novaData,
           reciboNumero
         ).catch(() => {});
         alert(`PDF salvo: ${result.nomeArquivo}`);
@@ -421,6 +438,18 @@ export default function Recibos() {
         cliente={perfilCliente}
         onClose={() => setPerfilCliente(null)}
         onUpdate={(lista) => setClientesSalvos(lista)}
+      />
+
+      <GarantiaModal
+        isOpen={showGarantiaModal}
+        onClose={() => setShowGarantiaModal(false)}
+        onConfirm={executarSalvarPdf}
+        tipoDocumento="recibo"
+        clienteNome={clientData?.nome || clientData?.fantasia || ''}
+        initialData={{
+          dataExecucao,
+          garantiaMeses: parseInt(garantiaMeses, 10) || 0,
+        }}
       />
 
       {/* ══════════════════════════════════════════════════════════════════════

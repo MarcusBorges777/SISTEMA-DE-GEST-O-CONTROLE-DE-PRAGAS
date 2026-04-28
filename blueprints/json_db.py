@@ -135,3 +135,30 @@ def proximo_numero():
         return jsonify({'erro': 'tipo deve ser laudo, orcamento ou recibo'}), 400
     numero = _db().proximo_numero(tipo)
     return jsonify({'numero': numero, 'tipo': tipo})
+
+
+# ── Contatos de Garantia ──────────────────────────────────────────────────
+
+@json_db_bp.post('/contatos-garantia')
+def registrar_contato_garantia():
+    data = request.get_json(force=True) or {}
+    if not data.get('laudoNumero'):
+        return jsonify({'erro': 'laudoNumero obrigatório'}), 400
+    user = current_user_summary()
+    if user:
+        data['usuario'] = user
+    entry = _db().registrar_contato_garantia(data)
+    return jsonify(entry), 201
+
+
+@json_db_bp.get('/contatos-garantia')
+def listar_contatos_garantia():
+    laudo = request.args.get('laudoNumero')
+    items = _db().get_contatos_garantia(laudo_numero=laudo or None)
+    return jsonify(items)
+
+
+@json_db_bp.delete('/contatos-garantia/<contato_id>')
+def deletar_contato_garantia(contato_id):
+    _db().deletar_contato_garantia(contato_id)
+    return jsonify({'ok': True})
