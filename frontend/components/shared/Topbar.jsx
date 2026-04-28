@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, LogOut, User, X } from 'lucide-react';
+import { Search, LogOut, User, X } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import GarantiaBell from './GarantiaBell';
 
 export default function Topbar() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,16 +105,7 @@ export default function Topbar() {
       <div className="flex items-center gap-2 ml-4">
         <ThemeToggle />
 
-        <button
-          className="w-11 h-11 rounded-xl flex items-center justify-center
-            bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
-            text-slate-600 dark:text-slate-300 transition-all relative"
-          title="Notificacoes"
-        >
-          <Bell size={18} />
-          {/* Badge */}
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+        <GarantiaBell />
 
         <a
           href="/logout"

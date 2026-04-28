@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, CalendarX, CalendarCheck, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Clock, CalendarX, CalendarCheck, RefreshCw, ChevronDown, ChevronUp, Phone } from 'lucide-react';
 import { fetchGarantiasVencendo } from '../../services/api';
+import { groupGarantias } from '../../utils/garantias';
 
 export default function GarantiaAlerts({ compact = false }) {
   const [data, setData] = useState({ vencidas: [], esta_semana: [], proximas: [] });
@@ -11,11 +12,7 @@ export default function GarantiaAlerts({ compact = false }) {
     setLoading(true);
     try {
       const result = await fetchGarantiasVencendo();
-      setData({
-        vencidas: result.vencidas || [],
-        esta_semana: result.esta_semana || [],
-        proximas: result.proximas || [],
-      });
+      setData(groupGarantias(result));
     } catch (e) {
       console.warn('Erro ao carregar garantias:', e);
     } finally {

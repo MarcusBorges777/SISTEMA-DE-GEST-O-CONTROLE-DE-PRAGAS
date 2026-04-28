@@ -8,6 +8,7 @@ import { salvarDocumento } from '../../utils/salvarDocumento';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
+import GarantiaModal from '../../components/documentos/GarantiaModal';
 import { getClientes, saveCliente } from '../../services/clienteCache';
 import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 
@@ -221,9 +222,9 @@ export default function Laudos() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [perfilCliente, setPerfilCliente] = useState(null);
 
-  // Carrega clientes salvos do localStorage na montagem
+  // Carrega clientes salvos do db.json na montagem
   useEffect(() => {
-    setClientesSalvos(getClientes());
+    getClientes().then(setClientesSalvos).catch(() => {});
   }, []);
 
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
@@ -532,18 +533,18 @@ export default function Laudos() {
     setFormData(prev => ({ ...prev, cliente: { ...prev.cliente, cnpj: cnpjValue } }));
   }, [cnpjValue]);
 
-  // Salva o cliente atual no localStorage (cache local)
-  const handleSalvarCliente = () => {
+  // Salva o cliente no db.json
+  const handleSalvarCliente = async () => {
     const { nome, cnpj } = formData.cliente;
     if (!nome.trim() || !cnpj.trim()) return;
-    saveCliente({
+    await saveCliente({
       nome: formData.cliente.nome,
       fantasia: formData.cliente.fantasia,
       cnpj: formData.cliente.cnpj,
       endereco: formData.cliente.endereco,
       atividade: formData.cliente.atividadeEconomica,
     });
-    setClientesSalvos(getClientes());
+    getClientes().then(setClientesSalvos).catch(() => {});
   };
 
   const togglePest = (pestId) => {
@@ -595,22 +596,46 @@ export default function Laudos() {
     window.print();
   };
 
-  const handleSalvarPdf = async () => {
+  // Modal de garantia obrigatório antes de salvar PDF
+  const [showGarantiaModal, setShowGarantiaModal] = useState(false);
+
+  const handleSalvarPdf = () => {
     if (!showPestControl && !showWaterTank && !showGreaseTrap) {
       alert("Selecione pelo menos um documento para salvar.");
       return;
     }
+    if (!formData.cliente?.nome && !formData.cliente?.fantasia) {
+      alert("Selecione o cliente antes de emitir o laudo.");
+      return;
+    }
+    // Abre modal de garantia (obrigatório, com opção 'sem garantia')
+    setShowGarantiaModal(true);
+  };
+
+  const executarSalvarPdf = async ({ dataExecucao, garantiaMeses }) => {
+    setShowGarantiaModal(false);
+
+    // Atualiza formData com os valores escolhidos no modal antes de salvar
+    const formDataAtualizado = {
+      ...formData,
+      dataExecucao,
+      garantiaMeses,
+    };
+    setFormData(formDataAtualizado);
+
     setSalvandoPdf(true);
     try {
-      const nomeEmpresa = formData.cliente?.nome || formData.cliente?.fantasia || 'Empresa';
+      const nomeEmpresa = formDataAtualizado.cliente?.nome || formDataAtualizado.cliente?.fantasia || 'Empresa';
+      // Aguarda próximo tick para que o DOM reflita a nova data antes do html2canvas
+      await new Promise(r => setTimeout(r, 50));
       const result = await salvarDocumento({
         elementId: 'a4-document',
         tipo: 'laudo',
-        numeroDoc: formData.laudoNumero || '0001',
+        numeroDoc: formDataAtualizado.laudoNumero || '0001',
         nomeEmpresa,
         metadados: {
           __tipo: 'laudo',
-          formData,
+          formData: formDataAtualizado,
           productRows,
           showPestControl,
           showWaterTank,
@@ -620,10 +645,10 @@ export default function Laudos() {
       if (result.sucesso) {
         registrarDocumentoNaAgenda(
           'laudo',
-          formData.cliente,
-          formData.dataExecucao,
-          formData.laudoNumero
-        );
+          formDataAtualizado.cliente,
+          formDataAtualizado.dataExecucao,
+          formDataAtualizado.laudoNumero
+        ).catch(() => {});
         alert(`PDF salvo: ${result.nomeArquivo}`);
       } else {
         alert(`Erro ao salvar: ${result.erro}`);
@@ -1125,6 +1150,19 @@ export default function Laudos() {
         cliente={perfilCliente}
         onClose={() => setPerfilCliente(null)}
         onUpdate={(lista) => setClientesSalvos(lista)}
+      />
+
+      {/* Modal de Garantia obrigatório antes da emissão */}
+      <GarantiaModal
+        isOpen={showGarantiaModal}
+        onClose={() => setShowGarantiaModal(false)}
+        onConfirm={executarSalvarPdf}
+        tipoDocumento="laudo"
+        clienteNome={formData.cliente?.nome || formData.cliente?.fantasia || ''}
+        initialData={{
+          dataExecucao: formData.dataExecucao,
+          garantiaMeses: formData.garantiaMeses,
+        }}
       />
 
       {/* PÁGINA 1: LAUDO TÉCNICO PRAGAS */}
