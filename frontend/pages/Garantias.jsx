@@ -165,6 +165,10 @@ export default function Garantias() {
           telefone: item.telefone     || '',
           endereco: item.endereco     || '',
         },
+        // Sinaliza para a Agenda abrir o modal já com o cliente pré-preenchido
+        abrirModal: true,
+        // Sugere categoria 'contrato' já que é remarketing de garantia
+        categoriaSugerida: 'contrato',
       },
     });
   };

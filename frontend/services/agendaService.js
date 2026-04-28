@@ -1,164 +1,20 @@
 /**
- * agendaService — Persistência local de todos os eventos da Agenda (localStorage)
- *
- * Evento unificado (AgendaEvent):
- * {
- *   id:              string   — gerado localmente
- *   tipo:            'servico' | 'laudo' | 'recibo' | 'orcamento'
- *   clienteNome:     string
- *   clienteFantasia: string
- *   clienteCnpj:     string
- *   clienteTelefone: string
- *   clienteEndereco: string
- *   tipoServico:     string
- *   tecnico:         string
- *   recorrente:      boolean
- *   frequenciaMeses: number   — 1 | 3 | 6
- *   recorrenciaId:   string
- *   numeroDoc:       string
- *   data:            string   — 'YYYY-MM-DD'
- *   hora:            string   — 'HH:MM'
- *   status:          string   — 'Agendado' | 'Concluído' | 'Cancelado' | 'Emitido'
- *   observacao:      string
- *   criadoEm:        string   — ISO8601
- * }
+ * agendaService — Persistência no db.json via backend (/api/db/agenda).
+ * Todas as funções de escrita são agora async.
+ * Constantes e funções de Admin (técnicos/equipes) continuam em localStorage.
  */
 
-const AGENDA_KEY = 'dedetizadora_agenda';
+import { agendaApi } from './dbService';
 
 function gerarId() {
   return `ag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-// ─── Leitura ───────────────────────────────────────────────────────────────────
-
-export function getAgendamentos() {
-  try {
-    const raw = localStorage.getItem(AGENDA_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw).sort((a, b) => {
-      const da = `${a.data}T${a.hora || '00:00'}`;
-      const db = `${b.data}T${b.hora || '00:00'}`;
-      return da < db ? -1 : da > db ? 1 : 0;
-    });
-  } catch {
-    return [];
-  }
-}
-
-export function getServicos() {
-  return getAgendamentos().filter(ev => ev.tipo === 'servico');
-}
-
-export function getAgendamentosCliente(cnpj) {
-  const cnpjLimpo = (cnpj || '').replace(/\D/g, '');
-  return getAgendamentos().filter(ev =>
-    (ev.clienteCnpj || '').replace(/\D/g, '') === cnpjLimpo
-  );
-}
-
-// ─── Escrita ───────────────────────────────────────────────────────────────────
-
-export function criarAgendamento(dados) {
-  const lista = getRawLista();
-  const evento = _buildEvento(dados);
-  lista.push(evento);
-  _salvar(lista);
-  return evento;
-}
-
-export function criarAgendamentoComRecorrencia(dados) {
-  const eventos = [];
-  const primeiro = criarAgendamento(dados);
-  eventos.push(primeiro);
-
-  if (!dados.recorrente || !dados.frequenciaMeses) return eventos;
-
-  const freq = parseInt(dados.frequenciaMeses, 10) || 1;
-  const [baseYear, baseMonth, baseDay] = dados.data.split('-').map(Number);
-  const MAX_MESES = 12;
-  const passos = Math.floor(MAX_MESES / freq);
-
-  for (let i = 1; i <= passos; i++) {
-    const totalMeses = (baseYear * 12 + baseMonth - 1) + i * freq;
-    const novoAno   = Math.floor(totalMeses / 12);
-    const novoMes   = (totalMeses % 12) + 1;
-    const ultimoDia = new Date(novoAno, novoMes, 0).getDate();
-    const novoDia   = Math.min(baseDay, ultimoDia);
-    const novaData  = `${novoAno}-${String(novoMes).padStart(2, '0')}-${String(novoDia).padStart(2, '0')}`;
-
-    const ev = criarAgendamento({
-      ...dados,
-      data: novaData,
-      status: 'Agendado',
-      recorrenciaId: primeiro.id,
-    });
-    eventos.push(ev);
-  }
-
-  atualizarAgendamento(primeiro.id, { recorrenciaId: primeiro.id });
-  return eventos;
-}
-
-export function registrarDocumentoNaAgenda(tipo, cliente, data, numeroDoc, observacao = '') {
-  const lista = getRawLista();
-  const jaExiste = lista.some(
-    ev => ev.tipo === tipo && ev.numeroDoc === numeroDoc && ev.data === data
-      && (ev.clienteCnpj || '').replace(/\D/g, '') === (cliente.cnpj || '').replace(/\D/g, '')
-  );
-  if (jaExiste) return;
-
-  const evento = _buildEvento({
-    tipo,
-    clienteNome:     cliente.nome     || cliente.fantasia || '',
-    clienteFantasia: cliente.fantasia || '',
-    clienteCnpj:     cliente.cnpj     || '',
-    clienteTelefone: cliente.telefone || '',
-    clienteEndereco: cliente.endereco || '',
-    numeroDoc,
-    data,
-    hora:        '',
-    status:      'Emitido',
-    observacao,
-    tipoServico: '',
-    tecnico:     '',
-  });
-  lista.push(evento);
-  _salvar(lista);
-}
-
-export function atualizarAgendamento(id, campos) {
-  const lista = getRawLista().map(ev =>
-    ev.id === id ? { ...ev, ...campos } : ev
-  );
-  _salvar(lista);
-}
-
-export function excluirAgendamento(id) {
-  _salvar(getRawLista().filter(ev => ev.id !== id));
-}
-
-export function excluirSerieRecorrente(recorrenciaId) {
-  _salvar(getRawLista().filter(ev => ev.recorrenciaId !== recorrenciaId));
-}
-
-// ─── Internos ─────────────────────────────────────────────────────────────────
-
-function getRawLista() {
-  try {
-    return JSON.parse(localStorage.getItem(AGENDA_KEY) || '[]');
-  } catch { return []; }
-}
-
-function _salvar(lista) {
-  try { localStorage.setItem(AGENDA_KEY, JSON.stringify(lista)); }
-  catch { console.warn('Falha ao salvar agenda'); }
-}
-
 function _buildEvento(dados) {
   return {
-    id:              gerarId(),
+    id:              dados.id            || gerarId(),
     tipo:            dados.tipo            || 'servico',
+    clienteId:       dados.clienteId      || null,
     clienteNome:     dados.clienteNome     || '',
     clienteFantasia: dados.clienteFantasia || '',
     clienteCnpj:     dados.clienteCnpj     || '',
@@ -174,35 +30,125 @@ function _buildEvento(dados) {
     hora:            dados.hora            || '',
     status:          dados.status          || 'Agendado',
     observacao:      dados.observacao      || '',
-    criadoEm:        new Date().toISOString(),
+    criadoEm:        dados.criadoEm        || new Date().toISOString(),
   };
 }
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
+// ─── Leitura ───────────────────────────────────────────────────────────────────
 
-export const TIPOS_SERVICO = [
-  'Desinsetização',
-  'Desratização',
-  'Descupinização',
-  'Higienização de Caixa d\'Água',
-  'Dedetização Geral',
-  'Controle de Escorpiões',
-  'Controle de Pombos',
-  'Outro',
-];
+export async function getAgendamentos() {
+  try {
+    return await agendaApi.getAll();
+  } catch {
+    return [];
+  }
+}
 
-export const TECNICOS = [
-  'Paulo Borges',
-  'Maria Aparecida',
-  'Equipe A',
-  'Equipe B',
-];
+export async function getServicos() {
+  const todos = await getAgendamentos();
+  return todos.filter(ev => ev.tipo === 'servico');
+}
 
-// ─── Técnicos e Equipes dinâmicos (Admin) ────────────────────────────────────
+export async function getAgendamentosCliente(cnpj) {
+  const cnpjLimpo = (cnpj || '').replace(/\D/g, '');
+  const todos = await getAgendamentos();
+  return todos.filter(ev =>
+    (ev.clienteCnpj || '').replace(/\D/g, '') === cnpjLimpo
+  );
+}
+
+// ─── Escrita ───────────────────────────────────────────────────────────────────
+
+export async function criarAgendamento(dados) {
+  const evento = _buildEvento(dados);
+  return agendaApi.upsert(evento);
+}
+
+export async function criarAgendamentoComRecorrencia(dados) {
+  const eventos = [];
+  const primeiro = await criarAgendamento(dados);
+  eventos.push(primeiro);
+
+  if (!dados.recorrente || !dados.frequenciaMeses) return eventos;
+
+  const freq = parseInt(dados.frequenciaMeses, 10) || 1;
+  const [baseYear, baseMonth, baseDay] = dados.data.split('-').map(Number);
+  const MAX_MESES = 12;
+  const passos = Math.floor(MAX_MESES / freq);
+
+  for (let i = 1; i <= passos; i++) {
+    const totalMeses = (baseYear * 12 + baseMonth - 1) + i * freq;
+    const novoAno = Math.floor(totalMeses / 12);
+    const novoMes = (totalMeses % 12) + 1;
+    const ultimoDia = new Date(novoAno, novoMes, 0).getDate();
+    const novoDia = Math.min(baseDay, ultimoDia);
+    const novaData = `${novoAno}-${String(novoMes).padStart(2, '0')}-${String(novoDia).padStart(2, '0')}`;
+
+    const ev = await criarAgendamento({
+      ...dados,
+      data: novaData,
+      status: 'Agendado',
+      recorrenciaId: primeiro.id,
+    });
+    eventos.push(ev);
+  }
+
+  // Mark the first event with its own recorrenciaId
+  await atualizarAgendamento(primeiro.id, { recorrenciaId: primeiro.id });
+  return eventos;
+}
+
+export async function registrarDocumentoNaAgenda(tipo, cliente, data, numeroDoc, observacao = '') {
+  // Idempotency: check if already registered
+  try {
+    const lista = await agendaApi.getAll();
+    const cnpjLimpo = (cliente.cnpj || '').replace(/\D/g, '');
+    const jaExiste = lista.some(ev =>
+      ev.tipo === tipo &&
+      ev.numeroDoc === numeroDoc &&
+      ev.data === data &&
+      (ev.clienteCnpj || '').replace(/\D/g, '') === cnpjLimpo
+    );
+    if (jaExiste) return;
+  } catch {
+    // Se não conseguir verificar, tenta criar mesmo assim
+  }
+
+  const evento = _buildEvento({
+    tipo,
+    clienteNome:     cliente.nome     || cliente.fantasia || '',
+    clienteFantasia: cliente.fantasia || '',
+    clienteCnpj:     cliente.cnpj     || '',
+    clienteTelefone: cliente.telefone || '',
+    clienteEndereco: cliente.endereco || '',
+    clienteId:       cliente.id       || null,
+    numeroDoc,
+    data,
+    hora:        '',
+    status:      'Emitido',
+    observacao,
+    tipoServico: '',
+    tecnico:     '',
+  });
+  await agendaApi.upsert(evento);
+}
+
+export async function atualizarAgendamento(id, campos) {
+  return agendaApi.update(id, campos);
+}
+
+export async function excluirAgendamento(id) {
+  return agendaApi.delete(id);
+}
+
+export async function excluirSerieRecorrente(recorrenciaId) {
+  return agendaApi.deleteSerie(recorrenciaId);
+}
+
+// ─── Técnicos e Equipes dinâmicos (Admin — mantém localStorage) ──────────────
 
 const TECNICOS_KEY = 'dedetizadora_tecnicos';
 const EQUIPES_KEY  = 'dedetizadora_equipes';
-
 const TECNICOS_DEFAULT = ['Paulo Borges', 'Maria Aparecida', 'Equipe A', 'Equipe B'];
 
 export function getTecnicos() {
@@ -228,6 +174,26 @@ export function salvarEquipes(lista) {
   try { localStorage.setItem(EQUIPES_KEY, JSON.stringify(lista)); } catch {}
 }
 
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+export const TIPOS_SERVICO = [
+  'Desinsetização',
+  'Desratização',
+  'Descupinização',
+  "Higienização de Caixa d'Água",
+  'Dedetização Geral',
+  'Controle de Escorpiões',
+  'Controle de Pombos',
+  'Outro',
+];
+
+export const TECNICOS = [
+  'Paulo Borges',
+  'Maria Aparecida',
+  'Equipe A',
+  'Equipe B',
+];
+
 export const STATUS_OPTIONS = [
   { value: 'Agendado',  label: 'Agendado',  color: 'blue'   },
   { value: 'Concluído', label: 'Concluído', color: 'green'  },
@@ -241,6 +207,60 @@ export const TIPO_CORES = {
   recibo:    { bg: 'bg-orange-500', light: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300', dot: 'bg-orange-500' },
   orcamento: { bg: 'bg-yellow-500', light: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300', dot: 'bg-yellow-500' },
 };
+
+// ─── Categorias de Serviço (cor diferente por tipo de visita) ───────────────
+// Permite filtrar e identificar visualmente Contratos vs serviços avulsos.
+export const CATEGORIAS_SERVICO = [
+  {
+    value: 'contrato',
+    label: 'Contrato',
+    desc:  'Cliente recorrente / mensalidade',
+    bg:    'bg-emerald-500',
+    light: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+    border:'border-emerald-300 dark:border-emerald-700',
+    dot:   'bg-emerald-500',
+  },
+  {
+    value: 'dedetizacao_caixa',
+    label: 'Dedetização + Caixa',
+    desc:  'Combo de dedetização e higienização',
+    bg:    'bg-violet-500',
+    light: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+    border:'border-violet-300 dark:border-violet-700',
+    dot:   'bg-violet-500',
+  },
+  {
+    value: 'dedetizacao',
+    label: 'Apenas Dedetização',
+    desc:  'Controle de pragas',
+    bg:    'bg-blue-500',
+    light: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+    border:'border-blue-300 dark:border-blue-700',
+    dot:   'bg-blue-500',
+  },
+  {
+    value: 'caixa',
+    label: "Apenas Caixa d'Água",
+    desc:  'Higienização de caixa',
+    bg:    'bg-cyan-500',
+    light: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
+    border:'border-cyan-300 dark:border-cyan-700',
+    dot:   'bg-cyan-500',
+  },
+  {
+    value: 'outro',
+    label: 'Outro',
+    desc:  'Serviço pontual',
+    bg:    'bg-slate-500',
+    light: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+    border:'border-slate-300 dark:border-slate-600',
+    dot:   'bg-slate-500',
+  },
+];
+
+export function getCategoriaCor(categoria) {
+  return CATEGORIAS_SERVICO.find(c => c.value === categoria) || CATEGORIAS_SERVICO[CATEGORIAS_SERVICO.length - 1];
+}
 
 export const STATUS_CORES = {
   'Agendado':  'bg-blue-500',

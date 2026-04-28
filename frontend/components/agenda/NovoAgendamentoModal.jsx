@@ -13,7 +13,7 @@ import { X, User, Calendar, Clock, Wrench, FileText, Search } from 'lucide-react
 import Modal from '../shared/Modal';
 import { ClientePickerModal } from '../documentos/ClientePickerModal';
 import { getClientes } from '../../services/clienteCache';
-import { TIPOS_SERVICO, STATUS_OPTIONS, getTecnicos, getEquipes } from '../../services/agendaService';
+import { TIPOS_SERVICO, STATUS_OPTIONS, CATEGORIAS_SERVICO, getTecnicos, getEquipes } from '../../services/agendaService';
 
 export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial = null, eventoEditar = null }) {
   const hoje = (() => {
@@ -22,19 +22,20 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
   })();
 
   const emptyForm = {
-    clienteNome:     '',
-    clienteFantasia: '',
-    clienteCnpj:     '',
-    clienteTelefone: '',
-    clienteEndereco: '',
-    tipoServico:     TIPOS_SERVICO[0],
-    tecnico:         '',
-    recorrente:      false,
-    frequenciaMeses: 3,
-    data:            hoje,
-    hora:            '08:00',
-    status:          'Agendado',
-    observacao:      '',
+    clienteNome:      '',
+    clienteFantasia:  '',
+    clienteCnpj:      '',
+    clienteTelefone:  '',
+    clienteEndereco:  '',
+    tipoServico:      TIPOS_SERVICO[0],
+    categoriaServico: 'dedetizacao',  // categoria visual (cor) — default: dedetização
+    tecnico:          '',
+    recorrente:       false,
+    frequenciaMeses:  3,
+    data:             hoje,
+    hora:             '08:00',
+    status:           'Agendado',
+    observacao:       '',
   };
 
   const [form, setForm]                 = useState(emptyForm);
@@ -44,10 +45,20 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
 
   // Carrega clientes salvos e lista de técnicos+equipes
   useEffect(() => {
-    setClientesSalvos(getClientes());
-    const tecs    = getTecnicos();
-    const eqs     = getEquipes().map(e => e.nome);
+    if (!isOpen) return;
+    let alive = true;
+    (async () => {
+      try {
+        const lista = await getClientes();
+        if (alive) setClientesSalvos(Array.isArray(lista) ? lista : []);
+      } catch {
+        if (alive) setClientesSalvos([]);
+      }
+    })();
+    const tecs = getTecnicos();
+    const eqs  = getEquipes().map(e => e.nome);
     setOpcoesTecnico([...tecs, ...eqs]);
+    return () => { alive = false; };
   }, [isOpen]);
 
   // Inicializa form ao abrir
@@ -58,11 +69,13 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
     } else if (clienteInicial) {
       setForm({
         ...emptyForm,
-        clienteNome:     clienteInicial.nome      || clienteInicial.clienteNome     || '',
-        clienteFantasia: clienteInicial.fantasia  || clienteInicial.clienteFantasia || '',
-        clienteCnpj:     clienteInicial.cnpj      || clienteInicial.clienteCnpj     || '',
-        clienteTelefone: clienteInicial.telefone  || clienteInicial.clienteTelefone || '',
-        clienteEndereco: clienteInicial.endereco  || clienteInicial.clienteEndereco || '',
+        clienteNome:      clienteInicial.nome      || clienteInicial.clienteNome     || '',
+        clienteFantasia:  clienteInicial.fantasia  || clienteInicial.clienteFantasia || '',
+        clienteCnpj:      clienteInicial.cnpj      || clienteInicial.clienteCnpj     || '',
+        clienteTelefone:  clienteInicial.telefone  || clienteInicial.clienteTelefone || '',
+        clienteEndereco:  clienteInicial.endereco  || clienteInicial.clienteEndereco || '',
+        // Categoria sugerida pelo deep link (ex: 'contrato' vindo de Garantias)
+        categoriaServico: clienteInicial.categoriaSugerida || emptyForm.categoriaServico,
       });
     } else {
       setForm(emptyForm);
@@ -173,6 +186,38 @@ export function NovoAgendamentoModal({ isOpen, onClose, onSalvar, clienteInicial
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
+          </div>
+
+          {/* ── Categoria (cor visual no calendário) ───────────────── */}
+          <div>
+            <label className={labelCls}>Categoria · cor no calendário</label>
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORIAS_SERVICO.map(cat => {
+                const ativo = form.categoriaServico === cat.value;
+                return (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => set('categoriaServico', cat.value)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition
+                      ${ativo
+                        ? `${cat.bg} ${cat.border} text-white shadow-md`
+                        : `bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:${cat.border}`
+                      }`}
+                  >
+                    <span className={`w-3 h-3 rounded-full shrink-0 ${ativo ? 'bg-white/40' : cat.dot}`} />
+                    <span className="min-w-0">
+                      <p className={`text-xs font-bold leading-tight truncate ${ativo ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+                        {cat.label}
+                      </p>
+                      <p className={`text-[10px] truncate ${ativo ? 'text-white/80' : 'text-slate-400'}`}>
+                        {cat.desc}
+                      </p>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* ── Técnico Responsável ─────────────────────────────── */}
