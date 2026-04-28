@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Building2, ExternalLink, ArrowDownAZ, Clock } from 'lucide-react';
 import Modal from '../shared/Modal';
 import { searchClientes, getClientes } from '../../services/clienteCache';
@@ -14,26 +14,51 @@ import { searchClientes, getClientes } from '../../services/clienteCache';
  */
 export function ClientePickerModal({ isOpen, onClose, onSelect, clientes, onVerPerfil }) {
   const [query, setQuery] = useState('');
-  const [sortPicker, setSortPicker] = useState('recente'); // 'recente' | 'az'
+  const [sortPicker, setSortPicker] = useState('recente');
+  const [base, setBase] = useState([]);
+  const [results, setResults] = useState([]);
 
+  // Carrega a lista base quando o modal abre (ou quando clientes muda)
   useEffect(() => {
-    if (!isOpen) { setQuery(''); setSortPicker('recente'); }
-  }, [isOpen]);
-
-  const base = useMemo(
-    () => (clientes ?? (isOpen ? getClientes() : [])),
-    [clientes, isOpen]
-  );
-
-  const results = useMemo(() => {
-    const lista = query.trim() ? searchClientes(query) : [...base];
-    if (sortPicker === 'az') {
-      lista.sort((a, b) =>
-        (a.nome || a.fantasia || '').localeCompare(b.nome || b.fantasia || '', 'pt-BR')
-      );
+    if (!isOpen) {
+      setQuery('');
+      setSortPicker('recente');
+      setBase([]);
+      setResults([]);
+      return;
     }
-    // 'recente' já vem ordenado por lastUsed do getClientes/searchClientes
-    return lista;
+    if (clientes) {
+      setBase(clientes);
+    } else {
+      getClientes().then(setBase).catch(() => setBase([]));
+    }
+  }, [isOpen, clientes]);
+
+  // Filtra e ordena quando query ou base mudam
+  useEffect(() => {
+    let active = true;
+    const q = query.trim();
+
+    async function filtrar() {
+      let lista;
+      if (q) {
+        lista = await searchClientes(q).catch(() => []);
+      } else {
+        lista = [...base];
+      }
+
+      if (!active) return;
+
+      if (sortPicker === 'az') {
+        lista = [...lista].sort((a, b) =>
+          (a.nome || a.fantasia || '').localeCompare(b.nome || b.fantasia || '', 'pt-BR')
+        );
+      }
+      setResults(lista);
+    }
+
+    filtrar();
+    return () => { active = false; };
   }, [query, base, sortPicker]);
 
   const handlePick = (c) => {
@@ -42,7 +67,7 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes, onVerP
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Carregar Cliente Salvo" maxWidth="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Carregar Cliente Salvo" maxWidth="max-w-2xl" zClassName="z-[99999]">
       <div className="space-y-3">
         {/* Input de busca */}
         <div className="relative">
@@ -104,7 +129,7 @@ export function ClientePickerModal({ isOpen, onClose, onSelect, clientes, onVerP
           ) : (
             results.map((c) => (
               <div
-                key={c.cnpj}
+                key={c.id || c.cnpj}
                 className="flex items-stretch border border-slate-200 rounded-lg bg-white
                   hover:border-blue-400 hover:shadow-sm transition-colors overflow-hidden"
               >

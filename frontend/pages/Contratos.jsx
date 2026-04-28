@@ -54,22 +54,37 @@ function calcularProximaVisita(contrato) {
   } catch { return null; }
 }
 
+// ─── Tipos de serviço por contrato ──────────────────────────────────────────
+
+export const TIPOS_SERVICO_CONTRATO = [
+  { id: 'dedetizacao',    label: 'Dedetização'                  },
+  { id: 'caixa_agua',     label: "Higienização de Caixa d'Água"  },
+  { id: 'descupinizacao', label: 'Descupinização'                },
+  { id: 'desratizacao',   label: 'Desratização'                  },
+  { id: 'escorpioes',     label: 'Controle de Escorpiões'        },
+  { id: 'pombos',         label: 'Controle de Pombos'            },
+  { id: 'outro',          label: 'Outro'                         },
+];
+
+const SERVICO_DEFAULT = { id: 'dedetizacao', label: 'Dedetização', frequenciaMeses: 1, ativo: true };
+
 const EMPTY_FORM = {
   id: null,
   clienteId: '', clienteNome: '', clienteFantasia: '', clienteCnpj: '',
   clienteTelefone: '', clienteEndereco: '',
   dataInicio: new Date().toISOString().slice(0, 10),
   duracaoMeses: 12,
-  frequenciaMeses: 1,
+  frequenciaMeses: 1,      // mantido para compatibilidade (= menor freq dos serviços)
   diaPreferencial: 5,
   horaPreferencial: '08:00',
-  valorMensal: 0,
+  valorMensal: '',
   pragas: [],
   produtos: [],
   garantiaMeses: 1,
   tecnico: '',
   observacoes: '',
   ativo: true,
+  servicos: [{ ...SERVICO_DEFAULT }],
 };
 
 // ─── Componente principal ────────────────────────────────────────────────────
@@ -142,6 +157,30 @@ export default function Contratos() {
     }));
   };
 
+  const adicionarServico = (tipoId) => {
+    const tipo = TIPOS_SERVICO_CONTRATO.find(t => t.id === tipoId);
+    if (!tipo) return;
+    setForm(p => ({
+      ...p,
+      servicos: [...(p.servicos || []), { id: tipo.id, label: tipo.label, frequenciaMeses: 1, ativo: true }],
+    }));
+  };
+
+  const atualizarServico = (idx, campo, valor) => {
+    setForm(p => {
+      const novos = [...(p.servicos || [])];
+      novos[idx] = { ...novos[idx], [campo]: valor };
+      return { ...p, servicos: novos };
+    });
+  };
+
+  const removerServico = (idx) => {
+    setForm(p => ({
+      ...p,
+      servicos: (p.servicos || []).filter((_, i) => i !== idx),
+    }));
+  };
+
   const abrirNovo = () => {
     setForm(EMPTY_FORM);
     setErroForm('');
@@ -149,11 +188,17 @@ export default function Contratos() {
   };
 
   const abrirEditar = (c) => {
+    // Migração suave: contratos antigos sem campo "servicos" recebem default
+    const servicos = Array.isArray(c.servicos) && c.servicos.length > 0
+      ? c.servicos
+      : [{ id: 'dedetizacao', label: 'Dedetização', frequenciaMeses: c.frequenciaMeses || 1, ativo: true }];
     setForm({
       ...EMPTY_FORM,
       ...c,
       pragas: c.pragas || [],
       produtos: c.produtos || [],
+      valorMensal: c.valorMensal || '',
+      servicos,
     });
     setErroForm('');
     setShowForm(true);
@@ -184,16 +229,31 @@ export default function Contratos() {
       setErroForm('Defina a data de início');
       return;
     }
-    if (form.duracaoMeses < 1 || form.frequenciaMeses < 1) {
-      setErroForm('Duração e frequência devem ser ≥ 1 mês');
+    if (form.duracaoMeses < 1) {
+      setErroForm('Duração deve ser ≥ 1 mês');
+      return;
+    }
+    const servicosAtivos = (form.servicos || []).filter(s => s.ativo);
+    if (servicosAtivos.length === 0) {
+      setErroForm('Adicione ao menos um serviço ao contrato');
       return;
     }
 
+    // Calcular frequenciaMeses como o menor intervalo entre os serviços (para calcularProximaVisita)
+    const freqMinima = Math.min(...servicosAtivos.map(s => s.frequenciaMeses || 1));
+
     setSalvando(true);
     try {
+      const dadosContrato = {
+        ...form,
+        valorMensal: parseFloat(form.valorMensal) || 0,
+        frequenciaMeses: freqMinima,
+        servicos: form.servicos,
+      };
+
       const contratoSalvo = form.id
-        ? await contratoApi.update(form.id, form)
-        : await contratoApi.create(form);
+        ? await contratoApi.update(form.id, dadosContrato)
+        : await contratoApi.create(dadosContrato);
 
       // Cria pasta no OneDrive (best-effort)
       try {
@@ -205,32 +265,37 @@ export default function Contratos() {
       // Cria agendamentos recorrentes na agenda (apenas para novos contratos)
       if (!form.id) {
         try {
-          const totalVisitas = Math.floor(form.duracaoMeses / form.frequenciaMeses);
-          // 1ª visita = dataInicio
           const [y, m, d] = form.dataInicio.split('-').map(Number);
           const dataPrimeira = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          let totalVisitasGeral = 0;
 
-          await criarAgendamentoComRecorrencia({
-            tipo: 'servico',
-            categoriaServico: 'contrato',
-            contratoId: contratoSalvo.id,
-            clienteId: contratoSalvo.clienteId,
-            clienteNome: contratoSalvo.clienteNome,
-            clienteFantasia: contratoSalvo.clienteFantasia,
-            clienteCnpj: contratoSalvo.clienteCnpj,
-            clienteTelefone: contratoSalvo.clienteTelefone,
-            clienteEndereco: contratoSalvo.clienteEndereco,
-            tipoServico: 'Dedetização Geral',
-            tecnico: contratoSalvo.tecnico,
-            data: dataPrimeira,
-            hora: contratoSalvo.horaPreferencial || '08:00',
-            status: 'Agendado',
-            observacao: `Contrato · ${contratoSalvo.duracaoMeses} meses · visita ${form.frequenciaMeses === 1 ? 'mensal' : `cada ${form.frequenciaMeses} meses`}`,
-            recorrente: true,
-            frequenciaMeses: form.frequenciaMeses,
-            quantidadeVisitas: Math.max(1, totalVisitas),
-          });
-          addToast(`Contrato criado · ${totalVisitas} visitas agendadas`, 'success');
+          for (const servico of servicosAtivos) {
+            const freq = servico.frequenciaMeses || 1;
+            const totalVisitas = Math.max(1, Math.floor(form.duracaoMeses / freq));
+            totalVisitasGeral += totalVisitas;
+
+            await criarAgendamentoComRecorrencia({
+              tipo: 'servico',
+              categoriaServico: 'contrato',
+              contratoId: contratoSalvo.id,
+              clienteId: contratoSalvo.clienteId,
+              clienteNome: contratoSalvo.clienteNome,
+              clienteFantasia: contratoSalvo.clienteFantasia,
+              clienteCnpj: contratoSalvo.clienteCnpj,
+              clienteTelefone: contratoSalvo.clienteTelefone,
+              clienteEndereco: contratoSalvo.clienteEndereco,
+              tipoServico: servico.label,
+              tecnico: contratoSalvo.tecnico,
+              data: dataPrimeira,
+              hora: contratoSalvo.horaPreferencial || '08:00',
+              status: 'Agendado',
+              observacao: `Contrato · ${servico.label} · ${freq === 1 ? 'mensal' : `cada ${freq} meses`}`,
+              recorrente: true,
+              frequenciaMeses: freq,
+              quantidadeVisitas: totalVisitas,
+            });
+          }
+          addToast(`Contrato criado · ${totalVisitasGeral} visitas agendadas`, 'success');
         } catch (e) {
           addToast(`Contrato salvo, mas falhou ao criar agendamentos: ${e.message}`, 'warning');
         }
@@ -365,6 +430,9 @@ export default function Contratos() {
           onToggleProduto={toggleProduto}
           produtos={produtos}
           onSelectCliente={() => setPickerOpen(true)}
+          onAdicionarServico={adicionarServico}
+          onAtualizarServico={atualizarServico}
+          onRemoverServico={removerServico}
           onSalvar={salvar}
           onCancelar={() => setShowForm(false)}
           salvando={salvando}
@@ -503,13 +571,26 @@ function ContratoCard({ contrato, onEditar, onExcluir, onAgenda }) {
 
 function ContratoFormModal({
   form, onSet, onTogglePraga, onToggleProduto, produtos,
-  onSelectCliente, onSalvar, onCancelar, salvando, erro,
+  onSelectCliente, onAdicionarServico, onAtualizarServico, onRemoverServico,
+  onSalvar, onCancelar, salvando, erro,
 }) {
   const labelCls = 'block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5';
   const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
+  const [showAddServico, setShowAddServico] = useState(false);
 
-  const totalVisitas = Math.floor((form.duracaoMeses || 0) / Math.max(1, form.frequenciaMeses || 1));
-  const valorTotal   = (form.valorMensal || 0) * (form.duracaoMeses || 0);
+  const servicos = form.servicos || [];
+  const servicosAtivos = servicos.filter(s => s.ativo);
+  const idsJaAdicionados = servicos.map(s => s.id);
+  const tiposDisponiveis = TIPOS_SERVICO_CONTRATO.filter(t => !idsJaAdicionados.includes(t.id));
+
+  // Resumo por serviço
+  const resumoServicos = servicosAtivos.map(s => {
+    const freq = s.frequenciaMeses || 1;
+    const visitas = Math.max(1, Math.floor((form.duracaoMeses || 0) / freq));
+    return { ...s, visitas, freq };
+  });
+  const totalVisitas = resumoServicos.reduce((acc, s) => acc + s.visitas, 0);
+  const valorTotal   = (parseFloat(form.valorMensal) || 0) * (form.duracaoMeses || 0);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -577,16 +658,11 @@ function ContratoFormModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Duração (meses)</label>
               <input type="number" min={1} max={120} value={form.duracaoMeses}
                 onChange={e => onSet('duracaoMeses', parseInt(e.target.value, 10) || 1)} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Frequência (a cada N meses)</label>
-              <input type="number" min={1} max={12} value={form.frequenciaMeses}
-                onChange={e => onSet('frequenciaMeses', parseInt(e.target.value, 10) || 1)} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Garantia (meses)</label>
@@ -595,25 +671,89 @@ function ContratoFormModal({
             </div>
           </div>
 
-          {/* Resumo calculado */}
-          <div className="grid grid-cols-2 gap-3 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-3">
-            <div>
-              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-bold tracking-wide">Visitas previstas</p>
-              <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">{totalVisitas}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-bold tracking-wide">Valor total</p>
-              <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">{fmtBRL(valorTotal)}</p>
-            </div>
-          </div>
-
           {/* Valor */}
           <div>
             <label className={labelCls}>Valor mensal (R$)</label>
-            <input type="number" step="0.01" min={0} value={form.valorMensal}
-              onChange={e => onSet('valorMensal', parseFloat(e.target.value) || 0)}
-              placeholder="250,00"
+            <input type="number" step="0.01" min={0}
+              value={form.valorMensal === 0 || form.valorMensal === '' ? '' : form.valorMensal}
+              onChange={e => onSet('valorMensal', e.target.value === '' ? '' : e.target.value)}
+              placeholder="0,00"
               className={inputCls} />
+          </div>
+
+          {/* Serviços do contrato */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className={labelCls + ' mb-0'}>Serviços do Contrato</label>
+              {tiposDisponiveis.length > 0 && (
+                <div className="relative">
+                  <button onClick={() => setShowAddServico(o => !o)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 transition">
+                    <Plus size={12} /> Adicionar
+                  </button>
+                  {showAddServico && (
+                    <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 z-10 overflow-hidden">
+                      {tiposDisponiveis.map(t => (
+                        <button key={t.id}
+                          onClick={() => { onAdicionarServico(t.id); setShowAddServico(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition">
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {servicos.length === 0 && (
+                <p className="text-xs text-slate-400 italic py-2">Nenhum serviço adicionado.</p>
+              )}
+              {servicos.map((s, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30">
+                  <input type="checkbox" checked={s.ativo}
+                    onChange={e => onAtualizarServico(idx, 'ativo', e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 shrink-0" />
+                  <span className={`flex-1 text-sm font-medium truncate ${s.ativo ? 'text-slate-800 dark:text-white' : 'text-slate-400 line-through'}`}>
+                    {s.label}
+                  </span>
+                  <span className="text-xs text-slate-400 shrink-0">a cada</span>
+                  <input type="number" min={1} max={60}
+                    value={s.frequenciaMeses}
+                    onChange={e => onAtualizarServico(idx, 'frequenciaMeses', parseInt(e.target.value, 10) || 1)}
+                    className="w-14 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-center text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <span className="text-xs text-slate-400 shrink-0">mês(es)</span>
+                  {servicos.length > 1 && (
+                    <button onClick={() => onRemoverServico(idx)}
+                      className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition shrink-0">
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Resumo calculado */}
+          <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-3 space-y-1.5">
+            {resumoServicos.map((s, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-emerald-800 dark:text-emerald-300 font-medium">{s.label}</span>
+                <span className="text-emerald-700 dark:text-emerald-400">
+                  <strong>{s.visitas}</strong> visita{s.visitas !== 1 ? 's' : ''}
+                  <span className="text-emerald-500 ml-1">· {s.freq === 1 ? 'mensal' : `cada ${s.freq} meses`}</span>
+                </span>
+              </div>
+            ))}
+            {resumoServicos.length > 0 && (
+              <div className="pt-1.5 mt-1 border-t border-emerald-200 dark:border-emerald-800/40 flex justify-between">
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-bold tracking-wide">
+                  Total · {totalVisitas} visita{totalVisitas !== 1 ? 's' : ''}
+                </span>
+                <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">{fmtBRL(valorTotal)}</span>
+              </div>
+            )}
           </div>
 
           {/* Pragas */}
