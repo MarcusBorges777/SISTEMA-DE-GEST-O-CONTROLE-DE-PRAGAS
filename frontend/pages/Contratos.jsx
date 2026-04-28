@@ -19,12 +19,56 @@ import { ClientePickerModal } from '../components/documentos/ClientePickerModal'
 import { useProdutos } from '../contexts/ProdutosContext';
 
 const PEST_OPTIONS = [
-  { id: 'baratas', label: 'Baratas' }, { id: 'formigas', label: 'Formigas' },
-  { id: 'ratos', label: 'Ratos' }, { id: 'cupins', label: 'Cupins' },
-  { id: 'escorpioes', label: 'Escorpiões' }, { id: 'pulgas', label: 'Pulgas' },
-  { id: 'moscas', label: 'Moscas' }, { id: 'aranhas', label: 'Aranhas' },
-  { id: 'mosquitos', label: 'Mosquitos' }, { id: 'tracas', label: 'Traças' },
+  { id: 'baratas',    label: 'Baratas'     },
+  { id: 'formigas',   label: 'Formigas'    },
+  { id: 'ratos',      label: 'Ratos'       },
+  { id: 'cupins',     label: 'Cupins'      },
+  { id: 'escorpioes', label: 'Escorpiões'  },
+  { id: 'pulgas',     label: 'Pulgas'      },
+  { id: 'moscas',     label: 'Moscas'      },
+  { id: 'aranhas',    label: 'Aranhas'     },
+  { id: 'mosquitos',  label: 'Mosquitos'   },
+  { id: 'tracas',     label: 'Traças'      },
+  { id: 'carrapatos', label: 'Carrapatos'  },
+  { id: 'percevejos', label: 'Percevejos'  },
+  { id: 'barbeiros',  label: 'Barbeiros'   },
 ];
+
+// Base de produtos com targets (espelha Laudos.jsx)
+const PRODUCTS_DB_DEFAULT = {
+  ratol:    { id: 'ratol',    nome: 'Ratol Gs girassol',  grupo: 'Hidroxicumarina',              principio: 'Brodifacoum',        registro: '3.2398.0019.001-1',  concentracao: '50 grs por ponto',        targets: ['ratos'] },
+  maki:     { id: 'maki',     nome: 'Maki Bloco',         grupo: 'Cumarianas',                   principio: 'Bromadiolone',        registro: '3.2233.0073',        concentracao: '1 Bloco por ponto',       targets: ['ratos'] },
+  triflurat:{ id: 'triflurat',nome: 'Triflurat GS',       grupo: 'Cumarínico',                   principio: 'Flocoumafen',         registro: '3.0425.0158.001-1',  concentracao: '1 Bloco por ponto',       targets: ['ratos'] },
+  termigama:{ id: 'termigama',nome: 'Termigama',          grupo: 'Fenil Pirazol',                principio: 'Fipronil',            registro: '3.0425.0087.001-4',  concentracao: '5/1(ml/l) de calda',     targets: ['cupins'] },
+  bifentol: { id: 'bifentol', nome: 'Bifentol 200 SC',    grupo: 'Piretróides',                  principio: 'Bifentrina',          registro: '32398.0027.001-5',   concentracao: '3/1(ml/l) de calda',     targets: ['escorpioes'] },
+  demand:   { id: 'demand',   nome: 'DEMAND 2,5CS',       grupo: 'Piretróides',                  principio: 'Lambda-cialotrina',   registro: '3.0119.6626.001-7',  concentracao: '30/1(ml/l) de calda',    targets: ['escorpioes'] },
+  fendona:  { id: 'fendona',  nome: 'FENDONA 6 SC',       grupo: 'Piretrinas e Piretróides',     principio: 'Alfa-cipermetrina',   registro: '3.0404.0031',        concentracao: '5/1(ml/l) de calda',     targets: ['mosquitos','baratas','formigas','moscas','pulgas','barbeiros','tracas'] },
+  formim:   { id: 'formim',   nome: 'FORMFIM GEL',        grupo: 'Fenil Pirazol',                principio: 'Fipronil',            registro: '3.2398.0033.001-9',  concentracao: '0,05%',                  targets: ['formigas'] },
+  cyperex:  { id: 'cyperex',  nome: 'CYPEREX® 250 CE',    grupo: 'Piretróides',                  principio: 'Cipermetrina',        registro: '3.0425.0046.001-0',  concentracao: '5/1(ml/l) de calda',     targets: ['baratas','formigas','moscas','mosquitos','pulgas','escorpioes','aranhas','carrapatos','percevejos','tracas'] },
+};
+
+/** Gera lista de IDs de produtos compatíveis com as pragas selecionadas (mesma lógica do Laudos) */
+function gerarProdutosSugeridos(pragas, productsDb) {
+  const added = new Set();
+  const result = [];
+  const add = (id) => {
+    const p = productsDb[id];
+    if (p && !added.has(p.registro || p.id)) {
+      result.push(id);
+      added.add(p.registro || p.id);
+    }
+  };
+  const hasEscorpiao     = pragas.includes('escorpioes');
+  const hasGeneralInsect = pragas.some(p =>
+    ['baratas','formigas','pulgas','moscas','tracas','mosquitos','barbeiros','aranhas','carrapatos','percevejos'].includes(p)
+  );
+  if (hasEscorpiao)     add('bifentol');
+  if (hasGeneralInsect) add('cyperex');
+  if (pragas.includes('formigas')) add('formim');
+  if (pragas.includes('ratos'))    add('ratol');
+  if (pragas.includes('cupins'))   add('termigama');
+  return result;
+}
 
 const fmtBRL = (v) => (typeof v === 'number' ? v : Number(v) || 0)
   .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -92,7 +136,19 @@ const EMPTY_FORM = {
 export default function Contratos() {
   const { addToast } = useToast();
   const navigate = useNavigate();
-  const { produtos } = useProdutos();
+  const { produtos: produtosCtx, addProduto: addProdutoCtx } = useProdutos();
+
+  // Base de produtos mesclada: padrão + adicionados pelo usuário (via Admin/Laudos)
+  const [productsDb, setProductsDb] = useState(PRODUCTS_DB_DEFAULT);
+  useEffect(() => {
+    if (!produtosCtx || produtosCtx.length === 0) return;
+    setProductsDb(prev => {
+      const merged = { ...prev };
+      produtosCtx.forEach(p => { if (!merged[p.id]) merged[p.id] = p; });
+      return merged;
+    });
+  }, [produtosCtx]);
+
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [busca, setBusca]         = useState('');
@@ -144,10 +200,14 @@ export default function Contratos() {
   const set = (campo, valor) => setForm(p => ({ ...p, [campo]: valor }));
 
   const togglePraga = (id) => {
-    setForm(p => ({
-      ...p,
-      pragas: p.pragas.includes(id) ? p.pragas.filter(x => x !== id) : [...p.pragas, id]
-    }));
+    setForm(p => {
+      const novasPragas = p.pragas.includes(id)
+        ? p.pragas.filter(x => x !== id)
+        : [...p.pragas, id];
+      // Auto-seleciona produtos compatíveis com as novas pragas
+      const sugeridos = gerarProdutosSugeridos(novasPragas, productsDb);
+      return { ...p, pragas: novasPragas, produtos: sugeridos };
+    });
   };
 
   const toggleProduto = (id) => {
@@ -428,7 +488,12 @@ export default function Contratos() {
           onSet={set}
           onTogglePraga={togglePraga}
           onToggleProduto={toggleProduto}
-          produtos={produtos}
+          productsDb={productsDb}
+          onAddProduto={(p) => {
+            setProductsDb(prev => ({ ...prev, [p.id]: p }));
+            addProdutoCtx(p);
+            setForm(f => ({ ...f, produtos: [...(f.produtos || []), p.id] }));
+          }}
           onSelectCliente={() => setPickerOpen(true)}
           onAdicionarServico={adicionarServico}
           onAtualizarServico={atualizarServico}
@@ -570,13 +635,16 @@ function ContratoCard({ contrato, onEditar, onExcluir, onAgenda }) {
 // ─── Form modal (criar/editar contrato) ──────────────────────────────────────
 
 function ContratoFormModal({
-  form, onSet, onTogglePraga, onToggleProduto, produtos,
+  form, onSet, onTogglePraga, onToggleProduto, productsDb, onAddProduto,
   onSelectCliente, onAdicionarServico, onAtualizarServico, onRemoverServico,
   onSalvar, onCancelar, salvando, erro,
 }) {
   const labelCls = 'block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5';
   const inputCls = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
   const [showAddServico, setShowAddServico] = useState(false);
+  const [showNovoProduto, setShowNovoProduto] = useState(false);
+  const [novoProduto, setNovoProduto] = useState({ nome: '', grupo: '', principio: '', registro: '', concentracao: '', diluente: '', equipamento: '', antidoto: '', targets: [] });
+  const [erroProduto, setErroProduto] = useState('');
 
   const servicos = form.servicos || [];
   const servicosAtivos = servicos.filter(s => s.ativo);
@@ -758,12 +826,12 @@ function ContratoFormModal({
 
           {/* Pragas */}
           <div>
-            <label className={labelCls}>Pragas controladas (template)</label>
+            <label className={labelCls}>Pragas controladas</label>
             <div className="flex flex-wrap gap-1.5">
               {PEST_OPTIONS.map(p => {
                 const ativo = (form.pragas || []).includes(p.id);
                 return (
-                  <button key={p.id} onClick={() => onTogglePraga(p.id)}
+                  <button key={p.id} type="button" onClick={() => onTogglePraga(p.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition
                       ${ativo
                         ? 'bg-emerald-500 border-emerald-500 text-white'
@@ -773,28 +841,172 @@ function ContratoFormModal({
                 );
               })}
             </div>
+            {(form.pragas || []).length > 0 && (
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                <Check size={10} /> Produtos sugeridos atualizados automaticamente
+              </p>
+            )}
           </div>
 
-          {/* Produtos */}
-          {Array.isArray(produtos) && produtos.length > 0 && (
-            <div>
-              <label className={labelCls}>Produtos padrão (template)</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-2 rounded-xl bg-slate-50 dark:bg-slate-900/30">
-                {produtos.map(p => {
-                  const ativo = (form.produtos || []).includes(p.id);
-                  return (
-                    <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs cursor-pointer transition
-                      ${ativo
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 font-bold'
-                        : 'hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
-                      }`}>
-                      <input type="checkbox" checked={ativo}
-                        onChange={() => onToggleProduto(p.id)}
-                        className="w-3.5 h-3.5 rounded text-emerald-500" />
-                      <span className="truncate">{p.nome}</span>
-                    </label>
-                  );
-                })}
+          {/* Produtos — compatíveis com as pragas selecionadas */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className={labelCls + ' mb-0'}>Produtos aplicados</label>
+              <button type="button" onClick={() => setShowNovoProduto(true)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+                <Plus size={11} /> Novo produto
+              </button>
+            </div>
+
+            {(() => {
+              const pragas = form.pragas || [];
+              const selecionados = form.produtos || [];
+              const allProds = Object.values(productsDb || {});
+
+              // compatíveis com pelo menos uma praga selecionada
+              const compativeis = pragas.length === 0
+                ? allProds
+                : allProds.filter(p => p.targets?.some(t => pragas.includes(t)));
+
+              // incompatíveis mas selecionados manualmente
+              const incompativeisSelecionados = selecionados
+                .filter(id => !compativeis.find(p => p.id === id))
+                .map(id => productsDb[id])
+                .filter(Boolean);
+
+              const listar = [...compativeis, ...incompativeisSelecionados];
+
+              if (listar.length === 0) {
+                return (
+                  <p className="text-xs text-slate-400 italic py-2 text-center">
+                    Selecione as pragas acima para ver os produtos compatíveis.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                  {listar.map(p => {
+                    const ativo = selecionados.includes(p.id);
+                    const ehCompativel = pragas.length === 0 || p.targets?.some(t => pragas.includes(t));
+                    // pragas que este produto cobre (dentre as selecionadas)
+                    const pragasCobe = PEST_OPTIONS.filter(po =>
+                      pragas.includes(po.id) && p.targets?.includes(po.id)
+                    );
+                    return (
+                      <label key={p.id}
+                        className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition
+                          ${ativo
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
+                            : 'bg-white dark:bg-slate-700/30 border-slate-200 dark:border-slate-600 hover:border-slate-300'
+                          }`}
+                      >
+                        <input type="checkbox" checked={ativo}
+                          onChange={() => onToggleProduto(p.id)}
+                          className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-sm font-bold truncate ${ativo ? 'text-emerald-800 dark:text-emerald-200' : 'text-slate-700 dark:text-slate-200'}`}>
+                              {p.nome}
+                            </span>
+                            {!ehCompativel && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-bold shrink-0">manual</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{p.principio} · {p.concentracao}</p>
+                          {pragasCobe.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {pragasCobe.map(pc => (
+                                <span key={pc.id} className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-medium">
+                                  {pc.label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Modal: novo produto */}
+          {showNovoProduto && (
+            <div className="fixed inset-0 z-[199999] flex items-center justify-center p-4 bg-black/60">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col border border-slate-200 dark:border-slate-700">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                  <h4 className="font-bold text-slate-800 dark:text-white">Novo Produto</h4>
+                  <button onClick={() => { setShowNovoProduto(false); setErroProduto(''); }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                  {[
+                    ['nome', 'Nome do produto *'],
+                    ['grupo', 'Grupo químico'],
+                    ['principio', 'Princípio ativo'],
+                    ['registro', 'Nº Registro MS'],
+                    ['concentracao', 'Concentração / dose'],
+                    ['diluente', 'Diluente'],
+                    ['equipamento', 'Equipamento'],
+                    ['antidoto', 'Antídoto / emergência'],
+                  ].map(([campo, label]) => (
+                    <div key={campo}>
+                      <label className={labelCls}>{label}</label>
+                      <input value={novoProduto[campo]}
+                        onChange={e => setNovoProduto(p => ({ ...p, [campo]: e.target.value }))}
+                        className={inputCls} />
+                    </div>
+                  ))}
+                  <div>
+                    <label className={labelCls}>Pragas que combate *</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PEST_OPTIONS.map(po => {
+                        const sel = novoProduto.targets.includes(po.id);
+                        return (
+                          <button key={po.id} type="button"
+                            onClick={() => setNovoProduto(p => ({
+                              ...p,
+                              targets: sel ? p.targets.filter(t => t !== po.id) : [...p.targets, po.id]
+                            }))}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border-2 transition
+                              ${sel ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 text-slate-500 hover:border-emerald-300'}`}>
+                            {po.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {erroProduto && (
+                    <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{erroProduto}</p>
+                  )}
+                </div>
+                <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
+                  <button onClick={() => { setShowNovoProduto(false); setErroProduto(''); }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+                    Cancelar
+                  </button>
+                  <button onClick={() => {
+                    if (!novoProduto.nome.trim()) { setErroProduto('Nome obrigatório.'); return; }
+                    if (novoProduto.targets.length === 0) { setErroProduto('Selecione ao menos uma praga.'); return; }
+                    const reg = (novoProduto.registro || '').trim();
+                    if (reg && reg !== '-') {
+                      const dup = Object.values(productsDb).find(p => p.registro === reg);
+                      if (dup) { setErroProduto(`Já existe produto com este Nº MS (${dup.nome}).`); return; }
+                    }
+                    const id = 'prod_' + Date.now();
+                    onAddProduto({ id, ...novoProduto, registro: reg || '-', grupo: novoProduto.grupo || '-', principio: novoProduto.principio || '-', concentracao: novoProduto.concentracao || '-', diluente: novoProduto.diluente || '-', equipamento: novoProduto.equipamento || '-', antidoto: novoProduto.antidoto || '-' });
+                    setNovoProduto({ nome: '', grupo: '', principio: '', registro: '', concentracao: '', diluente: '', equipamento: '', antidoto: '', targets: [] });
+                    setErroProduto('');
+                    setShowNovoProduto(false);
+                  }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition">
+                    Salvar produto
+                  </button>
+                </div>
               </div>
             </div>
           )}
