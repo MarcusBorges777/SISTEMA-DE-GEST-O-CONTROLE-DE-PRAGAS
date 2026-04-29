@@ -107,6 +107,8 @@ export default function RelatorioBranco() {
     setSalvandoPdf(true);
     try {
       const nomeEmpresa = clientData.nome || clientData.fantasia || 'Empresa';
+      // Aguarda React re-renderizar o DOM antes do html2canvas (igual a Laudos)
+      await new Promise(r => setTimeout(r, 50));
       const result = await salvarDocumento({
         elementId: 'a4-document',
         tipo: 'relatorio_branco',
