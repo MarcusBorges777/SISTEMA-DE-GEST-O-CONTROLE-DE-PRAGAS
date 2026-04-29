@@ -16,7 +16,7 @@ import { ClientePerfilModal } from '../components/documentos/ClientePerfilModal'
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const FILTER_TABS = [
-  { id: 'all',       label: 'Todos'       },
+  { id: 'all',       label: 'Total'       },
   { id: 'laudo',     label: 'Laudos'      },
   { id: 'recibo',    label: 'Recibos'     },
   { id: 'orcamento', label: 'Orçamentos'  },
@@ -601,12 +601,13 @@ export default function Arquivos() {
       )}
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Total',      count: counts.all,       icon: Layers,    color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-700'            },
-          { label: 'Laudos',     count: counts.laudo,     icon: FileText,  color: 'text-blue-600',    bg: 'bg-blue-100 dark:bg-blue-900/30'            },
-          { label: 'Recibos',    count: counts.recibo,    icon: FileText,  color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30'      },
-          { label: 'Orçamentos', count: counts.orcamento, icon: FileText,  color: 'text-amber-600',   bg: 'bg-amber-100 dark:bg-amber-900/30'          },
+          { label: 'Total',      count: counts.all,        icon: Layers,    color: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-700'       },
+          { label: 'Laudos',     count: counts.laudo,      icon: FileText,  color: 'text-blue-600',    bg: 'bg-blue-100 dark:bg-blue-900/30'      },
+          { label: 'Recibos',    count: counts.recibo,     icon: FileText,  color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30'},
+          { label: 'Orçamentos', count: counts.orcamento,  icon: FileText,  color: 'text-amber-600',   bg: 'bg-amber-100 dark:bg-amber-900/30'   },
+          { label: 'Relatórios', count: counts.relatorio,  icon: FileText,  color: 'text-violet-600',  bg: 'bg-violet-100 dark:bg-violet-900/30' },
         ].map(({ label, count, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
