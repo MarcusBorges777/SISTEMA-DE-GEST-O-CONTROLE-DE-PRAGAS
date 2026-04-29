@@ -26,6 +26,10 @@ const TIPOS_BLOCO = [
 
 const TIPO_BY_ID = Object.fromEntries(TIPOS_BLOCO.map(t => [t.id, t]));
 
+// Targets que identificam produtos para combate de roedores
+const ROEDOR_TARGETS = ['ratos', 'ratazana', 'camundongo', 'rato'];
+const PORTA_ISCAS_OVERFLOW = 25; // acima disso → página extra
+
 const STATUS_PORTA_ISCA = [
   { value: 'consumido',                 label: 'Consumido'                       },
   { value: 'nao_consumido',             label: 'Não consumido'                   },
@@ -213,10 +217,7 @@ export default function RelatorioMensal() {
   const [numeroDoc, setNumeroDoc] = useState(() => {
     try { return localStorage.getItem('relatorioMensalNumero') || '0001'; } catch { return '0001'; }
   });
-  const [dataInicio, setDataInicio] = useState(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10);
-  });
-  const [dataFim, setDataFim] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [blocos, setBlocos] = useState(() => [novoBloco('desratizacao_quimica')]);
   const [clientData, setClientData] = useState({ nome: '', fantasia: '', cnpj: '', endereco: '', atividade: '' });
   const [clientesSalvos, setClientesSalvos] = useState([]);
@@ -241,8 +242,7 @@ export default function RelatorioMensal() {
       sessionStorage.removeItem('__editar_documento');
       if (meta.clientData) { setClientData(meta.clientData); if (meta.clientData.cnpj) setCnpjExternal(meta.clientData.cnpj); }
       if (meta.numeroDoc) setNumeroDoc(meta.numeroDoc);
-      if (meta.dataInicio) setDataInicio(meta.dataInicio);
-      if (meta.dataFim) setDataFim(meta.dataFim);
+      if (meta.data) setData(meta.data);
       if (Array.isArray(meta.blocos) && meta.blocos.length) setBlocos(meta.blocos);
     } catch {}
   }, []);
@@ -311,10 +311,10 @@ export default function RelatorioMensal() {
         tipo: 'relatorio_mensal',
         numeroDoc,
         nomeEmpresa,
-        metadados: { __tipo: 'relatorio_mensal', clientData, numeroDoc, dataInicio, dataFim, blocos },
+        metadados: { __tipo: 'relatorio_mensal', clientData, numeroDoc, data, blocos },
       });
       if (result.sucesso) {
-        registrarDocumentoNaAgenda('relatorio_mensal', { nome: clientData.nome, fantasia: clientData.fantasia, cnpj: clientData.cnpj, endereco: clientData.endereco }, dataFim, numeroDoc).catch(() => {});
+        registrarDocumentoNaAgenda('relatorio_mensal', { nome: clientData.nome, fantasia: clientData.fantasia, cnpj: clientData.cnpj, endereco: clientData.endereco }, data, numeroDoc).catch(() => {});
         alert(`PDF salvo: ${result.nomeArquivo}`);
       } else {
         alert(`Erro ao salvar: ${result.erro}`);
@@ -322,7 +322,17 @@ export default function RelatorioMensal() {
     } finally { setSalvandoPdf(false); }
   };
 
-  const periodoLabel = `${formatBR(dataInicio)} a ${formatBR(dataFim)}`;
+  const periodoLabel = formatBR(data);
+
+  // Filtra produtos por tipo de bloco (roedores → apenas targets roedores)
+  const getProdutosParaBloco = (bloco) => {
+    const isRoedor = TIPO_BY_ID[bloco.tipo]?.isRoedor;
+    if (!isRoedor) return produtosOptions;
+    const filtrados = produtosOptions.filter(p =>
+      (p.targets || []).some(t => ROEDOR_TARGETS.includes(t.toLowerCase()))
+    );
+    return filtrados.length > 0 ? filtrados : produtosOptions;
+  };
   const blocosRoedores = blocos.filter(b => TIPO_BY_ID[b.tipo]?.isRoedor);
   const blocosOutros   = blocos.filter(b => !TIPO_BY_ID[b.tipo]?.isRoedor);
 
@@ -448,61 +458,96 @@ export default function RelatorioMensal() {
   // ── Página A4 de roedores (página inteira cada) ───────────────────────────────
   const renderPaginaRoedor = (bloco) => {
     const tipoInfo = TIPO_BY_ID[bloco.tipo];
-    return (
-      <div key={bloco.id} className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
-        <DocumentHeader logo={logo} onLogoClick={() => fileInputRef.current?.click()} variant="laudo" />
+    const produtosFiltrados = getProdutosParaBloco(bloco);
+    const portaIscas = bloco.portaIscas || [];
+    const overflow = portaIscas.length > PORTA_ISCAS_OVERFLOW;
 
-        <div className="flex justify-between items-end mb-3">
-          <h2 className="text-lg font-black text-[#254191] uppercase leading-none tracking-tight">
-            RELATÓRIO MENSAL
-            <br />
-            <span className="text-blue-500 text-[11px] font-bold tracking-widest uppercase italic">
-              {tipoInfo?.titulo}
-            </span>
-          </h2>
-          <div className="text-right border-l-4 border-[#254191] pl-3">
-            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">Nº {numeroDoc}</p>
-            <p className="text-[10px] font-black text-gray-800 italic leading-tight">{periodoLabel}</p>
-          </div>
+    const cabecalhoDoc = (
+      <div className="flex justify-between items-end mb-3">
+        <h2 className="text-lg font-black text-[#254191] uppercase leading-none tracking-tight">
+          RELATÓRIO MENSAL
+          <br />
+          <span className="text-blue-500 text-[11px] font-bold tracking-widest uppercase italic">
+            {tipoInfo?.titulo}
+          </span>
+        </h2>
+        <div className="text-right border-l-4 border-[#254191] pl-3">
+          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">Nº {numeroDoc}</p>
+          <p className="text-[10px] font-black text-gray-800 italic leading-tight">{periodoLabel}</p>
         </div>
-
-        <ClienteSection clientData={clientData} mode="document" />
-
-        <div className="flex-1 space-y-2 overflow-hidden">
-          <div className="bg-[#254191] text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide print-bg-blue">
-            {tipoInfo?.titulo} &nbsp;·&nbsp; <span className="font-normal italic">{tipoInfo?.subtitulo}</span>
-          </div>
-
-          <InfoVisita bloco={bloco} />
-
-          {/* Tabela de produtos — idêntica à de Laudos */}
-          <TabelaProdutos
-            produtos={bloco.produtos}
-            produtosOptions={produtosOptions}
-            onAdd={() => adicionarProduto(bloco.id)}
-            onRemove={(pid) => removerProduto(bloco.id, pid)}
-            onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
-          />
-
-          {/* Tabela de porta-iscas */}
-          <TabelaPortaIscas portaIscas={bloco.portaIscas} qtdPortaIscas={bloco.qtdPortaIscas} />
-
-          {bloco.observacao && (
-            <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5">
-              <p className="text-[9px] font-bold text-zinc-600 uppercase mb-0.5">Observações</p>
-              <p className="text-[9px] text-zinc-700 whitespace-pre-wrap">{bloco.observacao}</p>
-            </div>
-          )}
-
-          <div className="bg-[#fff5f5] border border-[#fee2e2] rounded px-3 py-1.5 text-[8px] text-[#6d2020] italic font-bold">
-            <span className="not-italic font-black text-[#a02c2c]">OBSERVAÇÕES: </span>em anexo alvará sanitário.
-            N° de telefone no caso de intoxicação: ANVISA – Disque intoxicação - SERVIÇO DE TOXICOLOGIA DE MG:
-            <strong className="not-italic"> 0800-722-6001 / (31) 3224-4000 / (31) 3239-9308 / (31) 3239-9223</strong>
-          </div>
-        </div>
-
-        <DocumentFooter variant="laudo" />
       </div>
+    );
+
+    return (
+      <React.Fragment key={bloco.id}>
+        {/* Página principal do bloco */}
+        <div className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
+          <DocumentHeader logo={logo} onLogoClick={() => fileInputRef.current?.click()} variant="laudo" />
+          {cabecalhoDoc}
+          <ClienteSection clientData={clientData} mode="document" />
+
+          <div className="flex-1 space-y-2 overflow-hidden">
+            <div className="bg-[#254191] text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide print-bg-blue">
+              {tipoInfo?.titulo} &nbsp;·&nbsp; <span className="font-normal italic">{tipoInfo?.subtitulo}</span>
+            </div>
+
+            <InfoVisita bloco={bloco} />
+
+            {/* Tabela de produtos (filtrada para roedores) */}
+            <TabelaProdutos
+              produtos={bloco.produtos}
+              produtosOptions={produtosFiltrados}
+              onAdd={() => adicionarProduto(bloco.id)}
+              onRemove={(pid) => removerProduto(bloco.id, pid)}
+              onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
+            />
+
+            {/* Porta-iscas: só aparece aqui se NÃO ultrapassar o limite */}
+            {!overflow && (
+              <TabelaPortaIscas portaIscas={portaIscas} qtdPortaIscas={bloco.qtdPortaIscas} />
+            )}
+            {overflow && (bloco.qtdPortaIscas || portaIscas.length > 0) && (
+              <div className="bg-blue-50 border border-blue-200 rounded px-3 py-1.5 text-[9px] text-[#254191] font-bold no-print">
+                ⚠ Tabela de porta-iscas ({portaIscas.length} itens) será exibida na próxima página.
+              </div>
+            )}
+            {overflow && (
+              <p className="text-[9px] text-blue-700 font-bold italic border border-blue-200 rounded px-2 py-1 print:block hidden">
+                Monitoramento de Porta-iscas — ver página seguinte
+              </p>
+            )}
+
+            {bloco.observacao && (
+              <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5">
+                <p className="text-[9px] font-bold text-zinc-600 uppercase mb-0.5">Observações</p>
+                <p className="text-[9px] text-zinc-700 whitespace-pre-wrap">{bloco.observacao}</p>
+              </div>
+            )}
+
+            <div className="bg-[#fff5f5] border border-[#fee2e2] rounded px-3 py-1.5 text-[8px] text-[#6d2020] italic font-bold">
+              <span className="not-italic font-black text-[#a02c2c]">OBSERVAÇÕES: </span>em anexo alvará sanitário.
+              N° de telefone no caso de intoxicação: ANVISA – Disque intoxicação - SERVIÇO DE TOXICOLOGIA DE MG:
+              <strong className="not-italic"> 0800-722-6001 / (31) 3224-4000 / (31) 3239-9308 / (31) 3239-9223</strong>
+            </div>
+          </div>
+
+          <DocumentFooter variant="laudo" />
+        </div>
+
+        {/* Página extra de porta-iscas (apenas quando > PORTA_ISCAS_OVERFLOW) */}
+        {overflow && (
+          <div className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
+            <DocumentHeader logo={logo} onLogoClick={() => fileInputRef.current?.click()} variant="laudo" />
+            {cabecalhoDoc}
+
+            <div className="flex-1">
+              <TabelaPortaIscas portaIscas={portaIscas} qtdPortaIscas={bloco.qtdPortaIscas} />
+            </div>
+
+            <DocumentFooter variant="laudo" />
+          </div>
+        )}
+      </React.Fragment>
     );
   };
 
@@ -532,6 +577,7 @@ export default function RelatorioMensal() {
         <div className="flex-1 space-y-4 overflow-hidden">
           {blocosOutros.map((bloco) => {
             const tipoInfo = TIPO_BY_ID[bloco.tipo];
+            const produtosFiltrados = getProdutosParaBloco(bloco);
             return (
               <div key={bloco.id}>
                 <div className="bg-[#254191] text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide print-bg-blue mb-1">
@@ -542,7 +588,7 @@ export default function RelatorioMensal() {
 
                 <TabelaProdutos
                   produtos={bloco.produtos}
-                  produtosOptions={produtosOptions}
+                  produtosOptions={produtosFiltrados}
                   onAdd={() => adicionarProduto(bloco.id)}
                   onRemove={(pid) => removerProduto(bloco.id, pid)}
                   onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
@@ -586,20 +632,15 @@ export default function RelatorioMensal() {
         {showEditor && (
           <div className="space-y-6">
             {/* Dados gerais */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Nº Relatório</label>
                 <input type="text" value={numeroDoc} onChange={e => setNumeroDoc(e.target.value)}
                   className="w-full p-2.5 text-center bg-white border border-gray-200 rounded-md text-sm font-semibold text-blue-700 outline-none shadow-sm" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Início do Período</label>
-                <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 outline-none shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Fim do Período</label>
-                <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)}
+                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Data do Relatório</label>
+                <input type="date" value={data} onChange={e => setData(e.target.value)}
                   className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 outline-none shadow-sm" />
               </div>
             </div>
