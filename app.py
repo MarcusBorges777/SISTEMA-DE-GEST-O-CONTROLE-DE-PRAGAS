@@ -1762,7 +1762,7 @@ def api_arquivos():
                 pasta_principal = _cfg.get('principal', '').strip()
                 if pasta_principal and Path(pasta_principal).exists():
                     _pp = Path(pasta_principal)
-                    for subpasta, tipo in [('Laudos', 'download_laudo'), ('Recibos', 'download_recibo'), ('Orcamentos', 'download_orcamento'), ('Lixeira', 'lixeira')]:
+                    for subpasta, tipo in [('Laudos', 'download_laudo'), ('Recibos', 'download_recibo'), ('Orcamentos', 'download_orcamento'), ('Relatorios', 'download_relatorio'), ('Lixeira', 'lixeira')]:
                         _dir = _pp / subpasta
                         if _dir.exists():
                             arquivos.extend(listar_arquivos_diretorio(_dir, tipo, subpasta))
@@ -1779,7 +1779,8 @@ def api_arquivos():
         diretorios_download = [
             (download_config.get('laudos'), 'download_laudo', 'Laudos', None),
             (download_config.get('recibos'), 'download_recibo', 'Recibos', None),
-            (download_config.get('orcamentos'), 'download_orcamento', 'Orçamentos', None)
+            (download_config.get('orcamentos'), 'download_orcamento', 'Orçamentos', None),
+            (download_config.get('relatorios'), 'download_relatorio', 'Relatórios', None),
         ]
 
         # Adicionar arquivos dos diretórios de UPLOAD (onde lemos) COM TAGS AUTOMÁTICAS
