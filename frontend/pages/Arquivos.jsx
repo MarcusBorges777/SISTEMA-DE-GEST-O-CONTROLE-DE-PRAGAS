@@ -354,6 +354,7 @@ export default function Arquivos() {
     laudo:     arquivos.filter(f => matchesTipo(f, 'laudo')).length,
     recibo:    arquivos.filter(f => matchesTipo(f, 'recibo')).length,
     orcamento: arquivos.filter(f => matchesTipo(f, 'orcamento')).length,
+    relatorio: arquivos.filter(f => matchesTipo(f, 'relatorio')).length,
     lixeira:   arquivos.filter(f => matchesTipo(f, 'lixeira')).length,
   };
 
