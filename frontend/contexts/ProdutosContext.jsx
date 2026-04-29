@@ -11,6 +11,7 @@ async function fetchJson(url, options = {}) {
 
 export function ProdutosProvider({ children }) {
   const [produtos, setProdutos] = useState([]);
+  const [mapeamento, setMapeamento] = useState({});
 
   const loadProdutos = useCallback(async () => {
     try {
@@ -21,7 +22,19 @@ export function ProdutosProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { loadProdutos(); }, [loadProdutos]);
+  const loadMapeamento = useCallback(async () => {
+    try {
+      const data = await fetchJson('/api/config/mapeamento-pragas');
+      setMapeamento(data && typeof data === 'object' ? data : {});
+    } catch (e) {
+      // Silencioso
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProdutos();
+    loadMapeamento();
+  }, [loadProdutos, loadMapeamento]);
 
   const addProduto = async (produto) => {
     try {
@@ -64,8 +77,23 @@ export function ProdutosProvider({ children }) {
     }
   };
 
+  const saveMapeamento = async (novoMapa) => {
+    try {
+      await fetchJson('/api/config/mapeamento-pragas', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(novoMapa),
+      });
+      setMapeamento(novoMapa);
+      return true;
+    } catch (e) {
+      console.error('Erro ao salvar mapeamento:', e);
+      return false;
+    }
+  };
+
   return (
-    <ProdutosContext.Provider value={{ produtos, loadProdutos, addProduto, updateProduto, removeProduto }}>
+    <ProdutosContext.Provider value={{ produtos, loadProdutos, addProduto, updateProduto, removeProduto, mapeamento, saveMapeamento }}>
       {children}
     </ProdutosContext.Provider>
   );

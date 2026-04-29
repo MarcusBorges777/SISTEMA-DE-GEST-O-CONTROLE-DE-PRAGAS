@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { contratoApi } from '../../services/dbService';
 import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Search } from 'lucide-react';
@@ -52,117 +52,14 @@ export default function Laudos() {
     { id: 'barbeiros', label: 'Barbeiros' }
   ];
 
-  // Base de dados de produtos agora em formato de Estado (para permitir salvar novos produtos)
-  const [productsDb, setProductsDb] = useState({
-    ratol: {
-      id: 'ratol',
-      nome: "Ratol Gs girassol",
-      grupo: "Hidroxicumarina",
-      principio: "Brodifacoum",
-      registro: "3.2398.0019.001-1",
-      concentracao: "50 grs por ponto",
-      diluente: "_",
-      equipamento: "_", 
-      antidoto: "Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001",
-      targets: ['ratos']
-    },
-    maki: {
-      id: 'maki',
-      nome: "Maki Bloco",
-      grupo: "Cumarianas",
-      principio: "Bromadiolone",
-      registro: "3.2233.0073",
-      concentracao: "1 Bloco por ponto",
-      diluente: "-",
-      equipamento: "_",
-      antidoto: "Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001",
-      targets: ['ratos']
-    },
-    triflurat: {
-      id: 'triflurat',
-      nome: "Triflurat GS",
-      grupo: "Cumarínico",
-      principio: "Flocoumafen",
-      registro: "3.0425.0158.001-1",
-      concentracao: "1 Bloco por ponto",
-      diluente: "-",
-      equipamento: "-",
-      antidoto: "Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001",
-      targets: ['ratos']
-    },
-    termigama: {
-      id: 'termigama',
-      nome: "Termigama",
-      grupo: "Fenil Pirazol",
-      principio: "Fipronil",
-      registro: "3.0425.0087.001-4",
-      concentracao: "5/1(ml/l) de calda",
-      diluente: "Água",
-      equipamento: "Pulverizador costal de 20 litros",
-      antidoto: "Antídoto/Tratamento: Tratamento sintomático e de suporte. CEATOX: 0800 772 6001",
-      targets: ['cupins']
-    },
-    bifentol: {
-      id: 'bifentol',
-      nome: "Bifentol 200 SC",
-      grupo: "Piretróides",
-      principio: "Bifentrina",
-      registro: "32398.0027.001-5",
-      concentracao: "3/1(ml/l) de calda",
-      diluente: "Água",
-      equipamento: "Pulverizador costal de 20 litros",
-      antidoto: "Antidoto / tratamento: Anti-histamínicos e tratamento sintomático. CEATOX: 0800 772 6001",
-      targets: ['escorpioes']
-    },
-    demand: {
-      id: 'demand',
-      nome: "DEMAND 2,5CS",
-      grupo: "Piretróides",
-      principio: "Lambda-cialotrina",
-      registro: "3.0119.6626.001-7",
-      concentracao: "30/1(ml/l) de calda",
-      diluente: "Água",
-      equipamento: "Pulverizador costal de 20 litros",
-      antidoto: "Antidoto / tratamento: Anti-histamínicos e tratamento sintomático. CEATOX: 0800 772 6001",
-      targets: ['escorpioes']
-    },
-    fendona: {
-      id: 'fendona',
-      nome: "FENDONA 6 SC",
-      grupo: "Piretrinas e Piretróides",
-      principio: "Alfa-cipermetrina",
-      registro: "3.0404.0031",
-      concentracao: "5/1(ml/l) de calda",
-      diluente: "Água",
-      equipamento: "Pulverizador costal de 20 litros",
-      antidoto: "Antídoto/Tratamento: Não há antídoto específico. Tratamento sintomático. Telefone de emergência 24h: 0800 014 11 49.",
-      targets: ['mosquitos', 'baratas', 'formigas', 'moscas', 'pulgas', 'barbeiros', 'traças']
-    },
-    formim: {
-      id: 'formim',
-      nome: "FORMFIM GEL",
-      grupo: "Fenil Pirazol",
-      principio: "Fipronil",
-      registro: "3.2398.0033.001-9",
-      concentracao: "0,05%",
-      diluente: "-",
-      equipamento: "Pistola Aplicadora",
-      antidoto: "Antídoto/Tratamento: Não há antídoto específico. Tratamento sintomático. CEATOX: 0800 772 6001",
-      targets: ['formigas']
-    },
-    cyperex: {
-      id: 'cyperex',
-      nome: "CYPEREX® 250 CE",
-      grupo: "Piretróides",
-      principio: "Cipermetrina",
-      registro: "3.0425.0046.001-0",
-      concentracao: "5/1(ml/l) de calda",
-      diluente: "Água",
-      equipamento: "Pulverizador costal de 20 litros",
-      antidoto: "Antídoto/Tratamento: Não há antídoto específico. Tratamento sintomático. Telefone de emergência 24h: 0800 014 11 49.",
-      targets: ['baratas', 'formigas', 'moscas', 'mosquitos', 'pulgas', 'escorpioes', 'aranhas', 'carrapatos', 'percevejos', 'tracas']
-    }
-  });
+  // --- PRODUTOS CONTEXT: fonte única de verdade ---
+  const { produtos: produtosCtx, addProduto: addProdutoCtx, mapeamento } = useProdutos();
+
+  // Produtos vindos do banco via contexto global
+  const productsDb = useMemo(
+    () => Object.fromEntries((produtosCtx || []).map(p => [p.id, p])),
+    [produtosCtx]
+  );
 
   const [formData, setFormData] = useState(() => {
     const hoje = new Date();
@@ -182,20 +79,6 @@ export default function Laudos() {
   });
 
   const [productRows, setProductRows] = useState([]);
-
-  // --- PRODUTOS CONTEXT: sincronização global ---
-  const { produtos: produtosCtx, addProduto: addProdutoCtx } = useProdutos();
-
-  useEffect(() => {
-    if (!produtosCtx || produtosCtx.length === 0) return;
-    setProductsDb(prev => {
-      const merged = { ...prev };
-      produtosCtx.forEach(p => {
-        if (!merged[p.id]) merged[p.id] = p;
-      });
-      return merged;
-    });
-  }, [produtosCtx]);
 
   // --- Estado para salvar PDF ---
   const [salvandoPdf, setSalvandoPdf] = useState(false);
@@ -311,47 +194,39 @@ export default function Laudos() {
       .catch(() => {});
   }, []);
 
-  // Lógica Inteligente de Atualização da Tabela de Produtos
+  // Auto-fill — usa mapeamento configurado no Admin (praga → produto preferido)
   useEffect(() => {
     const generateSmartList = () => {
       const pests = formData.selectedPests || [];
-      let tempRows = [];
-      const addedMS = new Set(); 
+      if (pests.length === 0) return [];
+      const addedMS = new Set();
+      const result = [];
 
-      const addProduct = (productId) => {
-        const prod = productsDb[productId];
-        if (prod && !addedMS.has(prod.registro)) {
-          tempRows.push(productId);
-          addedMS.add(prod.registro);
+      const tryAdd = (prodId) => {
+        const prod = productsDb[prodId];
+        if (!prod) return;
+        const key = prod.registro || prod.id;
+        if (!addedMS.has(key)) {
+          result.push(prod.id);
+          addedMS.add(key);
         }
       };
 
-      const hasEscorpiao = pests.includes('escorpioes');
-      const hasGeneralInsects = pests.some(p => ['baratas', 'formigas', 'pulgas', 'moscas', 'tracas', 'mosquitos', 'barbeiros', 'aranhas', 'carrapatos', 'percevejos'].includes(p));
-
-      if (hasEscorpiao) {
-          addProduct('bifentol');
+      for (const pest of pests) {
+        const preferido = mapeamento[pest];
+        if (preferido) {
+          tryAdd(preferido);
+        } else {
+          // Fallback: primeiro produto compatível com esta praga
+          const fallback = Object.values(productsDb).find(p => (p.targets || []).includes(pest));
+          if (fallback) tryAdd(fallback.id);
+        }
       }
-      
-      if (hasGeneralInsects) {
-          addProduct('cyperex');
-      }
-
-      if (pests.includes('formigas')) {
-          addProduct('formim');
-      }
-      if (pests.includes('ratos')) {
-          addProduct('ratol');
-      }
-      if (pests.includes('cupins')) {
-          addProduct('termigama');
-      }
-
-      return tempRows;
+      return result;
     };
 
     setProductRows(generateSmartList());
-  }, [formData.selectedPests]);
+  }, [formData.selectedPests, productsDb, mapeamento]);
 
   // Carrega o número do laudo salvo automaticamente ao iniciar
   useEffect(() => {
@@ -424,10 +299,9 @@ export default function Laudos() {
         targets: newProduct.targets
     };
     
-    // Salva na base de dados local e também persiste via API (context global)
-    setProductsDb(prev => ({ ...prev, [newId]: productToAdd }));
+    // Persiste no banco via contexto — o useMemo vai atualizar productsDb automaticamente
     setProductRows(prev => [...prev, newId]);
-    addProdutoCtx({ ...productToAdd }); // persiste no banco — async, sem bloquear UI
+    addProdutoCtx({ ...productToAdd });
     setShowNewProductModal(false);
     setNewProduct({ nome: "", grupo: "", principio: "", registro: "", concentracao: "", diluente: "", equipamento: "", antidoto: "", targets: [] });
     setNewProductError("");

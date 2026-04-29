@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Mail, Globe, Image as ImageIcon } from 'lucide-react';
+import { Phone, Mail, Globe, Image as ImageIcon, Upload } from 'lucide-react';
 import { empresa } from '../../data/empresa';
 
 /**
@@ -13,37 +13,46 @@ import { empresa } from '../../data/empresa';
  */
 export default function DocumentHeader({ logo, onLogoClick, variant = 'recibo' }) {
   if (variant === 'laudo') {
+    // Cópia EXATA do renderHeader() inline em frontend/pages/documentos/Laudos.jsx
     return (
       <header className="flex justify-between items-start mb-6 border-b-2 border-[#254191] pb-4">
         <div className="flex items-center gap-4">
-          <div
-            onClick={onLogoClick}
-            className={`w-60 h-24 flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all group ${!logo ? 'border-2 border-dashed border-blue-200 bg-blue-50/30 print:hidden' : ''}`}
-          >
+          <div className="w-60 h-24 flex items-center justify-center overflow-hidden flex-shrink-0">
             {logo ? (
-              <img src={logo} alt="Logo" className="max-w-full max-h-full object-contain" />
+              <img
+                src={logo}
+                alt="Logo da Empresa"
+                className="max-w-full max-h-full object-contain cursor-pointer"
+                onClick={onLogoClick}
+                title="Clique para trocar a logo"
+              />
             ) : (
-              <div className="text-center p-2 print:hidden">
-                <ImageIcon size={24} className="mx-auto text-blue-400 mb-1" />
-                <p className="text-[10px] font-bold text-blue-500 uppercase">Sua Logo</p>
+              <div
+                onClick={onLogoClick}
+                className="no-print w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-lg cursor-pointer hover:bg-gray-50 transition-all group"
+              >
+                <Upload size={24} className="mx-auto text-blue-400 group-hover:text-blue-600 mb-1" />
+                <p className="text-[10px] font-bold text-blue-500 uppercase leading-tight italic">Clique para carregar<br/>Sua Logo</p>
               </div>
             )}
           </div>
         </div>
+
         <div className="flex-1 text-right space-y-1 pl-4">
           <h1 className="text-sm font-black text-[#254191] uppercase leading-none tracking-tight">{empresa.razao}</h1>
           <div className="text-[9px] text-gray-600 font-medium leading-tight space-y-0.5">
             <p className="font-bold text-gray-700">{empresa.nome} | CNPJ: {empresa.cnpj}</p>
             <p className="italic">{empresa.endereco}</p>
-            <div className="flex justify-end gap-3 text-blue-700 font-bold pt-1">
-              <span className="flex items-center gap-1"><Phone size={10} /> {empresa.contatos}</span>
-              <span className="flex items-center gap-1"><Mail size={10} /> {empresa.email}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 mt-1 border-t border-blue-200 justify-items-end">
-              <p>Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
-              <p>Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licenca}</span></p>
-              <p>Responsável Técnico: <span className="text-[#254191] font-bold">{empresa.rt}</span></p>
-              <p>CRQ / ART: <span className="text-[#254191] font-bold">{empresa.crq}</span></p>
+            <p className="flex items-center justify-end gap-0 text-[9px] text-blue-700 font-semibold pt-1 whitespace-nowrap tracking-tight divide-x divide-blue-200">
+              <span className="px-2">{empresa.contatos}</span>
+              <span className="px-2">{empresa.email}</span>
+              <span className="px-2">{empresa.site}</span>
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[8px] text-gray-500 pt-2 justify-items-end">
+              <p className="whitespace-nowrap">Alvará Sanitário: <span className="text-[#254191] font-bold">{empresa.alvara}</span></p>
+              <p className="whitespace-nowrap">Licença Ambiental: <span className="text-[#254191] font-bold">{empresa.licencaAmbiental}</span></p>
+              <p className="whitespace-nowrap">Responsável Técnico: <span className="text-[#254191] font-bold">{empresa.rt}</span></p>
+              <p className="whitespace-nowrap">CRQ / ART: <span className="text-[#254191] font-bold">{empresa.crq}</span></p>
             </div>
           </div>
         </div>

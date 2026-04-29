@@ -3,7 +3,7 @@ import {
   Shield, Users, Users2, Database, Palette, Upload, Trash2, Image as ImageIcon,
   Bug, FileImage, Award, Loader2, Package, FolderOpen, Plus, Edit2,
   X, Check, FlaskConical, ChevronDown, Save, AlertCircle, CheckCircle2, Trash,
-  SlidersHorizontal, Hash, UserPlus, UserCheck
+  SlidersHorizontal, Hash, UserPlus, UserCheck, Zap, ArrowRight
 } from 'lucide-react';
 import { api, fetchImagensEmpresa, uploadImagemEmpresa, removerImagemEmpresa } from '../services/api';
 import { getTecnicos, salvarTecnicos, getEquipes, salvarEquipes } from '../services/agendaService';
@@ -16,6 +16,8 @@ const PEST_OPTIONS = [
   { id: 'escorpioes', label: 'Escorpiões' }, { id: 'pulgas', label: 'Pulgas' },
   { id: 'moscas', label: 'Moscas' }, { id: 'aranhas', label: 'Aranhas' },
   { id: 'mosquitos', label: 'Mosquitos' }, { id: 'tracas', label: 'Traças' },
+  { id: 'carrapatos', label: 'Carrapatos' }, { id: 'percevejos', label: 'Percevejos' },
+  { id: 'barbeiros', label: 'Barbeiros' },
 ];
 
 const EMPTY_PRODUTO = {
@@ -25,7 +27,7 @@ const EMPTY_PRODUTO = {
 
 export default function Admin() {
   const { addToast } = useToast();
-  const { produtos, addProduto, updateProduto, removeProduto } = useProdutos();
+  const { produtos, addProduto, updateProduto, removeProduto, mapeamento, saveMapeamento } = useProdutos();
   const [activeSection, setActiveSection] = useState('identidade');
   const [usuarios, setUsuarios] = useState([]);
   const [tables, setTables] = useState([]);
@@ -52,6 +54,13 @@ export default function Admin() {
   const [produtoForm, setProdutoForm] = useState(EMPTY_PRODUTO);
   const [produtoSaving, setProdutoSaving] = useState(false);
   const [produtoError, setProdutoError] = useState('');
+
+  // Mapeamento praga → produto preferido
+  const [mapaLocal, setMapaLocal] = useState({});
+  const [mapaSaving, setMapaSaving] = useState(false);
+
+  // Sincroniza mapaLocal quando o contexto carrega o mapeamento do banco
+  useEffect(() => { setMapaLocal(mapeamento); }, [mapeamento]);
 
   // Arquivos / OneDrive
   const [pastaPrincipal, setPastaPrincipal] = useState('');
@@ -244,6 +253,14 @@ export default function Admin() {
         ? prev.targets.filter(t => t !== pestId)
         : [...prev.targets, pestId]
     }));
+  };
+
+  const salvarMapeamento = async () => {
+    setMapaSaving(true);
+    const ok = await saveMapeamento(mapaLocal);
+    setMapaSaving(false);
+    if (ok) addToast('Mapeamento salvo com sucesso!', 'success');
+    else addToast('Erro ao salvar mapeamento', 'error');
   };
 
   // --- Arquivos ---
@@ -540,6 +557,73 @@ export default function Admin() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+
+          {/* === MAPEAMENTO PRAGA → PRODUTO PREFERIDO === */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap size={18} className="text-amber-500" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white">Auto-preenchimento — Produto por Praga</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Define qual produto é sugerido automaticamente ao selecionar cada praga em Laudos e Contratos.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={salvarMapeamento}
+                disabled={mapaSaving || produtos.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 shadow-sm"
+              >
+                {mapaSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Salvar Mapeamento
+              </button>
+            </div>
+
+            {produtos.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-slate-400">
+                Cadastre produtos primeiro para configurar o mapeamento.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {PEST_OPTIONS.map(pest => {
+                  const compatíveis = produtos.filter(p => (p.targets || []).includes(pest.id));
+                  const produtoAtual = mapaLocal[pest.id] || '';
+                  return (
+                    <div key={pest.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                      <div className="w-32 shrink-0">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{pest.label}</span>
+                      </div>
+                      <ArrowRight size={14} className="text-slate-300 dark:text-slate-600 shrink-0" />
+                      <div className="flex-1">
+                        {compatíveis.length === 0 ? (
+                          <span className="text-xs text-slate-400 italic">Nenhum produto cobre esta praga</span>
+                        ) : (
+                          <select
+                            value={produtoAtual}
+                            onChange={e => setMapaLocal(prev => ({ ...prev, [pest.id]: e.target.value }))}
+                            className="w-full max-w-xs px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600
+                              bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200
+                              focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          >
+                            <option value="">— nenhum —</option>
+                            {compatíveis.map(p => (
+                              <option key={p.id} value={p.id}>{p.nome}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      {produtoAtual && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium shrink-0">
+                          {produtos.find(p => p.id === produtoAtual)?.principio || produtoAtual}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

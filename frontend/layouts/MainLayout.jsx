@@ -6,6 +6,7 @@ import CompanyDrawer from '../components/shared/CompanyDrawer';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { ProdutosProvider } from '../contexts/ProdutosContext';
+import { DbProvider } from '../contexts/DbContext';
 
 export default function MainLayout() {
   const { collapsed } = useSidebar();
@@ -17,7 +18,8 @@ export default function MainLayout() {
   const marginLeft = sidebarW + drawerW;
 
   return (
-    // ProdutosProvider aqui garante que só carrega após autenticação
+    // DbProvider + ProdutosProvider carregam após autenticação
+    <DbProvider>
     <ProdutosProvider>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 print:bg-white">
         <Sidebar />
@@ -35,5 +37,6 @@ export default function MainLayout() {
         </div>
       </div>
     </ProdutosProvider>
+    </DbProvider>
   );
 }

@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { Bug, Calculator, Receipt } from 'lucide-react';
+import { Bug, Calculator, Receipt, ClipboardList, FileText } from 'lucide-react';
 import { buscarFeriados } from '../services/brasilApi';
 import { useEmpresa, normalizeCliente } from '../contexts/EmpresaContext';
 import Laudos from './documentos/Laudos';
 import Orcamentos from './documentos/Orcamentos';
 import Recibos from './documentos/Recibos';
+import RelatorioMensal from './documentos/RelatorioMensal';
+import RelatorioBranco from './documentos/RelatorioBranco';
 
 const TABS = [
-  { id: 'laudo', label: 'Laudo Tecnico', icon: Bug, description: 'Controle de Pragas + Higienizacao' },
+  { id: 'laudo', label: 'Laudo', icon: Bug, description: 'Tecnico + Higienizacao' },
   { id: 'orcamento', label: 'Orcamento', icon: Calculator, description: 'Proposta de Servicos' },
-  { id: 'recibo', label: 'Recibo', icon: Receipt, description: 'Comprovante de Execucao' },
+  { id: 'recibo', label: 'Recibo', icon: Receipt, description: 'Comprovante' },
+  { id: 'relatorio_mensal', label: 'Rel. Mensal', icon: ClipboardList, description: 'Junção de Serviços' },
+  { id: 'relatorio_branco', label: 'Rel. Livre', icon: FileText, description: 'Página em Branco' },
 ];
 
 export default function Documentos() {
@@ -79,6 +83,8 @@ export default function Documentos() {
         {activeTab === 'laudo' && <Laudos feriados={feriados} />}
         {activeTab === 'orcamento' && <Orcamentos feriados={feriados} />}
         {activeTab === 'recibo' && <Recibos feriados={feriados} />}
+        {activeTab === 'relatorio_mensal' && <RelatorioMensal feriados={feriados} />}
+        {activeTab === 'relatorio_branco' && <RelatorioBranco feriados={feriados} />}
       </main>
 
       {/* Print Styles */}

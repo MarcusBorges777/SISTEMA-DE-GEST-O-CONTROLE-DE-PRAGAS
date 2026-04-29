@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Building2, MapPin, Briefcase, Phone, Hash, CheckCircle2, Trash2 } from 'lucide-react';
+import { X, Building2, MapPin, Briefcase, Phone, Hash, CheckCircle2, Trash2, TrendingUp } from 'lucide-react';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useSidebar } from '../../contexts/SidebarContext';
+import HistoricoFinanceiro from './HistoricoFinanceiro';
 
 export default function CompanyDrawer() {
   const { empresa, drawerOpen, clearEmpresa, toggleDrawer } = useEmpresa();
@@ -102,6 +103,19 @@ export default function CompanyDrawer() {
               </div>
             )}
           </div>
+
+          {/* Histórico Financeiro */}
+          {empresa?.id && (
+            <div className="border-t border-slate-200 dark:border-slate-700 flex-shrink-0 pt-3 pb-2">
+              <div className="flex items-center gap-1.5 px-4 mb-2">
+                <TrendingUp size={12} className="text-emerald-500" />
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Histórico Financeiro
+                </p>
+              </div>
+              <HistoricoFinanceiro clienteId={empresa.id} />
+            </div>
+          )}
 
           {/* Rodapé — Limpar */}
           <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">

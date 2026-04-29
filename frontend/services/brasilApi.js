@@ -40,7 +40,8 @@ export async function buscarCNPJ(cnpj) {
 
   const response = await fetch(`${BASE_URL}/cnpj/v1/${cnpjLimpo}`);
   if (!response.ok) {
-    if (response.status === 404) throw new Error('CNPJ não encontrado');
+    if (response.status === 404 || response.status === 400)
+      throw new Error('CNPJ inválido ou não encontrado. Preencha manualmente.');
     throw new Error(`Erro ao consultar CNPJ: ${response.status}`);
   }
 

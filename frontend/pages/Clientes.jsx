@@ -10,7 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Plus, Search, X, Pencil, Trash2,
-  CalendarDays, Receipt, Calculator,
+  CalendarDays, Receipt, Calculator, Wrench, FileText, TrendingUp,
   Phone, Mail, MapPin, Building2, ChevronDown, ChevronUp, Bug,
   Loader2, CheckCircle2, AlertCircle, SortAsc, Clock, Bell, ArrowUpDown,
 } from 'lucide-react';
@@ -18,8 +18,36 @@ import { getClientes, saveCliente, removeCliente } from '../services/clienteCach
 import { buscarCNPJ } from '../services/brasilApi';
 import { getAgendamentos } from '../services/agendaService';
 import { api } from '../services/api';
+import { documentoApi } from '../services/dbService';
+import { ClienteCRMModal } from '../components/shared/ClienteCRMModal';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+function fmtData(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }); }
+  catch { return iso.slice(0, 10); }
+}
+
+function fmtValor(v) {
+  if (v == null) return '';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+}
+
+const DOC_CFG = {
+  laudo:     { icon: Bug,        color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       label: 'Laudo'     },
+  recibo:    { icon: Receipt,    color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', label: 'Recibo'    },
+  orcamento: { icon: Calculator, color: 'text-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     label: 'Orçamento' },
+  servico:   { icon: Wrench,     color: 'text-purple-500',  bg: 'bg-purple-50 dark:bg-purple-900/20',   label: 'Serviço'   },
+};
+
+const STATUS_COR = {
+  'Agendado':     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  'Concluído':    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  'Cancelado':    'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+  'Emitido':      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  'Em Andamento': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+};
 
 function formatDoc(value) {
   const d = value.replace(/\D/g, '').slice(0, 14);
@@ -199,10 +227,52 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
 
 // ─── Card do cliente ──────────────────────────────────────────────────────────
 
-function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, alertaGarantia }) {
-  const [expandido, setExpandido] = useState(false);
-  const iniciais = (cliente.nome || '?')
-    .split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+function DocRow({ doc }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="text-[10px] font-mono text-slate-400 shrink-0">{fmtData(doc.dataCriacao)}</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400 flex-1">{doc.numero ? `#${doc.numero}` : '—'}</span>
+      {doc.valor != null && (
+        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">{fmtValor(doc.valor)}</span>
+      )}
+    </div>
+  );
+}
+
+function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, onVerPerfil, alertaGarantia, servicos = [] }) {
+  const [expandido, setExpandido]           = useState(false);
+  const [docs, setDocs]                     = useState([]);
+  const [docsCarregados, setDocsCarregados] = useState(false);
+
+  const iniciais   = (cliente.nome || '?').split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+  const cnpjDigits = (cliente.cnpj || '').replace(/\D/g, '');
+  const hoje       = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    if (!expandido || docsCarregados) return;
+    if (!cliente.id) { setDocsCarregados(true); return; }
+    documentoApi.getAll(cliente.id)
+      .then(data => setDocs(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setDocsCarregados(true));
+  }, [expandido, cliente.id, docsCarregados]);
+
+  const agendaCliente = servicos
+    .filter(s => cnpjDigits && (s.clienteCnpj || '').replace(/\D/g, '') === cnpjDigits)
+    .sort((a, b) => {
+      const af = (a.data || '') >= hoje, bf = (b.data || '') >= hoje;
+      if (af && !bf) return -1;
+      if (!af && bf) return 1;
+      return af
+        ? (a.data || '').localeCompare(b.data || '')
+        : (b.data || '').localeCompare(a.data || '');
+    });
+
+  const recibos    = docs.filter(d => d.tipo === 'recibo');
+  const orcamentos = docs.filter(d => d.tipo === 'orcamento');
+  const totalRec   = recibos.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalOrc   = orcamentos.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalFaturado = totalRec;
 
   return (
     <div className={`bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-md transition-shadow ${
@@ -214,25 +284,41 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, al
         <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
           <Bell size={11} className="text-orange-500" />
           <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
-            Garantia vence em {alertaGarantia.dias_restantes < 0
-              ? `${Math.abs(alertaGarantia.dias_restantes)} dias (vencida)`
-              : `${alertaGarantia.dias_restantes} dias`}
+            Garantia {alertaGarantia.dias_restantes < 0
+              ? `vencida há ${Math.abs(alertaGarantia.dias_restantes)} dias`
+              : `vence em ${alertaGarantia.dias_restantes} dias`}
           </span>
         </div>
       )}
 
-      {/* Cabeçalho */}
-      <div className="flex items-start gap-4 p-4">
-        <div className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+      {/* ── Cabeçalho ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 p-4">
+        {/* Avatar → abre modal de perfil */}
+        <button
+          onClick={() => onVerPerfil(cliente)}
+          title="Ver perfil completo"
+          className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0 hover:bg-brand-200 dark:hover:bg-brand-800/50 transition"
+        >
           <span className="text-brand-600 dark:text-brand-400 font-bold text-sm">{iniciais}</span>
-        </div>
+        </button>
 
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate">{cliente.nome}</p>
-          {cliente.fantasia && <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{cliente.fantasia}</p>}
-          {cliente.cnpj     && <p className="text-xs font-mono text-slate-400 mt-0.5">{cliente.cnpj}</p>}
-        </div>
+        {/* Nome → expande/recolhe o card */}
+        <button
+          onClick={() => setExpandido(p => !p)}
+          className="flex-1 min-w-0 text-left group"
+        >
+          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+            {cliente.nome}
+          </p>
+          {cliente.fantasia && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{cliente.fantasia}</p>
+          )}
+          {cliente.cnpj && (
+            <p className="text-xs font-mono text-slate-400 mt-0.5">{cliente.cnpj}</p>
+          )}
+        </button>
 
+        {/* Ações do cabeçalho */}
         <div className="flex gap-1 shrink-0">
           <button onClick={() => onEditar(cliente)} title="Editar"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
@@ -242,58 +328,189 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, al
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition">
             <Trash2 size={14} />
           </button>
-          <button onClick={() => setExpandido(p => !p)} title={expandido ? 'Recolher' : 'Detalhes'}
+          <button onClick={() => setExpandido(p => !p)} title={expandido ? 'Recolher' : 'Ver detalhes'}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
             {expandido ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
       </div>
 
-      {/* Detalhes */}
+      {/* ── Seção expandida ───────────────────────────────────────────────── */}
       {expandido && (
-        <div className="px-4 pb-3 space-y-1.5 border-t border-slate-100 dark:border-slate-700 pt-3">
-          {cliente.telefone && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Phone size={12} /> {cliente.telefone}
+        <div className="border-t border-slate-100 dark:border-slate-700">
+
+          {/* Dados cadastrais */}
+          <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50 space-y-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Dados Cadastrais</p>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Razão Social</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.nome || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Nome Fantasia</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.fantasia || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">CNPJ / CPF</p>
+                <p className="text-xs font-mono text-slate-700 dark:text-slate-200">{cliente.cnpj || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">CNAE / Atividade</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.atividade || '—'}</p>
+              </div>
+            </div>
+
+            {(cliente.endereco || cliente.telefone || cliente.email) && (
+              <div className="space-y-1 pt-1">
+                {cliente.endereco && (
+                  <div className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <MapPin size={11} className="shrink-0 mt-0.5" />
+                    <span className="leading-snug">{cliente.endereco}</span>
+                  </div>
+                )}
+                {cliente.telefone && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Phone size={11} className="shrink-0" /> {cliente.telefone}
+                  </div>
+                )}
+                {cliente.email && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Mail size={11} className="shrink-0" />
+                    <a href={`mailto:${cliente.email}`} className="hover:text-blue-500 transition-colors truncate">{cliente.email}</a>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Documentos emitidos */}
+          <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50">
+            <div className="flex items-center gap-1.5 mb-2">
+              <FileText size={11} className="text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Documentos Emitidos</span>
+            </div>
+
+            {!docsCarregados ? (
+              <div className="flex gap-1.5 py-1">
+                {[1,2,3].map(i => <div key={i} className="h-2 rounded bg-slate-100 dark:bg-slate-700 animate-pulse flex-1" />)}
+              </div>
+            ) : docs.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic">
+                {!cliente.id ? 'Salve um PDF para este cliente para ver o histórico.' : 'Nenhum documento emitido ainda.'}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recibos.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Receipt size={10} className="text-emerald-500" />
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                          Recibos ({recibos.length})
+                        </span>
+                      </div>
+                      {totalRec > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalRec)}</span>
+                      )}
+                    </div>
+                    <div className="pl-2 border-l-2 border-emerald-100 dark:border-emerald-900/50 space-y-0.5">
+                      {recibos.map(doc => <DocRow key={doc.id} doc={doc} />)}
+                    </div>
+                  </div>
+                )}
+                {orcamentos.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Calculator size={10} className="text-amber-500" />
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                          Orçamentos ({orcamentos.length})
+                        </span>
+                      </div>
+                      {totalOrc > 0 && (
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{fmtValor(totalOrc)}</span>
+                      )}
+                    </div>
+                    <div className="pl-2 border-l-2 border-amber-100 dark:border-amber-900/50 space-y-0.5">
+                      {orcamentos.map(doc => <DocRow key={doc.id} doc={doc} />)}
+                    </div>
+                  </div>
+                )}
+                {totalFaturado > 0 && (
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      <TrendingUp size={11} /> Total faturado (recibos)
+                    </div>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmtValor(totalFaturado)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Agenda do cliente */}
+          {agendaCliente.length > 0 && (
+            <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700/50">
+              <div className="flex items-center gap-1.5 mb-2">
+                <CalendarDays size={11} className="text-slate-400" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agenda</span>
+                <span className="text-[10px] text-slate-400">({agendaCliente.length})</span>
+              </div>
+              <div className="space-y-1.5">
+                {agendaCliente.slice(0, 4).map((ev, i) => {
+                  const cfg = DOC_CFG[ev.tipo] || DOC_CFG.laudo;
+                  const Icon = cfg.icon;
+                  const statusCls = STATUS_COR[ev.status] || 'bg-slate-100 text-slate-500';
+                  const isFuturo = (ev.data || '') >= hoje;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-md ${cfg.bg} flex items-center justify-center shrink-0`}>
+                        <Icon size={11} className={cfg.color} />
+                      </div>
+                      <span className={`text-[10px] font-mono shrink-0 ${isFuturo ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-400'}`}>
+                        {ev.data}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 flex-1 truncate">
+                        {cfg.label}{ev.tipoServico ? ` · ${ev.tipoServico}` : ''}
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${statusCls}`}>
+                        {ev.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
-          {cliente.email && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Mail size={12} /> {cliente.email}
-            </div>
-          )}
-          {cliente.endereco && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <MapPin size={12} /> <span className="truncate">{cliente.endereco}</span>
-            </div>
-          )}
-          {cliente.atividade && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Building2 size={12} /> {cliente.atividade}
-            </div>
-          )}
+
+          {/* ── Ações rápidas (dentro do card expandido) ─────────────────── */}
+          <div className="flex gap-1.5 px-4 py-3 flex-wrap bg-slate-50 dark:bg-slate-800/60 rounded-b-2xl">
+            <button onClick={() => onVerPerfil(cliente)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-brand-500 text-white hover:bg-brand-600 transition shadow-sm">
+              <Users size={12} /> Perfil 360°
+            </button>
+            <button onClick={() => onVerAgenda(cliente)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition shadow-sm">
+              <CalendarDays size={12} /> Agenda
+            </button>
+            <button onClick={() => onGerarDoc(cliente, 'laudo')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition shadow-sm">
+              <Bug size={12} /> Laudo
+            </button>
+            <button onClick={() => onGerarDoc(cliente, 'recibo')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition shadow-sm">
+              <Receipt size={12} /> Recibo
+            </button>
+            <button onClick={() => onGerarDoc(cliente, 'orcamento')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition shadow-sm">
+              <Calculator size={12} /> Orçamento
+            </button>
+          </div>
+
         </div>
       )}
-
-      {/* Ações rápidas */}
-      <div className="flex gap-1.5 px-4 pb-4 pt-2 flex-wrap">
-        <button onClick={() => onVerAgenda(cliente)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition">
-          <CalendarDays size={12} /> Agenda
-        </button>
-        <button onClick={() => onGerarDoc(cliente, 'laudo')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition">
-          <Bug size={12} /> Laudo
-        </button>
-        <button onClick={() => onGerarDoc(cliente, 'recibo')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition">
-          <Receipt size={12} /> Recibo
-        </button>
-        <button onClick={() => onGerarDoc(cliente, 'orcamento')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition">
-          <Calculator size={12} /> Orçamento
-        </button>
-      </div>
     </div>
   );
 }
@@ -309,14 +526,15 @@ const ORDENACOES = [
 
 export default function Clientes() {
   const navigate = useNavigate();
-  const [clientes, setClientes]       = useState([]);
-  const [busca, setBusca]             = useState('');
-  const [ordenacao, setOrdenacao]     = useState('recente');
-  const [modal, setModal]             = useState(null);
-  const [vencimentos, setVencimentos] = useState([]);
-  const [servicos, setServicos]       = useState([]);
+  const [clientes, setClientes]         = useState([]);
+  const [busca, setBusca]               = useState('');
+  const [ordenacao, setOrdenacao]       = useState('recente');
+  const [modal, setModal]               = useState(null);
+  const [clientePerfil, setClientePerfil] = useState(null);
+  const [vencimentos, setVencimentos]   = useState([]);
+  const [servicos, setServicos]         = useState([]);
 
-  const recarregar = () => setClientes(getClientes());
+  const recarregar = async () => setClientes(await getClientes());
 
   useEffect(() => {
     recarregar();
@@ -325,7 +543,7 @@ export default function Clientes() {
       .then(r => setVencimentos(Array.isArray(r.data) ? r.data : []))
       .catch(() => {});
     // Todos os eventos (laudos emitidos, serviços concluídos) contam como atendimento
-    setServicos(getAgendamentos());
+    getAgendamentos().then(setServicos).catch(() => {});
   }, []);
 
   // Mapa CNPJ → item de vencimento mais próximo
@@ -389,15 +607,15 @@ export default function Clientes() {
     return lista;
   }, [clientesFiltrados, ordenacao, mapaGarantias, mapaServico]);
 
-  const handleSalvar = (form) => {
-    saveCliente(form);
+  const handleSalvar = async (form) => {
+    await saveCliente(form);
     recarregar();
     setModal(null);
   };
 
-  const handleExcluir = (cliente) => {
+  const handleExcluir = async (cliente) => {
     if (!window.confirm(`Remover "${cliente.nome}" da lista de clientes?`)) return;
-    removeCliente(cliente.cnpj || cliente.nome);
+    await removeCliente(cliente.cnpj || cliente.nome);
     recarregar();
   };
 
@@ -511,10 +729,12 @@ export default function Clientes() {
                 key={c.cnpj || c.nome || i}
                 cliente={c}
                 alertaGarantia={alerta && alerta.dias_restantes <= 30 ? alerta : null}
+                servicos={servicos}
                 onEditar={(cl) => setModal(cl)}
                 onExcluir={handleExcluir}
                 onGerarDoc={handleGerarDoc}
                 onVerAgenda={handleVerAgenda}
+                onVerPerfil={setClientePerfil}
               />
             );
           })}
@@ -529,6 +749,15 @@ export default function Clientes() {
           onClose={() => setModal(null)}
         />
       )}
+
+      {/* Super Card 360° do cliente */}
+      <ClienteCRMModal
+        cliente={clientePerfil}
+        onClose={() => setClientePerfil(null)}
+        onUpdate={setClientes}
+        onVerAgenda={handleVerAgenda}
+        onGerarDoc={handleGerarDoc}
+      />
     </div>
   );
 }

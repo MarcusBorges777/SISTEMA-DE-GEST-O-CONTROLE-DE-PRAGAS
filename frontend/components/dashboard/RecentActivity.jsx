@@ -28,23 +28,22 @@ export default function RecentActivity({ onPreview }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const TIPO_LABEL = { laudo: 'Laudo', recibo: 'Recibo', orcamento: 'Orçamento', servico: 'Serviço' };
-      const eventos = getAgendamentos()
-        .sort((a, b) => (b.criadoEm || b.data || '').localeCompare(a.criadoEm || a.data || ''))
-        .slice(0, 8)
-        .map(e => ({
-          id:       e.id,
-          tipo:     e.tipo,
-          descricao: `${TIPO_LABEL[e.tipo] || e.tipo} — ${e.clienteNome || e.clienteFantasia || 'Cliente'}`,
-          data:     e.criadoEm || e.data,
-        }));
-      setActivities(eventos);
-    } catch {
-      setActivities([]);
-    } finally {
-      setLoading(false);
-    }
+    const TIPO_LABEL = { laudo: 'Laudo', recibo: 'Recibo', orcamento: 'Orçamento', servico: 'Serviço' };
+    getAgendamentos()
+      .then(todos => {
+        const eventos = todos
+          .sort((a, b) => (b.criadoEm || b.data || '').localeCompare(a.criadoEm || a.data || ''))
+          .slice(0, 8)
+          .map(e => ({
+            id:        e.id,
+            tipo:      e.tipo,
+            descricao: `${TIPO_LABEL[e.tipo] || e.tipo} — ${e.clienteNome || e.clienteFantasia || 'Cliente'}`,
+            data:      e.criadoEm || e.data,
+          }));
+        setActivities(eventos);
+      })
+      .catch(() => setActivities([]))
+      .finally(() => setLoading(false));
   }, []);
 
   return (

@@ -75,14 +75,14 @@ export default function ClienteSection({ clientData, onChange, onClientLoaded, m
         onChange('endereco', data.endereco);
         onChange('atividade', data.atividade);
         setCnpjStatus('success');
-        // Salvar no cache
+        // Salvar no db.json (fire-and-forget: não bloqueia o autofill)
         saveCliente({
           nome: data.nome,
           fantasia: data.fantasia,
           cnpj: value,
           endereco: data.endereco,
           atividade: data.atividade
-        });
+        }).catch(() => {});
         if (onClientLoaded) onClientLoaded(data);
       } catch (err) {
         setCnpjStatus('error');

@@ -20,6 +20,7 @@ const FILTER_TABS = [
   { id: 'laudo',     label: 'Laudos'      },
   { id: 'recibo',    label: 'Recibos'     },
   { id: 'orcamento', label: 'Orçamentos'  },
+  { id: 'relatorio', label: 'Relatórios'  },
   { id: 'lixeira',   label: 'Lixeira'     },
 ];
 
@@ -32,6 +33,9 @@ function matchesTipo(arquivo, filtro) {
   const tipo    = (arquivo.tipo    || '').toLowerCase();
   const origem  = (arquivo.origem  || '').toLowerCase();
   const caminho = (arquivo.caminho || arquivo.nome || '').toLowerCase();
+  if (filtro === 'relatorio') {
+    return tipo.includes('relatorio') || origem.includes('relatorio') || caminho.includes('relatorio');
+  }
   return tipo.includes(filtro) || origem.includes(filtro) || caminho.includes(filtro);
 }
 
@@ -45,6 +49,7 @@ function getTipoBadge(arquivo) {
   if (tipo.includes('laudo'))     return { label: 'Laudo',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
   if (tipo.includes('recibo'))    return { label: 'Recibo',    color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' };
   if (tipo.includes('orcamento')) return { label: 'Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
+  if (tipo.includes('relatorio')) return { label: 'Relatório', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' };
   return null;
 }
 
@@ -256,7 +261,7 @@ export default function Arquivos() {
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
   const [filtroTipo, setFiltroTipo]   = useState('all');
-  const [previewFile, setPreviewFile] = useState(null); // { nome, caminho }
+  const [previewFile, setPreviewFile] = useState(null); // objeto arquivo completo
   const [deleteModal, setDeleteModal]           = useState(null);
   const [editModal, setEditModal]               = useState(null);
   const [esvaziandoLixeira, setEsvaziandoLixeira]   = useState(false);
@@ -747,7 +752,7 @@ export default function Arquivos() {
 
                   {/* Ações — sempre visíveis */}
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => setPreviewFile({ nome: filename, caminho: arquivo.caminho })} title="Visualizar"
+                    <button onClick={() => setPreviewFile(arquivo)} title="Visualizar"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
                       <Eye size={15} />
                     </button>
@@ -779,13 +784,24 @@ export default function Arquivos() {
         )}
       </div>
 
-      {/* Modais */}
-      <DocumentPreview
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-        filename={previewFile?.nome}
-        caminho={previewFile?.caminho}
-      />
+      {/* Preview lateral */}
+      {previewFile && (() => {
+        const previewIdx = filteredFiles.findIndex(f =>
+          (f.nome || f.filename) === (previewFile.nome || previewFile.filename) && f.caminho === previewFile.caminho
+        );
+        const idx = previewIdx >= 0 ? previewIdx : 0;
+        const docMetaPreview = valoresMap[(previewFile.nome || previewFile.filename || '').toLowerCase()] || null;
+        return (
+          <DocumentPreview
+            arquivo={previewFile}
+            onClose={() => setPreviewFile(null)}
+            files={filteredFiles}
+            currentIndex={idx}
+            onNavigate={(newIdx) => setPreviewFile(filteredFiles[newIdx])}
+            docMeta={docMetaPreview}
+          />
+        );
+      })()}
 
       {deleteModal && (
         <ModalConfirmar
