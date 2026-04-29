@@ -10,12 +10,23 @@ import { empresa } from '../../data/empresa';
  */
 export default function DocumentFooter({ variant = 'recibo' }) {
   if (variant === 'laudo') {
+    // Cópia EXATA de renderSignatureSection() + renderFooterInfo() de Laudos.jsx
     return (
-      <footer className="mt-auto text-center pt-4 border-t border-blue-200">
-        <p className="text-[9px] text-gray-300 font-bold italic uppercase tracking-widest">
-          DEDETIZADORA BORGES &bull; CNPJ: {empresa.cnpj}
-        </p>
-      </footer>
+      <>
+        <div className="grid grid-cols-2 gap-12 mt-auto pb-4 pt-4 border-t border-dashed border-gray-200">
+          <div className="text-center space-y-1">
+            <p className="text-[8px] font-bold uppercase text-zinc-400 italic">Responsável Técnica</p>
+            <p className="text-[10px] font-black uppercase text-[#254191] italic tracking-tight leading-none">CRQ 02404889</p>
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-[8px] font-bold uppercase text-zinc-400 italic">Responsável Contratante</p>
+            <p className="text-[10px] font-black uppercase text-zinc-800 tracking-tight leading-none">Assinatura / Carimbo</p>
+          </div>
+        </div>
+        <div className="absolute bottom-6 left-0 right-0 text-center text-[8px] text-zinc-300 font-bold tracking-[0.4em] uppercase italic">
+          {empresa.nome} &bull; CNPJ: {empresa.cnpj}
+        </div>
+      </>
     );
   }
 

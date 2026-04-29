@@ -697,6 +697,27 @@ def criar_tabelas():
                  json.dumps(_p['targets']))
             )
 
+    # Tabela de mapeamento praga → produto preferido para auto-preenchimento
+    db.execute('''CREATE TABLE IF NOT EXISTS mapeamento_pragas (
+        praga TEXT PRIMARY KEY,
+        produto_id TEXT NOT NULL
+    )''')
+    # Seed: mapeamento padrão (inserido apenas se tabela vazia)
+    _mapa_count = db.execute('SELECT COUNT(*) FROM mapeamento_pragas').fetchone()[0]
+    if _mapa_count == 0:
+        _MAPA_PADRAO = [
+            ('escorpioes', 'bifentol'), ('aranhas', 'bifentol'),
+            ('carrapatos', 'bifentol'), ('percevejos', 'bifentol'),
+            ('baratas', 'cyperex'), ('pulgas', 'cyperex'),
+            ('moscas', 'cyperex'), ('mosquitos', 'cyperex'),
+            ('tracas', 'cyperex'), ('barbeiros', 'cyperex'),
+            ('formigas', 'formim'),
+            ('ratos', 'ratol'),
+            ('cupins', 'termigama'),
+        ]
+        for _praga, _prod in _MAPA_PADRAO:
+            db.execute('INSERT OR IGNORE INTO mapeamento_pragas (praga, produto_id) VALUES (?, ?)', (_praga, _prod))
+
     # Tabela de documentos salvos como PDF pelo frontend
     db.execute('''CREATE TABLE IF NOT EXISTS documentos_salvos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3096,6 +3117,35 @@ def deletar_produto(produto_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ==================== MAPEAMENTO PRAGA → PRODUTO ====================
+
+@app.route('/api/config/mapeamento-pragas', methods=['GET'])
+def get_mapeamento_pragas():
+    """Retorna dict { praga: produto_id } com o mapeamento atual"""
+    try:
+        db = get_db()
+        rows = db.execute('SELECT praga, produto_id FROM mapeamento_pragas').fetchall()
+        return jsonify({r['praga']: r['produto_id'] for r in rows})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/config/mapeamento-pragas', methods=['PUT'])
+def save_mapeamento_pragas():
+    """Salva mapeamento completo { praga: produto_id }"""
+    try:
+        data = request.json
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Payload deve ser um objeto { praga: produto_id }'}), 400
+        db = get_db()
+        db.execute('DELETE FROM mapeamento_pragas')
+        for praga, produto_id in data.items():
+            if praga and produto_id:
+                db.execute('INSERT INTO mapeamento_pragas (praga, produto_id) VALUES (?, ?)', (praga, produto_id))
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ==================== CONFIGURAÇÃO PASTA PRINCIPAL ====================
 
 @app.route('/api/config/pasta-principal', methods=['GET', 'POST'])
@@ -3161,7 +3211,11 @@ def salvar_pdf():
                 cfg = json.load(f)
             pasta_principal = cfg.get('principal', '').strip()
 
-        mapa_subpastas = {'LAUDO': 'Laudos', 'RECIBO': 'Recibos', 'ORCAMENTO': 'Orcamentos', 'ORÇAMENTO': 'Orcamentos'}
+        mapa_subpastas = {
+            'LAUDO': 'Laudos', 'RECIBO': 'Recibos',
+            'ORCAMENTO': 'Orcamentos', 'ORÇAMENTO': 'Orcamentos',
+            'RELATORIO_MENSAL': 'Relatorios', 'RELATORIO_BRANCO': 'Relatorios',
+        }
         subpasta_nome = mapa_subpastas.get(tipo, 'Laudos')
 
         if pasta_principal and Path(pasta_principal).exists():

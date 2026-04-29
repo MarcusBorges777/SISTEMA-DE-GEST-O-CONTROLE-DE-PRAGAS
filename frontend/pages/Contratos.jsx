@@ -34,39 +34,25 @@ const PEST_OPTIONS = [
   { id: 'barbeiros',  label: 'Barbeiros'   },
 ];
 
-// Base de produtos com targets (espelha Laudos.jsx)
-const PRODUCTS_DB_DEFAULT = {
-  ratol:    { id: 'ratol',    nome: 'Ratol Gs girassol',  grupo: 'Hidroxicumarina',              principio: 'Brodifacoum',        registro: '3.2398.0019.001-1',  concentracao: '50 grs por ponto',        targets: ['ratos'] },
-  maki:     { id: 'maki',     nome: 'Maki Bloco',         grupo: 'Cumarianas',                   principio: 'Bromadiolone',        registro: '3.2233.0073',        concentracao: '1 Bloco por ponto',       targets: ['ratos'] },
-  triflurat:{ id: 'triflurat',nome: 'Triflurat GS',       grupo: 'Cumarínico',                   principio: 'Flocoumafen',         registro: '3.0425.0158.001-1',  concentracao: '1 Bloco por ponto',       targets: ['ratos'] },
-  termigama:{ id: 'termigama',nome: 'Termigama',          grupo: 'Fenil Pirazol',                principio: 'Fipronil',            registro: '3.0425.0087.001-4',  concentracao: '5/1(ml/l) de calda',     targets: ['cupins'] },
-  bifentol: { id: 'bifentol', nome: 'Bifentol 200 SC',    grupo: 'Piretróides',                  principio: 'Bifentrina',          registro: '32398.0027.001-5',   concentracao: '3/1(ml/l) de calda',     targets: ['escorpioes'] },
-  demand:   { id: 'demand',   nome: 'DEMAND 2,5CS',       grupo: 'Piretróides',                  principio: 'Lambda-cialotrina',   registro: '3.0119.6626.001-7',  concentracao: '30/1(ml/l) de calda',    targets: ['escorpioes'] },
-  fendona:  { id: 'fendona',  nome: 'FENDONA 6 SC',       grupo: 'Piretrinas e Piretróides',     principio: 'Alfa-cipermetrina',   registro: '3.0404.0031',        concentracao: '5/1(ml/l) de calda',     targets: ['mosquitos','baratas','formigas','moscas','pulgas','barbeiros','tracas'] },
-  formim:   { id: 'formim',   nome: 'FORMFIM GEL',        grupo: 'Fenil Pirazol',                principio: 'Fipronil',            registro: '3.2398.0033.001-9',  concentracao: '0,05%',                  targets: ['formigas'] },
-  cyperex:  { id: 'cyperex',  nome: 'CYPEREX® 250 CE',    grupo: 'Piretróides',                  principio: 'Cipermetrina',        registro: '3.0425.0046.001-0',  concentracao: '5/1(ml/l) de calda',     targets: ['baratas','formigas','moscas','mosquitos','pulgas','escorpioes','aranhas','carrapatos','percevejos','tracas'] },
-};
-
-/** Gera lista de IDs de produtos compatíveis com as pragas selecionadas (mesma lógica do Laudos) */
-function gerarProdutosSugeridos(pragas, productsDb) {
+/** Gera lista de IDs sugeridos usando o mapeamento configurado no Admin */
+function gerarProdutosSugeridos(pragas, productsDb, mapeamento = {}) {
   const added = new Set();
   const result = [];
-  const add = (id) => {
-    const p = productsDb[id];
-    if (p && !added.has(p.registro || p.id)) {
-      result.push(id);
-      added.add(p.registro || p.id);
-    }
+  const tryAdd = (prodId) => {
+    const prod = productsDb[prodId];
+    if (!prod) return;
+    const key = prod.registro || prod.id;
+    if (!added.has(key)) { result.push(prod.id); added.add(key); }
   };
-  const hasEscorpiao     = pragas.includes('escorpioes');
-  const hasGeneralInsect = pragas.some(p =>
-    ['baratas','formigas','pulgas','moscas','tracas','mosquitos','barbeiros','aranhas','carrapatos','percevejos'].includes(p)
-  );
-  if (hasEscorpiao)     add('bifentol');
-  if (hasGeneralInsect) add('cyperex');
-  if (pragas.includes('formigas')) add('formim');
-  if (pragas.includes('ratos'))    add('ratol');
-  if (pragas.includes('cupins'))   add('termigama');
+  for (const pest of pragas) {
+    const preferido = mapeamento[pest];
+    if (preferido) {
+      tryAdd(preferido);
+    } else {
+      const fallback = Object.values(productsDb).find(p => (p.targets || []).includes(pest));
+      if (fallback) tryAdd(fallback.id);
+    }
+  }
   return result;
 }
 
@@ -136,18 +122,13 @@ const EMPTY_FORM = {
 export default function Contratos() {
   const { addToast } = useToast();
   const navigate = useNavigate();
-  const { produtos: produtosCtx, addProduto: addProdutoCtx } = useProdutos();
+  const { produtos: produtosCtx, addProduto: addProdutoCtx, mapeamento } = useProdutos();
 
-  // Base de produtos mesclada: padrão + adicionados pelo usuário (via Admin/Laudos)
-  const [productsDb, setProductsDb] = useState(PRODUCTS_DB_DEFAULT);
-  useEffect(() => {
-    if (!produtosCtx || produtosCtx.length === 0) return;
-    setProductsDb(prev => {
-      const merged = { ...prev };
-      produtosCtx.forEach(p => { if (!merged[p.id]) merged[p.id] = p; });
-      return merged;
-    });
-  }, [produtosCtx]);
+  // Produtos vindos do banco via contexto global (fonte única de verdade)
+  const productsDb = useMemo(
+    () => Object.fromEntries((produtosCtx || []).map(p => [p.id, p])),
+    [produtosCtx]
+  );
 
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -205,7 +186,7 @@ export default function Contratos() {
         ? p.pragas.filter(x => x !== id)
         : [...p.pragas, id];
       // Auto-seleciona produtos compatíveis com as novas pragas
-      const sugeridos = gerarProdutosSugeridos(novasPragas, productsDb);
+      const sugeridos = gerarProdutosSugeridos(novasPragas, productsDb, mapeamento);
       return { ...p, pragas: novasPragas, produtos: sugeridos };
     });
   };
@@ -490,7 +471,6 @@ export default function Contratos() {
           onToggleProduto={toggleProduto}
           productsDb={productsDb}
           onAddProduto={(p) => {
-            setProductsDb(prev => ({ ...prev, [p.id]: p }));
             addProdutoCtx(p);
             setForm(f => ({ ...f, produtos: [...(f.produtos || []), p.id] }));
           }}
