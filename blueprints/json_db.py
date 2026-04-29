@@ -131,8 +131,8 @@ def get_config():
 def proximo_numero():
     data = request.get_json(force=True) or {}
     tipo = data.get('tipo', '')
-    if tipo not in ('laudo', 'orcamento', 'recibo'):
-        return jsonify({'erro': 'tipo deve ser laudo, orcamento ou recibo'}), 400
+    if tipo not in ('laudo', 'orcamento', 'recibo', 'relatorio_mensal', 'relatorio_branco'):
+        return jsonify({'erro': 'tipo deve ser laudo, orcamento, recibo, relatorio_mensal ou relatorio_branco'}), 400
     numero = _db().proximo_numero(tipo)
     return jsonify({'numero': numero, 'tipo': tipo})
 
