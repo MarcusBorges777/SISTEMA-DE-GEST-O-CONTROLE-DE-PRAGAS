@@ -255,11 +255,13 @@ export default function RelatorioMensal() {
   const atualizarBloco   = (id, patch) => setBlocos(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
 
   // ── Produtos por bloco ───────────────────────────────────────────────────────
-  const adicionarProduto = (blocoId) => {
+  // opcoes: lista já filtrada (roedores ou todos) passada pelo caller
+  const adicionarProduto = (blocoId, opcoes) => {
     setBlocos(prev => prev.map(b => {
       if (b.id !== blocoId) return b;
       const jaIds = new Set(b.produtos.map(p => String(p.id)));
-      const proximo = produtosOptions.find(p => !jaIds.has(String(p.id)));
+      const lista = opcoes && opcoes.length > 0 ? opcoes : produtosOptions;
+      const proximo = lista.find(p => !jaIds.has(String(p.id)));
       if (!proximo) return b;
       return { ...b, produtos: [...b.produtos, proximo] };
     }));
@@ -497,7 +499,7 @@ export default function RelatorioMensal() {
             <TabelaProdutos
               produtos={bloco.produtos}
               produtosOptions={produtosFiltrados}
-              onAdd={() => adicionarProduto(bloco.id)}
+              onAdd={() => adicionarProduto(bloco.id, produtosFiltrados)}
               onRemove={(pid) => removerProduto(bloco.id, pid)}
               onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
             />
@@ -589,7 +591,7 @@ export default function RelatorioMensal() {
                 <TabelaProdutos
                   produtos={bloco.produtos}
                   produtosOptions={produtosFiltrados}
-                  onAdd={() => adicionarProduto(bloco.id)}
+                  onAdd={() => adicionarProduto(bloco.id, produtosFiltrados)}
                   onRemove={(pid) => removerProduto(bloco.id, pid)}
                   onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
                 />
