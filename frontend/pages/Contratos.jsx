@@ -5,15 +5,16 @@
  * automaticamente os agendamentos recorrentes na agenda (categoriaServico='contrato')
  * e abre uma pasta dedicada no OneDrive para os laudos.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Briefcase, Plus, Edit2, Trash2, Calendar, Clock, Search,
   X, Check, Loader2, Building2, Phone, MapPin, FolderOpen,
-  AlertCircle, RefreshCw, FileText,
+  AlertCircle, RefreshCw, FileText, ChevronDown, ChevronUp,
+  ClipboardList, Receipt, DollarSign, BarChart2,
 } from 'lucide-react';
 import { contratoApi, clienteApi } from '../services/dbService';
-import { criarAgendamentoComRecorrencia, excluirSerieRecorrente } from '../services/agendaService';
+import { criarAgendamentoComRecorrencia, excluirSerieRecorrente, getAgendamentos } from '../services/agendaService';
 import { useToast } from '../components/shared/Toast';
 import { ClientePickerModal } from '../components/documentos/ClientePickerModal';
 import { useProdutos } from '../contexts/ProdutosContext';
@@ -140,12 +141,17 @@ export default function Contratos() {
   const [salvando, setSalvando]   = useState(false);
   const [erroForm, setErroForm]   = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
+  const [agenda, setAgenda]       = useState([]);
 
   const carregar = async () => {
     setLoading(true);
     try {
-      const lista = await contratoApi.getAll();
+      const [lista, eventos] = await Promise.all([
+        contratoApi.getAll(),
+        getAgendamentos().catch(() => []),
+      ]);
       setContratos(Array.isArray(lista) ? lista : []);
+      setAgenda(Array.isArray(eventos) ? eventos : []);
     } catch (e) {
       addToast(e.message || 'Erro ao carregar contratos', 'error');
     } finally {
@@ -452,7 +458,7 @@ export default function Contratos() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {contratosFiltrados.map(c => (
-            <ContratoCard key={c.id} contrato={c}
+            <ContratoCard key={c.id} contrato={c} agenda={agenda}
               onEditar={() => abrirEditar(c)}
               onExcluir={() => setConfirmDel(c)}
               onAgenda={() => navigate('/agenda', { state: { cliente: { nome: c.clienteNome, cnpj: c.clienteCnpj } } })}
@@ -539,75 +545,240 @@ function StatCard({ label, value, color, icon: Icon, small }) {
   );
 }
 
+// ─── helpers de tipo de documento ───────────────────────────────────────────
+
+const TIPO_DOC_META = {
+  laudo:             { label: 'Laudo',       color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',       icon: FileText     },
+  recibo:            { label: 'Recibo',      color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300', icon: Receipt },
+  orcamento:         { label: 'Orçamento',   color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',   icon: DollarSign   },
+  relatorio_mensal:  { label: 'Rel. Mensal', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300', icon: ClipboardList },
+  relatorio_branco:  { label: 'Rel. Livre',  color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300', icon: BarChart2    },
+  servico:           { label: 'Visita',      color: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',      icon: Calendar     },
+};
+
+const STATUS_COLOR = {
+  'Agendado':  'text-blue-500',
+  'Concluído': 'text-emerald-500',
+  'Cancelado': 'text-red-400',
+  'Emitido':   'text-violet-500',
+};
+
 // ─── Card de contrato ────────────────────────────────────────────────────────
 
-function ContratoCard({ contrato, onEditar, onExcluir, onAgenda }) {
+function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
   const proxima = calcularProximaVisita(contrato);
+  const [expandido, setExpandido] = useState(false);
+
+  // Filtra eventos da agenda vinculados a este contrato ou ao CNPJ do cliente
+  const cnpjLimpo = (contrato.clienteCnpj || '').replace(/\D/g, '');
+  const eventosCliente = useMemo(() => {
+    if (!agenda?.length) return [];
+    return agenda.filter(ev => {
+      if (contrato.id && ev.contratoId === contrato.id) return true;
+      if (cnpjLimpo && (ev.clienteCnpj || '').replace(/\D/g, '') === cnpjLimpo) return true;
+      return false;
+    }).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  }, [agenda, contrato.id, cnpjLimpo]);
+
+  // Separa visitas agendadas das emissões de documentos
+  const visitas   = eventosCliente.filter(ev => ev.tipo === 'servico');
+  const docs      = eventosCliente.filter(ev => ev.tipo !== 'servico');
+
+  // Estatísticas rápidas
+  const concluidas  = visitas.filter(v => v.status === 'Concluído').length;
+  const agendadas   = visitas.filter(v => v.status === 'Agendado').length;
+  const laudos      = docs.filter(d => d.tipo === 'laudo').length;
+  const relatorios  = docs.filter(d => d.tipo?.startsWith('relatorio')).length;
+
+  // Próximas 3 visitas agendadas (futuras)
+  const hoje = new Date().toISOString().slice(0, 10);
+  const proximasVisitas = visitas
+    .filter(v => v.status === 'Agendado' && v.data >= hoje)
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .slice(0, 3);
+
+  // Últimos 5 documentos emitidos
+  const ultimosDocs = docs.slice(0, 5);
 
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-2xl border p-4 transition-shadow hover:shadow-md
+    <div className={`bg-white dark:bg-slate-800 rounded-2xl border transition-shadow hover:shadow-md flex flex-col
       ${contrato.ativo ? 'border-emerald-200 dark:border-emerald-800/30' : 'border-slate-200 dark:border-slate-700 opacity-70'}`}
     >
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-            <Briefcase size={15} className="text-emerald-600 dark:text-emerald-400" />
+      {/* Cabeçalho */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+              <Briefcase size={15} className="text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-sm text-slate-800 dark:text-white leading-tight truncate">
+                {contrato.clienteFantasia || contrato.clienteNome}
+              </p>
+              {contrato.clienteCnpj && (
+                <p className="text-[10px] font-mono text-slate-400 truncate">{contrato.clienteCnpj}</p>
+              )}
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-sm text-slate-800 dark:text-white leading-tight truncate">
-              {contrato.clienteFantasia || contrato.clienteNome}
+          <div className="flex gap-0.5 shrink-0">
+            <button onClick={onEditar} title="Editar"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
+              <Edit2 size={13} />
+            </button>
+            <button onClick={onExcluir} title="Excluir"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* Chips de informações */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg px-2 py-1.5">
+            <p className="text-[9px] text-slate-400 uppercase font-bold">Duração</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{contrato.duracaoMeses}m</p>
+          </div>
+          <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg px-2 py-1.5">
+            <p className="text-[9px] text-slate-400 uppercase font-bold">Frequência</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+              {contrato.frequenciaMeses === 1 ? 'Mensal' : `${contrato.frequenciaMeses}/m`}
             </p>
-            {contrato.clienteCnpj && (
-              <p className="text-[10px] font-mono text-slate-400 truncate">{contrato.clienteCnpj}</p>
+          </div>
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-2 py-1.5 col-span-2">
+            <p className="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase font-bold">Valor mensal</p>
+            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmtBRL(contrato.valorMensal)}</p>
+          </div>
+        </div>
+
+        {/* Resumo agenda em linha */}
+        {eventosCliente.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {concluidas > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold">
+                <Check size={9} /> {concluidas} {concluidas === 1 ? 'visita concluída' : 'visitas concluídas'}
+              </span>
+            )}
+            {agendadas > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold">
+                <Calendar size={9} /> {agendadas} {agendadas === 1 ? 'agendada' : 'agendadas'}
+              </span>
+            )}
+            {laudos > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold">
+                <FileText size={9} /> {laudos} {laudos === 1 ? 'laudo' : 'laudos'}
+              </span>
+            )}
+            {relatorios > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 font-bold">
+                <ClipboardList size={9} /> {relatorios} {relatorios === 1 ? 'relatório' : 'relatórios'}
+              </span>
             )}
           </div>
-        </div>
-        <div className="flex gap-0.5 shrink-0">
-          <button onClick={onEditar} title="Editar"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
-            <Edit2 size={13} />
-          </button>
-          <button onClick={onExcluir} title="Excluir"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
-            <Trash2 size={13} />
-          </button>
-        </div>
-      </div>
+        )}
 
-      <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-        <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg px-2 py-1.5">
-          <p className="text-[9px] text-slate-400 uppercase font-bold">Duração</p>
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{contrato.duracaoMeses}m</p>
-        </div>
-        <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg px-2 py-1.5">
-          <p className="text-[9px] text-slate-400 uppercase font-bold">Frequência</p>
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-            {contrato.frequenciaMeses === 1 ? 'Mensal' : `${contrato.frequenciaMeses}/m`}
+        {/* Próxima visita */}
+        {proxima && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <Calendar size={11} className="text-emerald-500" />
+            <span>Próxima visita: <strong className="text-slate-700 dark:text-slate-200">{proxima.toLocaleDateString('pt-BR')}</strong></span>
+          </div>
+        )}
+
+        {contrato.pasta && (
+          <p className="flex items-center gap-1.5 text-[10px] text-slate-400 truncate mb-2" title={contrato.pasta}>
+            <FolderOpen size={10} /> {contrato.pasta}
           </p>
-        </div>
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-2 py-1.5 col-span-2">
-          <p className="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase font-bold">Valor mensal</p>
-          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmtBRL(contrato.valorMensal)}</p>
-        </div>
+        )}
       </div>
 
-      {proxima && (
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <Calendar size={11} className="text-emerald-500" />
-          <span>Próxima visita: <strong className="text-slate-700 dark:text-slate-200">{proxima.toLocaleDateString('pt-BR')}</strong></span>
-        </div>
+      {/* Seção expandível — linha do tempo */}
+      {eventosCliente.length > 0 && (
+        <>
+          <button
+            onClick={() => setExpandido(v => !v)}
+            className="mx-4 mb-3 flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            <span className="flex items-center gap-1.5">
+              <BarChart2 size={12} /> Histórico & Documentos ({eventosCliente.length})
+            </span>
+            {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+
+          {expandido && (
+            <div className="px-4 pb-4 space-y-3">
+
+              {/* Próximas visitas agendadas */}
+              {proximasVisitas.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Próximas Visitas</p>
+                  <div className="space-y-1">
+                    {proximasVisitas.map(ev => (
+                      <div key={ev.id} className="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
+                        <Calendar size={11} className="text-blue-500 shrink-0" />
+                        <span className="font-bold text-blue-700 dark:text-blue-300">{fmtData(ev.data)}</span>
+                        {ev.hora && <span className="text-blue-400">{ev.hora}</span>}
+                        <span className="text-slate-500 truncate flex-1">{ev.tipoServico || 'Visita'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documentos emitidos */}
+              {ultimosDocs.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Documentos Emitidos</p>
+                  <div className="space-y-1">
+                    {ultimosDocs.map(ev => {
+                      const meta = TIPO_DOC_META[ev.tipo] || TIPO_DOC_META.laudo;
+                      const Icon = meta.icon;
+                      return (
+                        <div key={ev.id} className="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-700">
+                          <Icon size={11} className="shrink-0 text-slate-400" />
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${meta.color}`}>{meta.label}</span>
+                          {ev.numeroDoc && <span className="font-mono text-slate-500 shrink-0">#{ev.numeroDoc}</span>}
+                          <span className="text-slate-400 shrink-0">{fmtData(ev.data)}</span>
+                          {ev.status && (
+                            <span className={`ml-auto font-bold shrink-0 ${STATUS_COLOR[ev.status] || 'text-slate-400'}`}>{ev.status}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Visitas passadas resumidas */}
+              {visitas.filter(v => v.data < hoje).length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Visitas Realizadas</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {visitas
+                      .filter(v => v.data < hoje)
+                      .slice(0, 10)
+                      .map(ev => (
+                        <div key={ev.id} className="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-700/30">
+                          <Calendar size={10} className="text-slate-300 shrink-0" />
+                          <span className="text-slate-500 shrink-0">{fmtData(ev.data)}</span>
+                          <span className="text-slate-400 truncate flex-1">{ev.tipoServico || 'Visita'}</span>
+                          <span className={`font-bold shrink-0 ${STATUS_COLOR[ev.status] || 'text-slate-400'}`}>{ev.status}</span>
+                        </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      {contrato.pasta && (
-        <p className="flex items-center gap-1.5 text-[10px] text-slate-400 truncate" title={contrato.pasta}>
-          <FolderOpen size={10} /> {contrato.pasta}
-        </p>
-      )}
-
-      <button onClick={onAgenda}
-        className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
-        <Calendar size={12} /> Ver na Agenda
-      </button>
+      {/* Rodapé */}
+      <div className="px-4 pb-4 mt-auto">
+        <button onClick={onAgenda}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+          <Calendar size={12} /> Ver na Agenda
+        </button>
+      </div>
     </div>
   );
 }
