@@ -28,7 +28,7 @@ const TIPO_BY_ID = Object.fromEntries(TIPOS_BLOCO.map(t => [t.id, t]));
 
 // Targets que identificam produtos para combate de roedores
 const ROEDOR_TARGETS = ['ratos', 'ratazana', 'camundongo', 'rato'];
-const PORTA_ISCAS_OVERFLOW = 25; // acima disso → página extra
+const PORTA_ISCAS_OVERFLOW = 16; // acima disso → página extra
 
 // Opções de pragas (igual a Laudos)
 const PEST_OPTIONS = [
