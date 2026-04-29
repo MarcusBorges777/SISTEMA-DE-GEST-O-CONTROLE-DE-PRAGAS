@@ -432,8 +432,9 @@ export default function RelatorioMensal() {
       const next = cur.includes(pestId) ? cur.filter(p => p !== pestId) : [...cur, pestId];
       return { ...b, selectedPests: next };
     }));
-  const blocosRoedores = blocos.filter(b => TIPO_BY_ID[b.tipo]?.isRoedor);
-  const blocosOutros   = blocos.filter(b => !TIPO_BY_ID[b.tipo]?.isRoedor);
+  const blocosRoedores   = blocos.filter(b => TIPO_BY_ID[b.tipo]?.isRoedor);
+  const blocosDesinset   = blocos.filter(b => b.tipo === 'desinsetizacao');
+  const blocosArmadilhas = blocos.filter(b => b.tipo === 'armadilha_luminosa' || b.tipo === 'feromonio');
 
   // ── Editor de um bloco ───────────────────────────────────────────────────────
   const renderEditorBloco = (bloco, idx) => {
@@ -696,9 +697,100 @@ export default function RelatorioMensal() {
     );
   };
 
-  // ── Página A4 de outros serviços (todos juntos) ───────────────────────────────
-  const renderPaginaOutros = () => {
-    if (blocosOutros.length === 0) return null;
+  // ── Página A4 de desinsetização (uma página por bloco) ───────────────────────
+  const renderPaginaDesinsetizacao = (bloco) => {
+    const tipoInfo = TIPO_BY_ID[bloco.tipo];
+    const produtosFiltrados = getProdutosParaBloco(bloco);
+
+    return (
+      <div key={bloco.id} className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
+        <DocumentHeader logo={logo} onLogoClick={() => fileInputRef.current?.click()} variant="laudo" />
+
+        <div className="flex justify-between items-end mb-3">
+          <h2 className="text-lg font-black text-[#254191] uppercase leading-none tracking-tight">
+            RELATÓRIO MENSAL
+            <br />
+            <span className="text-blue-500 text-[11px] font-bold tracking-widest uppercase italic">
+              {tipoInfo?.titulo}
+            </span>
+          </h2>
+          <div className="text-right border-l-4 border-[#254191] pl-3">
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">Nº {numeroDoc}</p>
+            <p className="text-[10px] font-black text-gray-800 italic leading-tight">{periodoLabel}</p>
+          </div>
+        </div>
+
+        <ClienteSection clientData={clientData} mode="document" />
+
+        <div className="flex-1 space-y-2 overflow-hidden">
+          {/* Cabeçalho + checkboxes controle */}
+          <div className="flex justify-between items-end border-b-2 border-blue-600 pb-1 mb-1">
+            <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px]">
+              {React.createElement(tipoInfo?.icon || Bug, { size: 14 })}
+              {tipoInfo?.titulo}
+            </div>
+            <div className="flex gap-4 text-[9px] font-bold text-gray-700">
+              <div className="flex items-center gap-1">
+                <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
+                  {['quimico','ambos'].includes(bloco.controlType) && <CheckCircle2 size={10} className="text-white" />}
+                </div>
+                <span className="uppercase">Controle Químico</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['nao_quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
+                  {['nao_quimico','ambos'].includes(bloco.controlType) && <CheckCircle2 size={10} className="text-white" />}
+                </div>
+                <span className="uppercase">Controle Não Químico</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Badges de pragas */}
+          {(bloco.selectedPests || []).length > 0 && (
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] w-full gap-1 mb-2 text-[8px] font-black uppercase text-center">
+              {(bloco.selectedPests || []).map(pestId => {
+                const pest = PEST_OPTIONS.find(p => p.id === pestId);
+                return pest ? (
+                  <div key={pestId} className="bg-[#254191] text-white py-1 rounded shadow-sm border-b-2 border-blue-900/50 flex items-center justify-center px-1 print-bg-blue">
+                    {pest.label}
+                  </div>
+                ) : null;
+              })}
+            </div>
+          )}
+
+          <InfoVisita bloco={bloco} />
+
+          <TabelaProdutos
+            produtos={bloco.produtos}
+            produtosOptions={produtosFiltrados}
+            onAdd={() => adicionarProduto(bloco.id, produtosFiltrados)}
+            onRemove={(pid) => removerProduto(bloco.id, pid)}
+            onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
+          />
+
+          {bloco.observacao && (
+            <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5">
+              <p className="text-[9px] font-bold text-zinc-600 uppercase mb-0.5">Observações</p>
+              <p className="text-[9px] text-zinc-700 whitespace-pre-wrap">{bloco.observacao}</p>
+            </div>
+          )}
+
+          <div className="bg-[#fff5f5] border border-[#fee2e2] rounded px-3 py-1.5 text-[8px] text-[#6d2020] italic font-bold">
+            <span className="not-italic font-black text-[#a02c2c]">OBSERVAÇÕES: </span>em anexo alvará sanitário.
+            N° de telefone no caso de intoxicação: ANVISA – Disque intoxicação - SERVIÇO DE TOXICOLOGIA DE MG:
+            <strong className="not-italic"> 0800-722-6001 / (31) 3224-4000 / (31) 3239-9308 / (31) 3239-9223</strong>
+          </div>
+        </div>
+
+        <DocumentFooter variant="laudo" />
+      </div>
+    );
+  };
+
+  // ── Página A4 de armadilhas (luminosas + feromônios juntas) ───────────────────
+  const renderPaginaArmadilhas = () => {
+    if (blocosArmadilhas.length === 0) return null;
     return (
       <div className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
         <DocumentHeader logo={logo} onLogoClick={() => fileInputRef.current?.click()} variant="laudo" />
@@ -720,21 +812,16 @@ export default function RelatorioMensal() {
         <ClienteSection clientData={clientData} mode="document" />
 
         <div className="flex-1 space-y-4 overflow-hidden">
-          {blocosOutros.map((bloco) => {
+          {blocosArmadilhas.map((bloco) => {
             const tipoInfo = TIPO_BY_ID[bloco.tipo];
-            const produtosFiltrados = getProdutosParaBloco(bloco);
-            const isDesinset = bloco.tipo === 'desinsetizacao';
-            const isArmadilha = bloco.tipo === 'armadilha_luminosa' || bloco.tipo === 'feromonio';
-
             return (
               <div key={bloco.id}>
-                {/* Cabeçalho do bloco */}
+                {/* Cabeçalho + checkboxes */}
                 <div className="flex justify-between items-end mb-1 border-b-2 border-blue-600 pb-1">
                   <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px]">
                     {React.createElement(tipoInfo?.icon || Bug, { size: 14 })}
                     {tipoInfo?.titulo}
                   </div>
-                  {/* Checkboxes de tipo de controle */}
                   <div className="flex gap-4 text-[9px] font-bold text-gray-700">
                     <div className="flex items-center gap-1">
                       <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
@@ -751,7 +838,7 @@ export default function RelatorioMensal() {
                   </div>
                 </div>
 
-                {/* Badges de pragas selecionadas */}
+                {/* Badges de pragas */}
                 {(bloco.selectedPests || []).length > 0 && (
                   <div className="grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] w-full gap-1 mb-2 text-[8px] font-black uppercase text-center">
                     {(bloco.selectedPests || []).map(pestId => {
@@ -767,18 +854,6 @@ export default function RelatorioMensal() {
 
                 <InfoVisita bloco={bloco} />
 
-                {/* Tabela de produtos (só Desinsetização tem, armadilhas não) */}
-                {isDesinset && (
-                  <TabelaProdutos
-                    produtos={bloco.produtos}
-                    produtosOptions={produtosFiltrados}
-                    onAdd={() => adicionarProduto(bloco.id, produtosFiltrados)}
-                    onRemove={(pid) => removerProduto(bloco.id, pid)}
-                    onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
-                  />
-                )}
-
-                {/* Observação */}
                 {bloco.observacao && (
                   <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 mt-1">
                     <p className="text-[9px] text-zinc-700 whitespace-pre-wrap">{bloco.observacao}</p>
@@ -920,7 +995,8 @@ export default function RelatorioMensal() {
 
       {/* PÁGINAS A4 */}
       {blocosRoedores.map((b) => renderPaginaRoedor(b))}
-      {renderPaginaOutros()}
+      {blocosDesinset.map((b) => renderPaginaDesinsetizacao(b))}
+      {renderPaginaArmadilhas()}
 
       <style>{`
         .a4-page { width: 210mm; height: 297mm; min-height: 297mm; position: relative; }
