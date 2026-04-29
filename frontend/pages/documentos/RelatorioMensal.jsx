@@ -339,6 +339,28 @@ export default function RelatorioMensal() {
       ...b, portaIscas: (b.portaIscas || []).map(p => p.id === piId ? { ...p, ...patch } : p),
     }));
 
+  // Gera/remove porta-iscas automaticamente ao digitar a quantidade total
+  const handleQtdPortaIscasChange = (blocoId, valorStr) => {
+    const novaQtd = parseInt(valorStr, 10);
+    setBlocos(prev => prev.map(b => {
+      if (b.id !== blocoId) return b;
+      const lista = b.portaIscas || [];
+      if (isNaN(novaQtd) || novaQtd < 0) return { ...b, qtdPortaIscas: valorStr };
+      if (novaQtd > lista.length) {
+        // Adiciona as entradas faltantes
+        const extras = Array.from({ length: novaQtd - lista.length }, (_, i) =>
+          novoPortaIsca(lista.length + i + 1)
+        );
+        return { ...b, portaIscas: [...lista, ...extras], qtdPortaIscas: valorStr };
+      }
+      if (novaQtd < lista.length) {
+        // Remove as últimas entradas
+        return { ...b, portaIscas: lista.slice(0, novaQtd), qtdPortaIscas: valorStr };
+      }
+      return { ...b, qtdPortaIscas: valorStr };
+    }));
+  };
+
   // ── Salvar ───────────────────────────────────────────────────────────────────
   const handleSalvarCliente = async () => {
     if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) return;
@@ -528,7 +550,7 @@ export default function RelatorioMensal() {
                 type="number"
                 min="0"
                 value={bloco.qtdPortaIscas}
-                onChange={e => atualizarBloco(bloco.id, { qtdPortaIscas: e.target.value })}
+                onChange={e => handleQtdPortaIscasChange(bloco.id, e.target.value)}
                 className="w-28 p-1.5 border rounded text-xs text-center font-bold outline-none"
                 placeholder="0"
               />
