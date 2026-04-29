@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ChevronDown, ChevronUp, Plus, Trash2, Search, Bug,
-  Droplets, Zap, Target, ClipboardList, Package,
+  Droplets, Zap, Target, ClipboardList, Package, CheckCircle2,
 } from 'lucide-react';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
@@ -30,6 +30,22 @@ const TIPO_BY_ID = Object.fromEntries(TIPOS_BLOCO.map(t => [t.id, t]));
 const ROEDOR_TARGETS = ['ratos', 'ratazana', 'camundongo', 'rato'];
 const PORTA_ISCAS_OVERFLOW = 25; // acima disso → página extra
 
+// Opções de pragas (igual a Laudos)
+const PEST_OPTIONS = [
+  { id: 'baratas',    label: 'Baratas'    },
+  { id: 'formigas',   label: 'Formigas'   },
+  { id: 'cupins',     label: 'Cupins'     },
+  { id: 'escorpioes', label: 'Escorpiões' },
+  { id: 'pulgas',     label: 'Pulgas'     },
+  { id: 'moscas',     label: 'Moscas'     },
+  { id: 'aranhas',    label: 'Aranhas'    },
+  { id: 'mosquitos',  label: 'Mosquitos'  },
+  { id: 'tracas',     label: 'Traças'     },
+  { id: 'carrapatos', label: 'Carrapatos' },
+  { id: 'percevejos', label: 'Percevejos' },
+  { id: 'barbeiros',  label: 'Barbeiros'  },
+];
+
 const STATUS_PORTA_ISCA = [
   { value: 'consumido',                 label: 'Consumido'                       },
   { value: 'nao_consumido',             label: 'Não consumido'                   },
@@ -42,7 +58,7 @@ function novoPortaIsca(num) {
 }
 
 function novoBloco(tipo) {
-  return {
+  const base = {
     id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     tipo,
     dataExecucao: new Date().toISOString().slice(0, 10),
@@ -54,7 +70,30 @@ function novoBloco(tipo) {
     locais: '',
     datas: '',
     proximaVisita: '',
+    selectedPests: [],
+    controlType: 'quimico', // 'quimico' | 'nao_quimico' | 'ambos'
   };
+  if (tipo === 'desinsetizacao') {
+    return { ...base, selectedPests: ['baratas', 'formigas'], controlType: 'quimico' };
+  }
+  if (tipo === 'armadilha_luminosa') {
+    return {
+      ...base,
+      selectedPests: ['moscas', 'mosquitos'],
+      controlType: 'nao_quimico',
+      observacao: 'Para o controle de insetos voadores, especialmente moscas (Diptera), foram instaladas armadilhas luminosas equipadas com lâmpadas UV e placas adesivas internas em pontos estratégicos, como áreas de manipulação de alimentos, armazenamento e salão de atendimento ao público.',
+    };
+  }
+  if (tipo === 'feromonio') {
+    return {
+      ...base,
+      selectedPests: ['moscas'],
+      controlType: 'nao_quimico',
+      observacao: 'Para o controle de insetos voadores, especialmente moscas (Diptera), foram instaladas armadilhas atrativas com feromônio em pontos estratégicos na área externa.',
+    };
+  }
+  // Roedores
+  return { ...base, selectedPests: [], controlType: 'quimico' };
 }
 
 const formatBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
@@ -326,15 +365,32 @@ export default function RelatorioMensal() {
 
   const periodoLabel = formatBR(data);
 
-  // Filtra produtos por tipo de bloco (roedores → apenas targets roedores)
+  // Filtra produtos por tipo de bloco
   const getProdutosParaBloco = (bloco) => {
-    const isRoedor = TIPO_BY_ID[bloco.tipo]?.isRoedor;
-    if (!isRoedor) return produtosOptions;
-    const filtrados = produtosOptions.filter(p =>
-      (p.targets || []).some(t => ROEDOR_TARGETS.includes(t.toLowerCase()))
-    );
-    return filtrados.length > 0 ? filtrados : produtosOptions;
+    if (TIPO_BY_ID[bloco.tipo]?.isRoedor) {
+      // Roedores: apenas produtos com targets de roedores
+      const filtrados = produtosOptions.filter(p =>
+        (p.targets || []).some(t => ROEDOR_TARGETS.includes(t.toLowerCase()))
+      );
+      return filtrados.length > 0 ? filtrados : produtosOptions;
+    }
+    if (bloco.tipo === 'desinsetizacao') {
+      // Desinsetização: exclui produtos de roedores
+      const filtrados = produtosOptions.filter(p =>
+        !(p.targets || []).some(t => ROEDOR_TARGETS.includes(t.toLowerCase()))
+      );
+      return filtrados.length > 0 ? filtrados : produtosOptions;
+    }
+    return produtosOptions;
   };
+
+  const togglePestBloco = (blocoId, pestId) =>
+    setBlocos(prev => prev.map(b => {
+      if (b.id !== blocoId) return b;
+      const cur = b.selectedPests || [];
+      const next = cur.includes(pestId) ? cur.filter(p => p !== pestId) : [...cur, pestId];
+      return { ...b, selectedPests: next };
+    }));
   const blocosRoedores = blocos.filter(b => TIPO_BY_ID[b.tipo]?.isRoedor);
   const blocosOutros   = blocos.filter(b => !TIPO_BY_ID[b.tipo]?.isRoedor);
 
@@ -386,6 +442,52 @@ export default function RelatorioMensal() {
               className="w-full p-2 border rounded text-xs outline-none" placeholder="ex: 31/03/2026" />
           </div>
         </div>
+
+        {/* Seleção de pragas — apenas para Desinsetização */}
+        {bloco.tipo === 'desinsetizacao' && (
+          <div className="mb-3 border border-blue-100 rounded-lg p-3 bg-blue-50/30">
+            <label className="block text-[11px] font-bold text-[#254191] mb-2 uppercase tracking-wide">
+              Tipo de Controle
+            </label>
+            <div className="flex gap-2 mb-3">
+              {[
+                { v: 'quimico',     l: 'Controle Químico'     },
+                { v: 'nao_quimico', l: 'Controle Não Químico'  },
+                { v: 'ambos',       l: 'Ambos'                 },
+              ].map(opt => (
+                <button key={opt.v}
+                  onClick={() => atualizarBloco(bloco.id, { controlType: opt.v })}
+                  className={`flex-1 py-1.5 text-[11px] font-bold rounded border transition-all ${
+                    bloco.controlType === opt.v
+                      ? 'bg-[#254191] text-white border-blue-900'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}>
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+            <label className="block text-[11px] font-bold text-[#254191] mb-2 uppercase tracking-wide">
+              Pragas / Vetores
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {PEST_OPTIONS.map(pest => {
+                const sel = (bloco.selectedPests || []).includes(pest.id);
+                return (
+                  <button key={pest.id}
+                    onClick={() => togglePestBloco(bloco.id, pest.id)}
+                    className={`flex items-center gap-1 px-2 py-1 text-[11px] font-bold rounded border transition-all ${
+                      sel
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}>
+                    {sel && <CheckCircle2 size={11} />}
+                    {pest.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Porta-iscas — apenas para roedores */}
         {isRoedor && (
@@ -580,24 +682,66 @@ export default function RelatorioMensal() {
           {blocosOutros.map((bloco) => {
             const tipoInfo = TIPO_BY_ID[bloco.tipo];
             const produtosFiltrados = getProdutosParaBloco(bloco);
+            const isDesinset = bloco.tipo === 'desinsetizacao';
+            const isArmadilha = bloco.tipo === 'armadilha_luminosa' || bloco.tipo === 'feromonio';
+
             return (
               <div key={bloco.id}>
-                <div className="bg-[#254191] text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide print-bg-blue mb-1">
-                  {tipoInfo?.titulo} &nbsp;·&nbsp; <span className="font-normal italic">{tipoInfo?.subtitulo}</span>
+                {/* Cabeçalho do bloco */}
+                <div className="flex justify-between items-end mb-1 border-b-2 border-blue-600 pb-1">
+                  <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px]">
+                    {React.createElement(tipoInfo?.icon || Bug, { size: 14 })}
+                    {tipoInfo?.titulo}
+                  </div>
+                  {/* Checkboxes de tipo de controle */}
+                  <div className="flex gap-4 text-[9px] font-bold text-gray-700">
+                    <div className="flex items-center gap-1">
+                      <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
+                        {['quimico','ambos'].includes(bloco.controlType) && <CheckCircle2 size={10} className="text-white" />}
+                      </div>
+                      <span className="uppercase">Controle Químico</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['nao_quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
+                        {['nao_quimico','ambos'].includes(bloco.controlType) && <CheckCircle2 size={10} className="text-white" />}
+                      </div>
+                      <span className="uppercase">Controle Não Químico</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Badges de pragas selecionadas */}
+                {(bloco.selectedPests || []).length > 0 && (
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] w-full gap-1 mb-2 text-[8px] font-black uppercase text-center">
+                    {(bloco.selectedPests || []).map(pestId => {
+                      const pest = PEST_OPTIONS.find(p => p.id === pestId);
+                      return pest ? (
+                        <div key={pestId} className="bg-[#254191] text-white py-1 rounded shadow-sm border-b-2 border-blue-900/50 flex items-center justify-center px-1 print-bg-blue">
+                          {pest.label}
+                        </div>
+                      ) : null;
+                    })}
+                  </div>
+                )}
 
                 <InfoVisita bloco={bloco} />
 
-                <TabelaProdutos
-                  produtos={bloco.produtos}
-                  produtosOptions={produtosFiltrados}
-                  onAdd={() => adicionarProduto(bloco.id, produtosFiltrados)}
-                  onRemove={(pid) => removerProduto(bloco.id, pid)}
-                  onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
-                />
+                {/* Tabela de produtos (só Desinsetização tem, armadilhas não) */}
+                {isDesinset && (
+                  <TabelaProdutos
+                    produtos={bloco.produtos}
+                    produtosOptions={produtosFiltrados}
+                    onAdd={() => adicionarProduto(bloco.id, produtosFiltrados)}
+                    onRemove={(pid) => removerProduto(bloco.id, pid)}
+                    onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
+                  />
+                )}
 
+                {/* Observação */}
                 {bloco.observacao && (
-                  <p className="text-[9px] text-zinc-700 italic px-1 mt-1 whitespace-pre-wrap">{bloco.observacao}</p>
+                  <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 mt-1">
+                    <p className="text-[9px] text-zinc-700 whitespace-pre-wrap">{bloco.observacao}</p>
+                  </div>
                 )}
               </div>
             );
