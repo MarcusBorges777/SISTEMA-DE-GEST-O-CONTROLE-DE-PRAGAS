@@ -68,10 +68,7 @@ export default function Documentos() {
                 }`}
               >
                 <Icon size={18} className={isActive ? 'text-blue-200' : 'text-slate-400'} />
-                <div className="text-left">
-                  <p className="leading-none">{tab.label}</p>
-                  <p className={`text-[10px] font-normal mt-0.5 ${isActive ? 'text-blue-200' : 'text-slate-400'}`}>{tab.description}</p>
-                </div>
+                <span>{tab.label}</span>
               </button>
             );
           })}
