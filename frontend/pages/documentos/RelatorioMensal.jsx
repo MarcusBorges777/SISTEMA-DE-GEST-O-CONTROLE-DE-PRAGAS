@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  Edit3, ChevronDown, ChevronUp, Plus, Trash2, Search, Bug,
+  ChevronDown, ChevronUp, Plus, Trash2, Search, Bug,
   Droplets, Zap, Target, ClipboardList, Package,
 } from 'lucide-react';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
@@ -17,24 +17,24 @@ import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 
 // ── Catálogo de tipos ──────────────────────────────────────────────────────────
 const TIPOS_BLOCO = [
-  { id: 'desratizacao_quimica', label: 'Desratização (Controle Químico)', icon: Bug,     titulo: 'CONTROLE QUÍMICO DE ROEDORES',   subtitulo: 'Aplicação de produto químico contra ratos e camundongos', isRoedor: true  },
-  { id: 'iscagem',              label: 'Desratização (Iscagem)',          icon: Target,  titulo: 'ISCAGEM PARA ROEDORES',           subtitulo: 'Distribuição de iscas em pontos estratégicos',            isRoedor: true  },
-  { id: 'desinsetizacao',       label: 'Desinsetização',                  icon: Droplets,titulo: 'DESINSETIZAÇÃO',                  subtitulo: 'Controle químico de insetos rasteiros e voadores',        isRoedor: false },
-  { id: 'armadilha_luminosa',   label: 'Armadilhas Luminosas',            icon: Zap,     titulo: 'ARMADILHAS LUMINOSAS',            subtitulo: 'Captura e monitoramento de insetos voadores',             isRoedor: false },
-  { id: 'feromonio',            label: 'Armadilhas com Feromônios',       icon: Target,  titulo: 'ARMADILHAS COM FEROMÔNIOS',       subtitulo: 'Monitoramento e captura por atração feromonal',           isRoedor: false },
+  { id: 'desratizacao_quimica', label: 'Desratização (Controle Químico)', icon: Bug,      titulo: 'CONTROLE QUÍMICO DE ROEDORES',  subtitulo: 'Aplicação de produto químico contra ratos e camundongos', isRoedor: true  },
+  { id: 'iscagem',              label: 'Desratização (Iscagem)',          icon: Target,   titulo: 'ISCAGEM PARA ROEDORES',          subtitulo: 'Distribuição de iscas em pontos estratégicos',            isRoedor: true  },
+  { id: 'desinsetizacao',       label: 'Desinsetização',                  icon: Droplets, titulo: 'DESINSETIZAÇÃO',                 subtitulo: 'Controle químico de insetos rasteiros e voadores',        isRoedor: false },
+  { id: 'armadilha_luminosa',   label: 'Armadilhas Luminosas',            icon: Zap,      titulo: 'ARMADILHAS LUMINOSAS',           subtitulo: 'Captura e monitoramento de insetos voadores',             isRoedor: false },
+  { id: 'feromonio',            label: 'Armadilhas com Feromônios',       icon: Target,   titulo: 'ARMADILHAS COM FEROMÔNIOS',      subtitulo: 'Monitoramento e captura por atração feromonal',           isRoedor: false },
 ];
 
 const TIPO_BY_ID = Object.fromEntries(TIPOS_BLOCO.map(t => [t.id, t]));
 
 const STATUS_PORTA_ISCA = [
-  { value: 'consumido',                   label: 'Consumido',                         cor: 'text-green-700 bg-green-50 border-green-200'    },
-  { value: 'nao_consumido',               label: 'Não consumido',                     cor: 'text-gray-600 bg-gray-50 border-gray-200'       },
-  { value: 'consumido_substituido',       label: 'Houve consumo e substituído',       cor: 'text-blue-700 bg-blue-50 border-blue-200'       },
-  { value: 'nao_consumido_substituido',   label: 'Não houve consumo / substituído',   cor: 'text-amber-700 bg-amber-50 border-amber-200'    },
+  { value: 'consumido',                 label: 'Consumido'                       },
+  { value: 'nao_consumido',             label: 'Não consumido'                   },
+  { value: 'consumido_substituido',     label: 'Houve consumo e substituído'     },
+  { value: 'nao_consumido_substituido', label: 'Não houve consumo / substituído' },
 ];
 
 function novoPortaIsca(num) {
-  return { id: `pi-${Date.now()}-${Math.random().toString(36).slice(2,5)}`, numero: String(num), status: 'nao_consumido' };
+  return { id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, numero: String(num), status: 'nao_consumido' };
 }
 
 function novoBloco(tipo) {
@@ -44,7 +44,8 @@ function novoBloco(tipo) {
     dataExecucao: new Date().toISOString().slice(0, 10),
     produtos: [],
     observacao: '',
-    portaIscas: [],           // apenas para tipos isRoedor
+    portaIscas: [],
+    qtdPortaIscas: '',
     periodicidade: 'MENSAL',
     locais: '',
     datas: '',
@@ -52,103 +53,144 @@ function novoBloco(tipo) {
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const formatBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 
-// ── Seção de produto químico (roedores) ───────────────────────────────────────
-function ProdutoQuimicoInfo({ produto }) {
-  if (!produto) return null;
-  return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px] mt-2 border-t border-blue-100 pt-2">
-      {produto.grupo       && <p><span className="font-bold text-[#254191]">Grupo Químico:</span> {produto.grupo}</p>}
-      {produto.principio   && <p><span className="font-bold text-[#254191]">Princípio Ativo:</span> {produto.principio}</p>}
-      {produto.registro    && <p><span className="font-bold text-[#254191]">Nº MS:</span> {produto.registro}</p>}
-      {produto.concentracao && <p><span className="font-bold text-[#254191]">Conc. de Uso:</span> {produto.concentracao}</p>}
-      {produto.diluente    && <p><span className="font-bold text-[#254191]">Diluente:</span> {produto.diluente}</p>}
-      {produto.equipamento && <p><span className="font-bold text-[#254191]">Equipamento:</span> {produto.equipamento}</p>}
-      {produto.antidoto    && <p className="col-span-2"><span className="font-bold text-[#254191]">Antídoto:</span> {produto.antidoto}</p>}
-    </div>
-  );
-}
+// ── Tabela de porta-iscas (dentro da página A4) ───────────────────────────────
+function TabelaPortaIscas({ portaIscas, qtdPortaIscas }) {
+  const temIndividuais = portaIscas && portaIscas.length > 0;
+  const temQtd = qtdPortaIscas && String(qtdPortaIscas).trim() !== '';
+  if (!temQtd && !temIndividuais) return null;
 
-// ── Tabela de Porta-iscas (dentro da página A4) ───────────────────────────────
-function TabelaPortaIscas({ portaIscas }) {
-  if (!portaIscas || portaIscas.length === 0) return null;
-
-  // Agrupa em grupos de 2 colunas para aproveitar largura A4
   return (
     <div className="mb-3">
       <h4 className="text-[10px] font-bold text-[#254191] uppercase tracking-widest border-b border-blue-200 pb-1 mb-2 flex items-center gap-1">
         <Package size={11} /> Monitoramento de Porta-iscas
+        {temQtd && (
+          <span className="ml-2 text-[9px] font-semibold text-gray-600 normal-case">
+            — Total instalados: <strong className="text-[#254191]">{qtdPortaIscas}</strong>
+          </span>
+        )}
       </h4>
-      <table className="w-full text-[9px] border-collapse border border-[#254191]">
-        <thead>
-          <tr className="bg-[#254191] text-white print-bg-blue">
-            <th className="py-1.5 px-2 text-center font-bold uppercase border border-[#1e3575] w-16">Nº</th>
-            <th className="py-1.5 px-2 text-left font-bold uppercase border border-[#1e3575]">Status</th>
-            <th className="py-1.5 px-2 text-center font-bold uppercase border border-[#1e3575] w-16">Nº</th>
-            <th className="py-1.5 px-2 text-left font-bold uppercase border border-[#1e3575]">Status</th>
+      {temIndividuais && (
+        <table className="w-full text-[9px] border-collapse border border-[#254191]">
+          <thead>
+            <tr className="bg-[#254191] text-white print-bg-blue">
+              <th className="py-1.5 px-2 text-center font-bold uppercase border border-[#1e3575] w-16">Nº</th>
+              <th className="py-1.5 px-2 text-left font-bold uppercase border border-[#1e3575]">Status</th>
+              <th className="py-1.5 px-2 text-center font-bold uppercase border border-[#1e3575] w-16">Nº</th>
+              <th className="py-1.5 px-2 text-left font-bold uppercase border border-[#1e3575]">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: Math.ceil(portaIscas.length / 2) }, (_, rowIdx) => {
+              const a = portaIscas[rowIdx * 2];
+              const b = portaIscas[rowIdx * 2 + 1];
+              const statusA = STATUS_PORTA_ISCA.find(s => s.value === a?.status);
+              const statusB = b ? STATUS_PORTA_ISCA.find(s => s.value === b?.status) : null;
+              const bg = rowIdx % 2 === 0 ? 'bg-white' : 'bg-blue-50/40';
+              return (
+                <tr key={rowIdx} className={bg}>
+                  <td className="py-1 px-2 text-center border border-blue-200 font-bold text-[#254191]">{a?.numero}</td>
+                  <td className="py-1 px-2 border border-blue-200">{statusA?.label || '—'}</td>
+                  <td className="py-1 px-2 text-center border border-blue-200 font-bold text-[#254191]">{b?.numero || ''}</td>
+                  <td className="py-1 px-2 border border-blue-200">{statusB?.label || ''}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+// ── Tabela de produtos — idêntica à de Laudos ─────────────────────────────────
+function TabelaProdutos({ produtos, produtosOptions, onAdd, onRemove, onUpdate }) {
+  return (
+    <div className="mb-2">
+      <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px] mb-2 border-b-2 border-blue-600 pb-1">
+        <Bug size={14} /> Detalhamento do Controle de Vetores e Pragas
+      </div>
+      <table className="w-full text-left border-collapse border border-gray-100 text-[9px]">
+        <thead className="bg-blue-50 text-[#254191] uppercase font-black text-[8px]">
+          <tr>
+            <th className="p-1 border text-center">Grupo Químico</th>
+            <th className="p-1 border">Princípio Ativo</th>
+            <th className="p-1 border text-center">Nº MS</th>
+            <th className="p-1 border text-center">Conc. de Uso</th>
+            <th className="p-1 border text-center">Diluente</th>
+            <th className="p-1 border">Equipamento</th>
+            <th className="p-1 border text-center w-6 no-print"></th>
           </tr>
         </thead>
-        <tbody>
-          {Array.from({ length: Math.ceil(portaIscas.length / 2) }, (_, rowIdx) => {
-            const a = portaIscas[rowIdx * 2];
-            const b = portaIscas[rowIdx * 2 + 1];
-            const statusA = STATUS_PORTA_ISCA.find(s => s.value === a?.status);
-            const statusB = b ? STATUS_PORTA_ISCA.find(s => s.value === b?.status) : null;
-            const bg = rowIdx % 2 === 0 ? 'bg-white' : 'bg-blue-50/40';
-            return (
-              <tr key={rowIdx} className={bg}>
-                <td className="py-1 px-2 text-center border border-blue-200 font-bold text-[#254191]">{a?.numero}</td>
-                <td className="py-1 px-2 border border-blue-200">{statusA?.label || '—'}</td>
-                <td className="py-1 px-2 text-center border border-blue-200 font-bold text-[#254191]">{b?.numero || ''}</td>
-                <td className="py-1 px-2 border border-blue-200">{statusB?.label || ''}</td>
+        <tbody className="divide-y text-gray-700 italic font-medium leading-none">
+          {produtos.map((prod, idx) => (
+            <React.Fragment key={prod.id}>
+              <tr className="group relative hover:bg-blue-50/50 transition-colors">
+                <td className="p-1 border text-center text-[8px] relative">
+                  {prod.grupo}
+                  {onUpdate && (
+                    <select
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer no-print"
+                      value={prod.id}
+                      onChange={(e) => onUpdate(prod.id, e.target.value)}
+                      title="Clique para trocar o produto"
+                    >
+                      {(produtosOptions || []).map(p => (
+                        <option key={p.id} value={p.id}>{p.nome}</option>
+                      ))}
+                    </select>
+                  )}
+                </td>
+                <td className="p-1 border font-bold uppercase not-italic relative">
+                  {prod.principio}
+                  <span className="block text-[7px] text-gray-400 font-normal no-print">{prod.nome}</span>
+                </td>
+                <td className="p-1 border text-center font-mono tracking-tighter text-[8px]">{prod.registro}</td>
+                <td className="p-1 border text-center text-[8px] italic">{prod.concentracao}</td>
+                <td className="p-1 border text-center">{prod.diluente}</td>
+                <td className="p-1 border">{prod.equipamento}</td>
+                <td className="p-0 border text-center no-print align-middle">
+                  {onRemove && (
+                    <button onClick={() => onRemove(prod.id)}
+                      className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                      title="Remover linha">
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </td>
               </tr>
-            );
-          })}
+              <tr>
+                <td colSpan="7" className="p-1 border text-[8px] italic text-zinc-600 bg-gray-50/50">
+                  {prod.antidoto}
+                </td>
+              </tr>
+            </React.Fragment>
+          ))}
         </tbody>
       </table>
+      {onAdd && (
+        <div className="mt-2 text-center no-print">
+          <button onClick={onAdd}
+            className="text-xs flex items-center justify-center gap-1 mx-auto text-blue-600 hover:text-blue-800 font-bold py-1 px-3 rounded border border-blue-200 hover:bg-blue-50 transition-colors">
+            <Plus size={12} /> Adicionar Produto
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Seção de visitas/locais ───────────────────────────────────────────────────
 function InfoVisita({ bloco }) {
+  const temAlgum = bloco.periodicidade || bloco.locais || bloco.datas || bloco.proximaVisita;
+  if (!temAlgum) return null;
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px] mb-3 bg-blue-50/30 border border-blue-100 rounded p-2 print-bg-light-blue">
       {bloco.periodicidade && <p><span className="font-bold text-[#254191]">Periodicidade:</span> {bloco.periodicidade}</p>}
       {bloco.locais        && <p><span className="font-bold text-[#254191]">Locais:</span> {bloco.locais}</p>}
       {bloco.datas         && <p><span className="font-bold text-[#254191]">Datas:</span> {bloco.datas}</p>}
       {bloco.proximaVisita && <p><span className="font-bold text-[#254191]">Próxima visita:</span> {bloco.proximaVisita}</p>}
-    </div>
-  );
-}
-
-// ── Tabela de produtos (para não-roedores) ────────────────────────────────────
-function TabelaProdutos({ produtos }) {
-  if (!produtos || produtos.length === 0) return null;
-  return (
-    <div className="mb-2">
-      <table className="w-full text-[8px] border-collapse border border-[#254191]">
-        <thead>
-          <tr className="bg-[#254191] text-white print-bg-blue">
-            <th className="py-1 px-2 text-left font-bold uppercase border border-[#1e3575]">Produto</th>
-            <th className="py-1 px-2 text-left font-bold uppercase border border-[#1e3575]">Princípio Ativo</th>
-            <th className="py-1 px-2 text-left font-bold uppercase border border-[#1e3575]">Nº MS</th>
-            <th className="py-1 px-2 text-left font-bold uppercase border border-[#1e3575]">Antídoto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {produtos.map((p, i) => (
-            <tr key={p.id} className={i % 2 === 0 ? 'bg-white' : 'bg-blue-50/40'}>
-              <td className="py-0.5 px-2 border border-blue-200 font-semibold text-[#254191]">{p.nome}</td>
-              <td className="py-0.5 px-2 border border-blue-200">{p.principio || '—'}</td>
-              <td className="py-0.5 px-2 border border-blue-200">{p.registro  || '—'}</td>
-              <td className="py-0.5 px-2 border border-blue-200">{p.antidoto  || '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -163,6 +205,10 @@ export default function RelatorioMensal() {
 
   const { produtos: produtosCtx } = useProdutos();
   const produtosOptions = useMemo(() => (produtosCtx || []), [produtosCtx]);
+  const produtosById = useMemo(
+    () => Object.fromEntries((produtosCtx || []).map(p => [String(p.id), p])),
+    [produtosCtx]
+  );
 
   const [numeroDoc, setNumeroDoc] = useState(() => {
     try { return localStorage.getItem('relatorioMensalNumero') || '0001'; } catch { return '0001'; }
@@ -204,20 +250,29 @@ export default function RelatorioMensal() {
   useEffect(() => { setClientData(prev => ({ ...prev, cnpj: cnpjValue })); }, [cnpjValue]);
 
   // ── Mutações de bloco ────────────────────────────────────────────────────────
-  const adicionarBloco     = (tipo) => { setBlocos(prev => [...prev, novoBloco(tipo)]); setTipoMenuAberto(false); };
-  const removerBloco       = (id)   => setBlocos(prev => prev.filter(b => b.id !== id));
-  const atualizarBloco     = (id, patch) => setBlocos(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
+  const adicionarBloco   = (tipo) => { setBlocos(prev => [...prev, novoBloco(tipo)]); setTipoMenuAberto(false); };
+  const removerBloco     = (id)   => setBlocos(prev => prev.filter(b => b.id !== id));
+  const atualizarBloco   = (id, patch) => setBlocos(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
 
-  const adicionarProduto   = (blocoId, produtoId) => {
-    const produto = produtosOptions.find(p => String(p.id) === String(produtoId));
-    if (!produto) return;
+  // ── Produtos por bloco ───────────────────────────────────────────────────────
+  const adicionarProduto = (blocoId) => {
     setBlocos(prev => prev.map(b => {
-      if (b.id !== blocoId || b.produtos.some(p => String(p.id) === String(produto.id))) return b;
-      return { ...b, produtos: [...b.produtos, produto] };
+      if (b.id !== blocoId) return b;
+      const jaIds = new Set(b.produtos.map(p => String(p.id)));
+      const proximo = produtosOptions.find(p => !jaIds.has(String(p.id)));
+      if (!proximo) return b;
+      return { ...b, produtos: [...b.produtos, proximo] };
     }));
   };
-  const removerProduto     = (blocoId, produtoId) =>
+  const removerProduto   = (blocoId, produtoId) =>
     setBlocos(prev => prev.map(b => b.id !== blocoId ? b : { ...b, produtos: b.produtos.filter(p => String(p.id) !== String(produtoId)) }));
+  const atualizarProduto = (blocoId, oldId, newId) =>
+    setBlocos(prev => prev.map(b => {
+      if (b.id !== blocoId) return b;
+      const novo = produtosById[String(newId)];
+      if (!novo) return b;
+      return { ...b, produtos: b.produtos.map(p => String(p.id) === String(oldId) ? novo : p) };
+    }));
 
   // ── Porta-iscas ──────────────────────────────────────────────────────────────
   const adicionarPortaIsca = (blocoId) =>
@@ -244,7 +299,7 @@ export default function RelatorioMensal() {
     if (file) { const r = new FileReader(); r.onloadend = () => setLogo(r.result); r.readAsDataURL(file); }
   };
 
-  const handlePrint    = () => window.print();
+  const handlePrint     = () => window.print();
   const handleSalvarPdf = async () => {
     if (!clientData.nome && !clientData.fantasia) { alert('Selecione ou preencha o cliente antes de salvar.'); return; }
     if (blocos.length === 0) { alert('Adicione pelo menos um bloco de serviço.'); return; }
@@ -268,10 +323,8 @@ export default function RelatorioMensal() {
   };
 
   const periodoLabel = `${formatBR(dataInicio)} a ${formatBR(dataFim)}`;
-
-  // ── Separar blocos por tipo para o layout ────────────────────────────────────
-  const blocosRoedores  = blocos.filter(b => TIPO_BY_ID[b.tipo]?.isRoedor);
-  const blocosOutros    = blocos.filter(b => !TIPO_BY_ID[b.tipo]?.isRoedor);
+  const blocosRoedores = blocos.filter(b => TIPO_BY_ID[b.tipo]?.isRoedor);
+  const blocosOutros   = blocos.filter(b => !TIPO_BY_ID[b.tipo]?.isRoedor);
 
   // ── Editor de um bloco ───────────────────────────────────────────────────────
   const renderEditorBloco = (bloco, idx) => {
@@ -322,40 +375,12 @@ export default function RelatorioMensal() {
           </div>
         </div>
 
-        {/* Produtos */}
-        <div className="mb-3">
-          <label className="block text-[11px] font-bold text-gray-600 mb-1">Adicionar produto</label>
-          <select onChange={(e) => { adicionarProduto(bloco.id, e.target.value); e.target.value = ''; }}
-            className="w-full p-2 border rounded text-xs outline-none bg-white" defaultValue="">
-            <option value="" disabled>— selecione um produto —</option>
-            {produtosOptions.map(p => (
-              <option key={p.id} value={p.id}>{p.nome}{p.principio ? ` (${p.principio})` : ''}</option>
-            ))}
-          </select>
-          {bloco.produtos.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {bloco.produtos.map(p => (
-                <div key={p.id} className="flex items-center justify-between bg-blue-50/50 border border-blue-100 rounded px-3 py-1.5 text-xs">
-                  <span className="text-gray-700">
-                    <strong className="text-[#254191]">{p.nome}</strong>
-                    {p.principio && <span className="text-gray-500"> — {p.principio}</span>}
-                    {p.registro  && <span className="text-gray-400"> · MS {p.registro}</span>}
-                  </span>
-                  <button onClick={() => removerProduto(bloco.id, p.id)} className="text-red-300 hover:text-red-600" aria-label="Remover produto">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Porta-iscas — apenas para roedores */}
         {isRoedor && (
           <div className="mb-3 border border-dashed border-blue-200 rounded-lg p-3 bg-blue-50/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-[#254191] flex items-center gap-1.5">
-                <Package size={13} /> Porta-iscas ({bloco.portaIscas?.length || 0})
+                <Package size={13} /> Porta-iscas
               </span>
               <button onClick={() => adicionarPortaIsca(bloco.id)}
                 className="flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-white border border-blue-300 px-2 py-1 rounded hover:bg-blue-50">
@@ -363,8 +388,22 @@ export default function RelatorioMensal() {
               </button>
             </div>
 
+            {/* Quantidade total */}
+            <div className="mb-2">
+              <label className="block text-[10px] font-bold text-gray-500 mb-1">Quantidade total instalada</label>
+              <input
+                type="number"
+                min="0"
+                value={bloco.qtdPortaIscas}
+                onChange={e => atualizarBloco(bloco.id, { qtdPortaIscas: e.target.value })}
+                className="w-28 p-1.5 border rounded text-xs text-center font-bold outline-none"
+                placeholder="0"
+              />
+              <span className="text-[10px] text-gray-400 ml-2">porta-iscas</span>
+            </div>
+
             {(bloco.portaIscas || []).length === 0 && (
-              <p className="text-[10px] text-gray-400 italic">Nenhum porta-isca adicionado.</p>
+              <p className="text-[10px] text-gray-400 italic">Clique "+ Adicionar" para detalhar cada porta-isca individualmente.</p>
             )}
 
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
@@ -407,15 +446,12 @@ export default function RelatorioMensal() {
   };
 
   // ── Página A4 de roedores (página inteira cada) ───────────────────────────────
-  const renderPaginaRoedor = (bloco, idxGlobal) => {
+  const renderPaginaRoedor = (bloco) => {
     const tipoInfo = TIPO_BY_ID[bloco.tipo];
-    const primeiroProduto = bloco.produtos[0] || null;
-
     return (
       <div key={bloco.id} className="a4-page relative bg-white shadow-2xl p-[15mm] flex flex-col print:shadow-none print:m-0 overflow-hidden text-slate-800">
         <DocumentHeader logo={logo} onLogoClick={() => fileInputRef.current?.click()} variant="laudo" />
 
-        {/* Título */}
         <div className="flex justify-between items-end mb-3">
           <h2 className="text-lg font-black text-[#254191] uppercase leading-none tracking-tight">
             RELATÓRIO MENSAL
@@ -432,33 +468,25 @@ export default function RelatorioMensal() {
 
         <ClienteSection clientData={clientData} mode="document" />
 
-        {/* Corpo */}
         <div className="flex-1 space-y-2 overflow-hidden">
-          {/* Cabeçalho do bloco */}
           <div className="bg-[#254191] text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide print-bg-blue">
             {tipoInfo?.titulo} &nbsp;·&nbsp; <span className="font-normal italic">{tipoInfo?.subtitulo}</span>
           </div>
 
-          {/* Info de visita */}
           <InfoVisita bloco={bloco} />
 
-          {/* Produto + info química */}
-          {bloco.produtos.length > 0 && (
-            <div className="bg-blue-50/30 border border-blue-100 rounded p-2 print-bg-light-blue">
-              <h4 className="text-[10px] font-bold text-[#254191] uppercase tracking-widest mb-1">Produto(s) Utilizado(s)</h4>
-              {bloco.produtos.map((p) => (
-                <div key={p.id} className="mb-1 last:mb-0">
-                  <p className="text-[10px] font-black text-[#254191]">{p.nome}</p>
-                  <ProdutoQuimicoInfo produto={p} />
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Tabela de produtos — idêntica à de Laudos */}
+          <TabelaProdutos
+            produtos={bloco.produtos}
+            produtosOptions={produtosOptions}
+            onAdd={() => adicionarProduto(bloco.id)}
+            onRemove={(pid) => removerProduto(bloco.id, pid)}
+            onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
+          />
 
           {/* Tabela de porta-iscas */}
-          <TabelaPortaIscas portaIscas={bloco.portaIscas} />
+          <TabelaPortaIscas portaIscas={bloco.portaIscas} qtdPortaIscas={bloco.qtdPortaIscas} />
 
-          {/* Observações */}
           {bloco.observacao && (
             <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5">
               <p className="text-[9px] font-bold text-zinc-600 uppercase mb-0.5">Observações</p>
@@ -466,7 +494,6 @@ export default function RelatorioMensal() {
             </div>
           )}
 
-          {/* ANVISA */}
           <div className="bg-[#fff5f5] border border-[#fee2e2] rounded px-3 py-1.5 text-[8px] text-[#6d2020] italic font-bold">
             <span className="not-italic font-black text-[#a02c2c]">OBSERVAÇÕES: </span>em anexo alvará sanitário.
             N° de telefone no caso de intoxicação: ANVISA – Disque intoxicação - SERVIÇO DE TOXICOLOGIA DE MG:
@@ -502,27 +529,32 @@ export default function RelatorioMensal() {
 
         <ClienteSection clientData={clientData} mode="document" />
 
-        <div className="flex-1 space-y-3 overflow-hidden">
+        <div className="flex-1 space-y-4 overflow-hidden">
           {blocosOutros.map((bloco) => {
             const tipoInfo = TIPO_BY_ID[bloco.tipo];
             return (
               <div key={bloco.id}>
-                {/* Cabeçalho do serviço */}
                 <div className="bg-[#254191] text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide print-bg-blue mb-1">
                   {tipoInfo?.titulo} &nbsp;·&nbsp; <span className="font-normal italic">{tipoInfo?.subtitulo}</span>
                 </div>
 
                 <InfoVisita bloco={bloco} />
-                <TabelaProdutos produtos={bloco.produtos} />
+
+                <TabelaProdutos
+                  produtos={bloco.produtos}
+                  produtosOptions={produtosOptions}
+                  onAdd={() => adicionarProduto(bloco.id)}
+                  onRemove={(pid) => removerProduto(bloco.id, pid)}
+                  onUpdate={(oldId, newId) => atualizarProduto(bloco.id, oldId, newId)}
+                />
 
                 {bloco.observacao && (
-                  <p className="text-[9px] text-zinc-700 italic px-1 mt-1">{bloco.observacao}</p>
+                  <p className="text-[9px] text-zinc-700 italic px-1 mt-1 whitespace-pre-wrap">{bloco.observacao}</p>
                 )}
               </div>
             );
           })}
 
-          {/* ANVISA compartilhado */}
           <div className="bg-[#fff5f5] border border-[#fee2e2] rounded px-3 py-1.5 text-[8px] text-[#6d2020] italic font-bold mt-auto">
             <span className="not-italic font-black text-[#a02c2c]">OBSERVAÇÕES: </span>em anexo alvará sanitário.
             N° de telefone no caso de intoxicação: ANVISA – Disque intoxicação - SERVIÇO DE TOXICOLOGIA DE MG:
@@ -625,11 +657,14 @@ export default function RelatorioMensal() {
                 </div>
               </div>
 
-              {/* Legenda */}
               <div className="flex gap-4 text-[10px] text-gray-500">
                 <span className="flex items-center gap-1"><Bug size={12} className="text-[#254191]" /> Roedores → página própria</span>
                 <span className="flex items-center gap-1"><Droplets size={12} className="text-[#254191]" /> Outros → página compartilhada</span>
               </div>
+
+              <p className="text-[10px] text-blue-600 italic bg-blue-50 border border-blue-100 rounded px-3 py-2">
+                💡 Os produtos são adicionados diretamente na pré-visualização abaixo — clique em "Adicionar Produto" dentro de cada bloco.
+              </p>
 
               {blocos.map((b, i) => renderEditorBloco(b, i))}
 
@@ -656,7 +691,7 @@ export default function RelatorioMensal() {
       <input type="file" ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
 
       {/* PÁGINAS A4 */}
-      {blocosRoedores.map((b, i) => renderPaginaRoedor(b, i))}
+      {blocosRoedores.map((b) => renderPaginaRoedor(b))}
       {renderPaginaOutros()}
 
       <style>{`
