@@ -319,10 +319,21 @@ export default function RelatorioMensal() {
   const adicionarPortaIsca = (blocoId) =>
     setBlocos(prev => prev.map(b => {
       if (b.id !== blocoId) return b;
-      return { ...b, portaIscas: [...(b.portaIscas || []), novoPortaIsca((b.portaIscas?.length || 0) + 1)] };
+      const lista = b.portaIscas || [];
+      // Próximo número: o maior entre qtdPortaIscas e a lista atual, + 1
+      const baseQtd = parseInt(b.qtdPortaIscas || '0', 10) || 0;
+      const baseLen = lista.length;
+      const proximoNum = Math.max(baseQtd, baseLen) + 1;
+      const novaLista = [...lista, novoPortaIsca(proximoNum)];
+      // qtdPortaIscas sempre reflete o total da lista
+      return { ...b, portaIscas: novaLista, qtdPortaIscas: String(novaLista.length) };
     }));
   const removerPortaIsca   = (blocoId, piId) =>
-    setBlocos(prev => prev.map(b => b.id !== blocoId ? b : { ...b, portaIscas: (b.portaIscas || []).filter(p => p.id !== piId) }));
+    setBlocos(prev => prev.map(b => {
+      if (b.id !== blocoId) return b;
+      const novaLista = (b.portaIscas || []).filter(p => p.id !== piId);
+      return { ...b, portaIscas: novaLista, qtdPortaIscas: String(novaLista.length) };
+    }));
   const atualizarPortaIsca = (blocoId, piId, patch) =>
     setBlocos(prev => prev.map(b => b.id !== blocoId ? b : {
       ...b, portaIscas: (b.portaIscas || []).map(p => p.id === piId ? { ...p, ...patch } : p),
@@ -375,11 +386,19 @@ export default function RelatorioMensal() {
       return filtrados.length > 0 ? filtrados : produtosOptions;
     }
     if (bloco.tipo === 'desinsetizacao') {
-      // Desinsetização: exclui produtos de roedores
-      const filtrados = produtosOptions.filter(p =>
+      const pests = bloco.selectedPests || [];
+      // Sempre exclui produtos de roedores
+      const semRoedor = produtosOptions.filter(p =>
         !(p.targets || []).some(t => ROEDOR_TARGETS.includes(t.toLowerCase()))
       );
-      return filtrados.length > 0 ? filtrados : produtosOptions;
+      if (pests.length > 0) {
+        // Filtra pelos targets das pragas selecionadas (igual Laudos getCompatibleProducts)
+        const compativel = semRoedor.filter(p =>
+          (p.targets || []).some(t => pests.includes(t))
+        );
+        return compativel.length > 0 ? compativel : semRoedor;
+      }
+      return semRoedor.length > 0 ? semRoedor : produtosOptions;
     }
     return produtosOptions;
   };
