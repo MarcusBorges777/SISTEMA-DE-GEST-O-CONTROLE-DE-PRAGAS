@@ -461,27 +461,27 @@ export default function RelatorioMensal() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
           <div>
-            <label className="block text-[11px] font-bold text-gray-600 mb-1">Data de execução</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Data de execução</label>
             <input type="date" value={bloco.dataExecucao} onChange={e => atualizarBloco(bloco.id, { dataExecucao: e.target.value })}
               className="w-full p-2 border rounded text-xs outline-none" />
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-gray-600 mb-1">Periodicidade</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Periodicidade</label>
             <input type="text" value={bloco.periodicidade} onChange={e => atualizarBloco(bloco.id, { periodicidade: e.target.value })}
               className="w-full p-2 border rounded text-xs outline-none" placeholder="ex: SEMANAL, MENSAL..." />
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-gray-600 mb-1">Locais</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Locais</label>
             <input type="text" value={bloco.locais} onChange={e => atualizarBloco(bloco.id, { locais: e.target.value })}
               className="w-full p-2 border rounded text-xs outline-none" placeholder="Galpão, refeitório, área externa..." />
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-gray-600 mb-1">Datas das visitas</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Datas das visitas</label>
             <input type="text" value={bloco.datas} onChange={e => atualizarBloco(bloco.id, { datas: e.target.value })}
               className="w-full p-2 border rounded text-xs outline-none" placeholder="05/03, 12/03, 26/03..." />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-bold text-gray-600 mb-1">Próxima visita</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Próxima visita</label>
             <input type="text" value={bloco.proximaVisita} onChange={e => atualizarBloco(bloco.id, { proximaVisita: e.target.value })}
               className="w-full p-2 border rounded text-xs outline-none" placeholder="ex: 31/03/2026" />
           </div>
@@ -490,7 +490,7 @@ export default function RelatorioMensal() {
         {/* Seleção de pragas — apenas para Desinsetização */}
         {bloco.tipo === 'desinsetizacao' && (
           <div className="mb-3 border border-blue-100 rounded-lg p-3 bg-blue-50/30">
-            <label className="block text-[11px] font-bold text-[#254191] mb-2 uppercase tracking-wide">
+            <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wider">
               Tipo de Controle
             </label>
             <div className="flex gap-2 mb-3">
@@ -510,7 +510,7 @@ export default function RelatorioMensal() {
                 </button>
               ))}
             </div>
-            <label className="block text-[11px] font-bold text-[#254191] mb-2 uppercase tracking-wide">
+            <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wider">
               Pragas / Vetores
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -548,7 +548,7 @@ export default function RelatorioMensal() {
 
             {/* Quantidade total */}
             <div className="mb-2">
-              <label className="block text-[10px] font-bold text-gray-500 mb-1">Quantidade total instalada</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Quantidade total instalada</label>
               <input
                 type="number"
                 min="0"
@@ -594,7 +594,7 @@ export default function RelatorioMensal() {
 
         {/* Observações */}
         <div>
-          <label className="block text-[11px] font-bold text-gray-600 mb-1">Observações</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1">Observações</label>
           <textarea rows={2} value={bloco.observacao} onChange={e => atualizarBloco(bloco.id, { observacao: e.target.value })}
             placeholder="Locais aplicados, comportamento de pragas, recomendações..."
             className="w-full p-2 border rounded text-xs outline-none resize-y" />
@@ -882,14 +882,13 @@ export default function RelatorioMensal() {
     <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
 
       {/* PAINEL EDITOR */}
-      <div className="bg-[#f4f6f9] p-6 md:p-8 rounded-2xl shadow-sm w-full max-w-[210mm] border border-gray-300/60 print:hidden mb-8">
-        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-300/80 cursor-pointer"
-          onClick={() => setShowEditor(v => !v)}>
-          <h3 className="font-extrabold text-xl text-[#3b4b73] flex items-center gap-3">
-            <ClipboardList size={22} /> Editar Relatório Mensal
+      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-4xl border border-blue-200 mb-8 no-print">
+        <div className="flex justify-between items-center mb-6 border-b pb-2">
+          <h3 className="font-bold text-lg text-blue-900 flex items-center gap-2">
+            <ClipboardList size={20} /> Editar Informações do Documento
           </h3>
-          <button className="text-gray-500 hover:text-[#3b4b73] transition-colors" aria-label={showEditor ? 'Recolher' : 'Expandir'}>
-            {showEditor ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+          <button onClick={() => setShowEditor(v => !v)} className="text-gray-500 hover:text-blue-700" aria-label={showEditor ? 'Recolher' : 'Expandir'}>
+            {showEditor ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </button>
         </div>
 
@@ -898,20 +897,20 @@ export default function RelatorioMensal() {
             {/* Dados gerais */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Nº Relatório</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Nº Relatório</label>
                 <input type="text" value={numeroDoc} onChange={e => setNumeroDoc(e.target.value)}
-                  className="w-full p-2.5 text-center bg-white border border-gray-200 rounded-md text-sm font-semibold text-blue-700 outline-none shadow-sm" />
+                  className="w-full p-2 border rounded text-sm font-semibold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Data do Relatório</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Data do Relatório</label>
                 <input type="date" value={data} onChange={e => setData(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 outline-none shadow-sm" />
+                  className="w-full p-2 border rounded text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
             </div>
 
             {/* Cliente */}
             <div className="space-y-3">
-              <h4 className="font-bold text-[11px] text-gray-500 uppercase tracking-widest border-b border-gray-200 pb-2">Cliente</h4>
+              <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider border-b pb-1 mb-3">Cliente</h4>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setPickerOpen(true)}
                   className="flex-1 flex items-center gap-2 p-2 border border-slate-300 rounded text-sm bg-white hover:bg-slate-50 text-slate-700">
@@ -936,7 +935,7 @@ export default function RelatorioMensal() {
             {/* Blocos */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-[11px] text-gray-500 uppercase tracking-widest">Blocos de Serviço ({blocos.length})</h4>
+                <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider">Blocos de Serviço ({blocos.length})</h4>
                 <div className="relative">
                   <button type="button" onClick={() => setTipoMenuAberto(v => !v)}
                     className="flex items-center gap-2 bg-[#3b528b] text-white px-4 py-2 rounded-lg hover:bg-[#2c3d69] font-bold text-xs shadow-md">
