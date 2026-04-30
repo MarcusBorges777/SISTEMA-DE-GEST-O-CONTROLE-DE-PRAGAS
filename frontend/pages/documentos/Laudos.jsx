@@ -1002,8 +1002,8 @@ export default function Laudos() {
 
   const renderClientSection = (className = "") => (
     <section className={`bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm ${className}`}>
-      <h3 className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
-        <Shield size={12} /> Cliente / Contratante
+      <h3 className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
+        <Shield size={12} className="shrink-0" /> Cliente / Contratante
       </h3>
       <div className="text-[10px] space-y-1 text-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1158,8 +1158,8 @@ export default function Laudos() {
 
           <section className="mb-4">
             <div className="flex justify-between items-end mb-2 border-b-2 border-blue-600 pb-1">
-              <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px]">
-                <Bug size={14} /> Detalhamento do Controle de Vetores e Pragas
+              <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px]">
+                <Bug size={14} className="shrink-0" /> Detalhamento do Controle de Vetores e Pragas
               </div>
               <div className="flex gap-4 text-[9px] font-bold text-gray-700 pb-0.5">
                  <div className="flex items-center gap-1">
@@ -1266,7 +1266,7 @@ export default function Laudos() {
           {formData.observacao && (
             <section className="bg-zinc-50 py-1.5 px-3 rounded-lg border border-zinc-200 mb-2 shadow-sm relative overflow-hidden">
                <div className="absolute top-0 left-0 w-1.5 h-full bg-zinc-400 opacity-50"></div>
-               <div className="flex items-center gap-2 font-black uppercase mb-0.5 border-b border-zinc-200 pb-0.5 text-zinc-600 text-[9px] tracking-tight italic">
+               <div className="flex items-center gap-2 leading-none font-black uppercase mb-0.5 border-b border-zinc-200 pb-0.5 text-zinc-600 text-[9px] tracking-tight italic">
                  <Info size={12} className="shrink-0" /> Observações
                </div>
                <p className="text-[8px] text-zinc-700 leading-[1.1] font-bold italic whitespace-pre-wrap">
@@ -1278,7 +1278,7 @@ export default function Laudos() {
           {/* SEÇÃO RECOMENDAÇÕES (AGORA VEM ANTES DA GARANTIA) */}
           <section className="bg-[#fff5f5] py-2 px-4 rounded-lg border border-[#fee2e2] mb-3 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-[#a02c2c] opacity-10"></div>
-            <div className="flex items-center gap-2 font-black uppercase mb-1 border-b border-red-100 pb-1 text-[#a02c2c] text-[10px] tracking-tight italic">
+            <div className="flex items-center gap-2 leading-none font-black uppercase mb-1 border-b border-red-100 pb-1 text-[#a02c2c] text-[10px] tracking-tight italic">
               <Info size={14} className="shrink-0" /> RECOMENDAÇÕES E SEGURANÇA (ANVISA)
             </div>
             <div className="text-[9px] text-[#6d2020] leading-[1.1] italic font-bold space-y-1">
@@ -1326,8 +1326,8 @@ export default function Laudos() {
           </div>
 
           <section className="mb-4 bg-blue-50/30 p-4 rounded-lg border border-blue-100 shadow-sm">
-            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 flex items-center gap-2 italic border-b border-blue-200 pb-1">
-              <Droplets size={12} /> Especificações do Serviço
+            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 flex items-center leading-none gap-2 italic border-b border-blue-200 pb-1">
+              <Droplets size={12} className="shrink-0" /> Especificações do Serviço
             </p>
             
             <div className="text-[9px] text-zinc-700 leading-tight"> 
@@ -1363,8 +1363,8 @@ export default function Laudos() {
           </section>
 
           <section className="mb-4 overflow-hidden">
-            <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
-              <ClipboardCheck size={14} /> Protocolo Técnico Operacional Realizado
+            <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
+              <ClipboardCheck size={14} className="shrink-0" /> Protocolo Técnico Operacional Realizado
             </div>
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-0">
@@ -1417,8 +1417,8 @@ export default function Laudos() {
           </div>
 
           <section className="mb-4 bg-blue-50/30 p-4 rounded-lg border border-blue-100 shadow-sm">
-            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 flex items-center gap-2 italic border-b border-blue-200 pb-1">
-              <Archive size={12} /> Especificações do Serviço
+            <p className="font-bold text-[#254191] uppercase text-[9px] mb-2 flex items-center leading-none gap-2 italic border-b border-blue-200 pb-1">
+              <Archive size={12} className="shrink-0" /> Especificações do Serviço
             </p>
             
             <div className="text-[9px] text-zinc-700 leading-tight"> 
@@ -1462,8 +1462,8 @@ export default function Laudos() {
           </section>
 
           <section className="mb-4 overflow-hidden">
-            <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
-              <ClipboardCheck size={14} /> Protocolo Técnico Operacional Realizado
+            <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px] mb-2 border-b border-blue-200 pb-1 italic">
+              <ClipboardCheck size={14} className="shrink-0" /> Protocolo Técnico Operacional Realizado
             </div>
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-0">
