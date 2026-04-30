@@ -582,9 +582,31 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
   const [expandido, setExpandido] = useState(false);
   const [emitirOpen, setEmitirOpen] = useState(false);
 
-  const handleEmitirDocumento = (tipo) => {
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+
+  const handleEmitirDocumento = async (tipo) => {
     setEmitirOpen(false);
-    // Armazena dados do cliente para pre-fill na página de documentos
+    setCarregandoHistorico(true);
+
+    const cnpjDigits = (contrato.clienteCnpj || '').replace(/\D/g, '');
+    let historico = null;
+
+    // Buscar histórico do último documento desse tipo para o cliente
+    if (cnpjDigits) {
+      try {
+        const resp = await fetch(
+          `/api/documentos/historico-cliente?cnpj=${cnpjDigits}&tipo=${tipo.id}`,
+          { credentials: 'same-origin' }
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.encontrado) historico = data.metadados;
+        }
+      } catch {}
+    }
+
+    setCarregandoHistorico(false);
+
     try {
       sessionStorage.setItem('__prefill_cliente', JSON.stringify({
         nome:      contrato.clienteNome     || '',
@@ -592,8 +614,10 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
         cnpj:      contrato.clienteCnpj    || '',
         endereco:  contrato.clienteEndereco || '',
         atividade: '',
+        historico, // metadados do último doc deste tipo para este cliente
       }));
     } catch {}
+
     navigate('/documentos', { state: { tab: tipo.tab } });
   };
 
@@ -805,11 +829,14 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
         {/* Botão Emitir Documento */}
         <div className="relative">
           <button
-            onClick={() => setEmitirOpen(v => !v)}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm shadow-blue-500/20"
+            onClick={() => !carregandoHistorico && setEmitirOpen(v => !v)}
+            disabled={carregandoHistorico}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm shadow-blue-500/20 disabled:opacity-70"
           >
-            <FileText size={13} /> Emitir Documento
-            {emitirOpen ? <ChevronUp size={12} className="ml-auto" /> : <ChevronDown size={12} className="ml-auto" />}
+            {carregandoHistorico
+              ? <><Loader2 size={13} className="animate-spin" /> Carregando histórico…</>
+              : <><FileText size={13} /> Emitir Documento {emitirOpen ? <ChevronUp size={12} className="ml-auto" /> : <ChevronDown size={12} className="ml-auto" />}</>
+            }
           </button>
           {emitirOpen && (
             <>

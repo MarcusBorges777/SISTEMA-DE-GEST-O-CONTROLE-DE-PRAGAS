@@ -77,7 +77,7 @@ export default function Recibos() {
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { getClientes().then(setClientesSalvos).catch(() => {}); }, []);
 
-  // Pre-fill de cliente vindo de Contratos ("Emitir Documento")
+  // Pre-fill de cliente + histórico vindo de Contratos ("Emitir Documento")
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('__prefill_cliente');
@@ -86,6 +86,11 @@ export default function Recibos() {
       const c = JSON.parse(raw);
       setClientData(prev => ({ ...prev, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '' }));
       if (c.cnpj) setCnpjExternal(c.cnpj);
+      // Importar itens do último recibo deste cliente
+      if (c.historico?.items && Array.isArray(c.historico.items) && c.historico.items.length > 0) {
+        setItems(c.historico.items.map(i => ({ ...i, id: Date.now() + Math.random() })));
+      }
+      if (c.historico?.garantiaMeses) setGarantiaMeses(String(c.historico.garantiaMeses));
     } catch {}
   }, []);
 

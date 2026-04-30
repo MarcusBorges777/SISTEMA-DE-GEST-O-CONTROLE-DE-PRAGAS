@@ -272,15 +272,41 @@ export default function RelatorioMensal() {
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : null).then(d => { if (d?.logo) setLogo(d.logo); }).catch(() => {});
   }, []);
-  // Pre-fill de cliente vindo de Contratos ("Emitir Documento")
+  // Pre-fill de cliente + histórico vindo de Contratos ("Emitir Documento")
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('__prefill_cliente');
       if (!raw) return;
       sessionStorage.removeItem('__prefill_cliente');
       const c = JSON.parse(raw);
-      setClientData(prev => ({ ...prev, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '' }));
+
+      // Preencher dados do cliente
+      setClientData(prev => ({
+        ...prev,
+        nome:      c.nome      || '',
+        fantasia:  c.fantasia  || '',
+        cnpj:      c.cnpj      || '',
+        endereco:  c.endereco  || '',
+        atividade: c.atividade || '',
+      }));
       if (c.cnpj) setCnpjExternal(c.cnpj);
+
+      // Importar blocos do último relatório mensal deste cliente
+      if (c.historico?.blocos && Array.isArray(c.historico.blocos) && c.historico.blocos.length > 0) {
+        const dataHoje = new Date().toISOString().slice(0, 10);
+        const blocosImportados = c.historico.blocos.map(b => ({
+          ...b,
+          // Novo ID para não colidir com estado anterior
+          id: 'bloco_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          // Resetar campos de data/agendamento para o novo período
+          dataExecucao: dataHoje,
+          datas:        '',
+          proximaVisita: '',
+          // Manter: tipo, produtos, portaIscas, qtdPortaIscas, observacao,
+          //         selectedPests, controlType, periodicidade, locais
+        }));
+        setBlocos(blocosImportados);
+      }
     } catch {}
   }, []);
 

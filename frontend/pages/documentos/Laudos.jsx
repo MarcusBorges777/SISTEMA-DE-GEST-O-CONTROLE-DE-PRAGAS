@@ -149,25 +149,37 @@ export default function Laudos() {
   }, [location.state]);
 
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
-  // Pre-fill de cliente vindo de Contratos ("Emitir Documento")
+  // Pre-fill de cliente + histórico vindo de Contratos ("Emitir Documento")
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('__prefill_cliente');
       if (!raw) return;
       sessionStorage.removeItem('__prefill_cliente');
       const c = JSON.parse(raw);
+
+      // Dados do histórico (último laudo deste cliente)
+      const hist = c.historico?.formData || null;
+
       setFormData(prev => ({
         ...prev,
         cliente: {
           ...prev.cliente,
-          nome:              c.nome     || '',
-          fantasia:          c.fantasia || '',
-          cnpj:              c.cnpj     || '',
-          endereco:          c.endereco || '',
+          nome:               c.nome      || '',
+          fantasia:           c.fantasia  || '',
+          cnpj:               c.cnpj      || '',
+          endereco:           c.endereco  || '',
           atividadeEconomica: c.atividade || '',
         },
+        // Importar pragas e observação do último laudo
+        selectedPests: hist?.selectedPests || prev.selectedPests,
+        observacao:    hist?.observacao    || prev.observacao,
       }));
       if (c.cnpj) setCnpjExternal(c.cnpj);
+
+      // Importar linhas de produto do último laudo
+      if (c.historico?.productRows && Array.isArray(c.historico.productRows)) {
+        setProductRows(c.historico.productRows);
+      }
     } catch {}
   }, []);
 

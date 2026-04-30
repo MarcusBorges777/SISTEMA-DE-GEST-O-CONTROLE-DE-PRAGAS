@@ -3264,6 +3264,75 @@ def salvar_pdf():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/documentos/historico-cliente')
+def historico_cliente():
+    """
+    Retorna os metadados do documento mais recente de um dado tipo para um cliente (por CNPJ).
+    Usado por Contratos para pré-preencher novos documentos com dados históricos.
+    Query params:
+      cnpj  — CNPJ do cliente (apenas dígitos)
+      tipo  — relatorio_mensal | relatorio_branco | laudo | recibo | orcamento
+    """
+    try:
+        cnpj_raw  = request.args.get('cnpj', '').strip()
+        tipo      = request.args.get('tipo', '').strip().lower()
+        cnpj_digits = ''.join(c for c in cnpj_raw if c.isdigit())
+
+        mapa_pasta = {
+            'relatorio_mensal': 'Relatorios',
+            'relatorio_branco': 'Relatorios',
+            'laudo':     'Laudos',
+            'recibo':    'Recibos',
+            'orcamento': 'Orcamentos',
+        }
+        subpasta = mapa_pasta.get(tipo, 'Relatorios')
+
+        # Determinar pasta base
+        config_duplos = BASE_DIR / 'config_diretorios_duplos.json'
+        pasta_base = None
+        if config_duplos.exists():
+            with open(config_duplos, 'r', encoding='utf-8') as _f:
+                _cfg = json.load(_f)
+            _pp = _cfg.get('principal', '').strip()
+            if _pp and Path(_pp).exists():
+                pasta_base = Path(_pp) / subpasta
+        if not pasta_base or not pasta_base.exists():
+            pasta_base = OUTPUT_DIR / subpasta
+
+        if not pasta_base or not pasta_base.exists():
+            return jsonify({'encontrado': False})
+
+        candidatos = []
+        for json_file in pasta_base.glob('*.json'):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as _jf:
+                    meta = json.load(_jf)
+
+                # Verificar tipo
+                if meta.get('__tipo') != tipo:
+                    continue
+
+                # Verificar CNPJ do cliente
+                if cnpj_digits:
+                    client_data = meta.get('clientData') or meta.get('formData', {}).get('cliente', {})
+                    cnpj_doc = ''.join(c for c in (client_data.get('cnpj') or '') if c.isdigit())
+                    if cnpj_doc != cnpj_digits:
+                        continue
+
+                candidatos.append({'meta': meta, 'mtime': json_file.stat().st_mtime})
+            except Exception:
+                continue
+
+        if not candidatos:
+            return jsonify({'encontrado': False})
+
+        candidatos.sort(key=lambda x: x['mtime'], reverse=True)
+        return jsonify({'encontrado': True, 'metadados': candidatos[0]['meta']})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'encontrado': False, 'erro': str(e)}), 500
+
+
 @app.route('/api/arquivo/esvaziar-lixeira', methods=['POST'])
 def api_esvaziar_lixeira():
     """Remove permanentemente todos os arquivos da Lixeira"""
