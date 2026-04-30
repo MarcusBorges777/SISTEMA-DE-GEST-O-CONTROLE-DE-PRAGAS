@@ -138,16 +138,13 @@ export default function RelatorioBranco() {
     <div id="a4-document" className="bg-zinc-200 py-10 print:py-0 print:bg-white flex flex-col print:block items-center gap-4 print:gap-0">
 
       {/* PAINEL EDITOR */}
-      <div className="bg-[#f4f6f9] p-6 md:p-8 rounded-2xl shadow-sm w-full max-w-[210mm] border border-gray-300/60 print:hidden relative mb-8">
-        <div
-          className="flex justify-between items-center mb-6 pb-4 border-b border-gray-300/80 cursor-pointer"
-          onClick={() => setShowEditor(v => !v)}
-        >
-          <h3 className="font-extrabold text-xl text-[#3b4b73] flex items-center gap-3">
-            <Edit3 size={22} /> Editar Relatório (Página em Branco)
+      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-4xl border border-blue-200 mb-8 no-print">
+        <div className="flex justify-between items-center mb-6 border-b pb-2">
+          <h3 className="font-bold text-lg text-blue-900 flex items-center gap-2">
+            <Edit3 size={20} /> Editar Informações do Documento
           </h3>
-          <button className="text-gray-500 hover:text-[#3b4b73] transition-colors" aria-label={showEditor ? 'Recolher editor' : 'Expandir editor'}>
-            {showEditor ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+          <button onClick={() => setShowEditor(v => !v)} className="text-gray-500 hover:text-blue-700" aria-label={showEditor ? 'Recolher editor' : 'Expandir editor'}>
+            {showEditor ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </button>
         </div>
 
@@ -155,19 +152,19 @@ export default function RelatorioBranco() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Nº do Relatório</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Nº do Relatório</label>
                 <input type="text" value={numeroDoc} onChange={e => setNumeroDoc(e.target.value)}
-                  className="w-full p-2.5 text-center bg-white border border-gray-200 rounded-md text-sm font-semibold text-blue-700 outline-none shadow-sm" />
+                  className="w-full p-2 border rounded text-sm font-semibold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Data</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Data</label>
                 <input type="date" value={data} onChange={e => setData(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 outline-none shadow-sm" />
+                  className="w-full p-2 border rounded text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Título</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Título</label>
                 <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 outline-none shadow-sm" />
+                  className="w-full p-2 border rounded text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
             </div>
 
@@ -212,13 +209,13 @@ export default function RelatorioBranco() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#3b4b73] mb-1.5">Conteúdo do Relatório</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Conteúdo do Relatório</label>
               <textarea
                 value={conteudoLivre}
                 onChange={e => setConteudoLivre(e.target.value)}
                 rows={14}
                 placeholder="Digite livremente o conteúdo deste relatório..."
-                className="w-full p-3 bg-white border border-gray-200 rounded-md text-sm text-gray-800 outline-none shadow-sm resize-y leading-relaxed"
+                className="w-full p-2 border rounded text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none resize-y leading-relaxed"
               />
             </div>
           </div>
