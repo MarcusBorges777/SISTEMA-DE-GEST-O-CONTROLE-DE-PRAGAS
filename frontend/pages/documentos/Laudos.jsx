@@ -1161,19 +1161,13 @@ export default function Laudos() {
               <div className="text-[#254191] font-bold uppercase text-[10px]">
                 Detalhamento do Controle de Vetores e Pragas
               </div>
-              <div className="flex gap-4 text-[9px] font-bold text-gray-700 pb-0.5">
-                 <div className="flex items-center gap-1">
-                   <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${getControlTypes().quimico ? 'bg-blue-800' : 'bg-white'}`}>
-                      {getControlTypes().quimico && <CheckCircle2 size={10} className="text-white" />}
-                   </div>
-                   <span className="uppercase">Controle Químico</span>
-                 </div>
-                 <div className="flex items-center gap-1">
-                   <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${getControlTypes().naoQuimico ? 'bg-blue-800' : 'bg-white'}`}>
-                      {getControlTypes().naoQuimico && <CheckCircle2 size={10} className="text-white" />}
-                   </div>
-                   <span className="uppercase">Controle Não Químico</span>
-                 </div>
+              <div className="flex gap-2 pb-0.5">
+                 <span className={`text-[8px] font-black uppercase tracking-tight px-2 py-0.5 rounded ${getControlTypes().quimico ? 'bg-[#254191] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                   Controle Químico
+                 </span>
+                 <span className={`text-[8px] font-black uppercase tracking-tight px-2 py-0.5 rounded ${getControlTypes().naoQuimico ? 'bg-[#254191] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                   Controle Não Químico
+                 </span>
               </div>
             </div>
             
