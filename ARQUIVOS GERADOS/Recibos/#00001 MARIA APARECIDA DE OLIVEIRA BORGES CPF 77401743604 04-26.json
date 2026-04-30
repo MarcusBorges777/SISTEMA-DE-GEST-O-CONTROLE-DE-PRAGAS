@@ -1,0 +1,24 @@
+{
+  "__tipo": "recibo",
+  "clientData": {
+    "nome": "MARIA APARECIDA DE OLIVEIRA BORGES CPF 77401743604",
+    "fantasia": "DEDETIZADORA BORGES",
+    "cnpj": "10.409.228/0001-93",
+    "endereco": "- DISTRITO INDUSTRIAL CORONEL JOVELINO RABELO - DIVINOPOLIS /MG CEP 35502289",
+    "atividade": "8122200 - Imunização e controle de pragas urbanas"
+  },
+  "items": [
+    {
+      "id": 1,
+      "service": "DEDETIZAÇÃO",
+      "description": "Aplicação de gel e pulverização líquida",
+      "quantity": "1",
+      "value": "200"
+    }
+  ],
+  "reciboNumero": "00001",
+  "dataExecucao": "2026-04-24",
+  "garantiaMeses": "3",
+  "proximaManutencao": "",
+  "paymentMethod": "Dinheiro, Pix, Cartão de crédito (contém juros)"
+}

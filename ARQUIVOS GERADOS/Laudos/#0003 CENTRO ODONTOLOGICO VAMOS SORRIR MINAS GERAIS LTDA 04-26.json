@@ -1,0 +1,33 @@
+{
+  "__tipo": "laudo",
+  "formData": {
+    "laudoNumero": "0003",
+    "dataExecucao": "2026-04-30",
+    "garantiaMeses": 3,
+    "selectedPests": [
+      "baratas",
+      "formigas"
+    ],
+    "observacao": "",
+    "reservatorios": [],
+    "caixasGordura": [],
+    "responsaveis": "PAULO BORGES DE CASTRO e MARIA APARECIDA DE OLIVEIRA BORGES",
+    "alvara": "Nº 164/2025 (Venc: 03/07/2028)",
+    "cliente": {
+      "nome": "CENTRO ODONTOLOGICO VAMOS SORRIR MINAS GERAIS LTDA",
+      "fantasia": "VAMOS SORRIR",
+      "cnpj": "28796272000169",
+      "endereco": "PRIMEIRO DE JUNHO Nº 537 - CENTRO - DIVINOPOLIS /MG CEP 35500003",
+      "atividadeEconomica": ""
+    }
+  },
+  "productRows": [
+    "cyperex",
+    "formim"
+  ],
+  "showPestControl": true,
+  "showWaterTank": true,
+  "showGreaseTrap": false,
+  "contratoId": null,
+  "pastaContrato": null
+}

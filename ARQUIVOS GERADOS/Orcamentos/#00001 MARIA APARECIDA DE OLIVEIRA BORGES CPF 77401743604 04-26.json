@@ -1,0 +1,23 @@
+{
+  "__tipo": "orcamento",
+  "clientData": {
+    "nome": "MARIA APARECIDA DE OLIVEIRA BORGES CPF 77401743604",
+    "fantasia": "DEDETIZADORA BORGES",
+    "cnpj": "10409228000193",
+    "endereco": "- DISTRITO INDUSTRIAL CORONEL JOVELINO RABELO - DIVINOPOLIS /MG CEP 35502289",
+    "atividade": "8122200 - Imunização e controle de pragas urbanas"
+  },
+  "items": [
+    {
+      "id": 1,
+      "service": "DEDETIZAÇÃO",
+      "description": "Aplicação de gel e pulverização líquida",
+      "quantity": "1",
+      "value": "1000"
+    }
+  ],
+  "orcamentoNumero": "00001",
+  "dataOrcamento": "2026-04-29",
+  "paymentMethod": "Dinheiro, Pix, Cartão de crédito (contém juros)",
+  "terms": "Este orçamento é válido por 15 dias."
+}

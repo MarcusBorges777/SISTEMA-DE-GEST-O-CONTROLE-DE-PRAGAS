@@ -1,0 +1,380 @@
+{
+  "__tipo": "relatorio_mensal",
+  "clientData": {
+    "nome": "MARIA APARECIDA DE OLIVEIRA BORGES CPF 77401743604",
+    "fantasia": "DEDETIZADORA BORGES",
+    "cnpj": "10409228000193",
+    "endereco": "- DISTRITO INDUSTRIAL CORONEL JOVELINO RABELO - DIVINOPOLIS /MG CEP 35502289",
+    "atividade": "8122200 - Imunização e controle de pragas urbanas"
+  },
+  "numeroDoc": "0002",
+  "data": "2026-04-30",
+  "blocos": [
+    {
+      "id": "desratizacao_quimica-1777515533198-lys52",
+      "tipo": "desratizacao_quimica",
+      "dataExecucao": "2026-04-30",
+      "produtos": [
+        {
+          "antidoto": "Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001",
+          "concentracao": "1 Bloco por ponto",
+          "data_criacao": "2026-04-13 23:05:20",
+          "diluente": "-",
+          "equipamento": "_",
+          "grupo": "Cumarianas",
+          "id": "maki",
+          "nome": "Maki Bloco",
+          "principio": "Bromadiolone",
+          "registro": "3.2233.0073",
+          "targets": [
+            "ratos"
+          ]
+        },
+        {
+          "antidoto": "Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001",
+          "concentracao": "50 grs por ponto",
+          "data_criacao": "2026-04-13 23:05:20",
+          "diluente": "_",
+          "equipamento": "_",
+          "grupo": "Hidroxicumarina",
+          "id": "ratol",
+          "nome": "Ratol Gs girassol",
+          "principio": "Brodifacoum",
+          "registro": "3.2398.0019.001-1",
+          "targets": [
+            "ratos"
+          ]
+        },
+        {
+          "antidoto": "Antídoto e tratamento: Vitamina K1 e tratamento sintomático. CEATOX: 0800 772 6001",
+          "concentracao": "1 Bloco por ponto",
+          "data_criacao": "2026-04-13 23:05:20",
+          "diluente": "-",
+          "equipamento": "-",
+          "grupo": "Cumarínico",
+          "id": "triflurat",
+          "nome": "Triflurat GS",
+          "principio": "Flocoumafen",
+          "registro": "3.0425.0158.001-1",
+          "targets": [
+            "ratos"
+          ]
+        }
+      ],
+      "observacao": "",
+      "portaIscas": [
+        {
+          "id": "pi-1777515628140-uuu",
+          "numero": "1",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628140-evm",
+          "numero": "2",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628140-07s",
+          "numero": "3",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628140-6td",
+          "numero": "4",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628140-ve4",
+          "numero": "5",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-nqs",
+          "numero": "6",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-mi4",
+          "numero": "7",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-ap2",
+          "numero": "8",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-vfu",
+          "numero": "9",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-9pv",
+          "numero": "10",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-ycy",
+          "numero": "11",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-1sz",
+          "numero": "12",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-s74",
+          "numero": "13",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-haa",
+          "numero": "14",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-elr",
+          "numero": "15",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-o1l",
+          "numero": "16",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-zpy",
+          "numero": "17",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-71b",
+          "numero": "18",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-vrd",
+          "numero": "19",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-vsj",
+          "numero": "20",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-x64",
+          "numero": "21",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-fdh",
+          "numero": "22",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-q6a",
+          "numero": "23",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-8zv",
+          "numero": "24",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-wp6",
+          "numero": "25",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-yaj",
+          "numero": "26",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-8rg",
+          "numero": "27",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-602",
+          "numero": "28",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-i8e",
+          "numero": "29",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-124",
+          "numero": "30",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-if5",
+          "numero": "31",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-arg",
+          "numero": "32",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-cdi",
+          "numero": "33",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-u50",
+          "numero": "34",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-ucc",
+          "numero": "35",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-sot",
+          "numero": "36",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-855",
+          "numero": "37",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-ptw",
+          "numero": "38",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-4eq",
+          "numero": "39",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-2ih",
+          "numero": "40",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-a0k",
+          "numero": "41",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-8u7",
+          "numero": "42",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-nr6",
+          "numero": "43",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-g3r",
+          "numero": "44",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-kgk",
+          "numero": "45",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-8nn",
+          "numero": "46",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-973",
+          "numero": "47",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-csq",
+          "numero": "48",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-tc9",
+          "numero": "49",
+          "status": "nao_consumido"
+        },
+        {
+          "id": "pi-1777515628422-z3e",
+          "numero": "50",
+          "status": "nao_consumido"
+        }
+      ],
+      "qtdPortaIscas": "50",
+      "periodicidade": "MENSAL",
+      "locais": "GALPÃO",
+      "datas": "05/03 , 10/03 , 20/03",
+      "proximaVisita": "05/03",
+      "selectedPests": [],
+      "controlType": "quimico"
+    },
+    {
+      "id": "desinsetizacao-1777515681732-ult2z",
+      "tipo": "desinsetizacao",
+      "dataExecucao": "2026-04-30",
+      "produtos": [],
+      "observacao": "",
+      "portaIscas": [],
+      "qtdPortaIscas": "",
+      "periodicidade": "MENSAL",
+      "locais": "GALPÃO",
+      "datas": "05/03 222222222222",
+      "proximaVisita": "222222222222222",
+      "selectedPests": [
+        "baratas",
+        "formigas",
+        "escorpioes"
+      ],
+      "controlType": "quimico"
+    },
+    {
+      "id": "armadilha_luminosa-1777515685095-32k9t",
+      "tipo": "armadilha_luminosa",
+      "dataExecucao": "2026-04-30",
+      "produtos": [],
+      "observacao": "Para o controle de insetos voadores, especialmente moscas (Diptera), foram instaladas armadilhas luminosas equipadas com lâmpadas UV e placas adesivas internas em pontos estratégicos, como áreas de manipulação de alimentos, armazenamento e salão de atendimento ao público.",
+      "portaIscas": [],
+      "qtdPortaIscas": "",
+      "periodicidade": "MENSAL",
+      "locais": "AAAAAAAAAAAAA",
+      "datas": "555555555555555555",
+      "proximaVisita": "55555555555",
+      "selectedPests": [
+        "moscas",
+        "mosquitos"
+      ],
+      "controlType": "nao_quimico"
+    },
+    {
+      "id": "feromonio-1777515687127-c80br",
+      "tipo": "feromonio",
+      "dataExecucao": "2026-04-30",
+      "produtos": [],
+      "observacao": "Para o controle de insetos voadores, especialmente moscas (Diptera), foram instaladas armadilhas atrativas com feromônio em pontos estratégicos na área externa.",
+      "portaIscas": [],
+      "qtdPortaIscas": "",
+      "periodicidade": "MENSAL",
+      "locais": "GALPÃO",
+      "datas": "222222222222222",
+      "proximaVisita": "555555555555",
+      "selectedPests": [
+        "moscas"
+      ],
+      "controlType": "nao_quimico"
+    }
+  ]
+}
