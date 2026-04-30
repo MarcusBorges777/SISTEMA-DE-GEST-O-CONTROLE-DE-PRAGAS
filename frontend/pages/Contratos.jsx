@@ -88,13 +88,24 @@ function calcularProximaVisita(contrato) {
 // ─── Tipos de serviço por contrato ──────────────────────────────────────────
 
 export const TIPOS_SERVICO_CONTRATO = [
-  { id: 'dedetizacao',    label: 'Dedetização'                  },
-  { id: 'caixa_agua',     label: "Higienização de Caixa d'Água"  },
-  { id: 'descupinizacao', label: 'Descupinização'                },
-  { id: 'desratizacao',   label: 'Desratização'                  },
-  { id: 'escorpioes',     label: 'Controle de Escorpiões'        },
-  { id: 'pombos',         label: 'Controle de Pombos'            },
-  { id: 'outro',          label: 'Outro'                         },
+  { id: 'dedetizacao',      label: 'Dedetização'                  },
+  { id: 'caixa_agua',       label: "Higienização de Caixa d'Água"  },
+  { id: 'descupinizacao',   label: 'Descupinização'                },
+  { id: 'desratizacao',     label: 'Desratização'                  },
+  { id: 'escorpioes',       label: 'Controle de Escorpiões'        },
+  { id: 'pombos',           label: 'Controle de Pombos'            },
+  { id: 'relatorio_mensal', label: 'Relatório Mensal'              },
+  { id: 'relatorio_branco', label: 'Relatório Livre'               },
+  { id: 'outro',            label: 'Outro'                         },
+];
+
+// Tipos de documento emitível e a aba correspondente em /documentos
+const TIPOS_DOCUMENTO_EMITIR = [
+  { id: 'laudo',            label: 'Laudo Técnico',   tab: 'laudo',            icon: FileText    },
+  { id: 'orcamento',        label: 'Orçamento',       tab: 'orcamento',        icon: DollarSign  },
+  { id: 'recibo',           label: 'Recibo',          tab: 'recibo',           icon: Receipt     },
+  { id: 'relatorio_mensal', label: 'Relatório Mensal',tab: 'relatorio_mensal', icon: ClipboardList },
+  { id: 'relatorio_branco', label: 'Relatório Livre', tab: 'relatorio_branco', icon: BarChart2   },
 ];
 
 const SERVICO_DEFAULT = { id: 'dedetizacao', label: 'Dedetização', frequenciaMeses: 1, ativo: true };
@@ -566,8 +577,25 @@ const STATUS_COLOR = {
 // ─── Card de contrato ────────────────────────────────────────────────────────
 
 function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
+  const navigate = useNavigate();
   const proxima = calcularProximaVisita(contrato);
   const [expandido, setExpandido] = useState(false);
+  const [emitirOpen, setEmitirOpen] = useState(false);
+
+  const handleEmitirDocumento = (tipo) => {
+    setEmitirOpen(false);
+    // Armazena dados do cliente para pre-fill na página de documentos
+    try {
+      sessionStorage.setItem('__prefill_cliente', JSON.stringify({
+        nome:      contrato.clienteNome     || '',
+        fantasia:  contrato.clienteFantasia || '',
+        cnpj:      contrato.clienteCnpj    || '',
+        endereco:  contrato.clienteEndereco || '',
+        atividade: '',
+      }));
+    } catch {}
+    navigate('/documentos', { state: { tab: tipo.tab } });
+  };
 
   // Filtra eventos da agenda vinculados a este contrato ou ao CNPJ do cliente
   const cnpjLimpo = (contrato.clienteCnpj || '').replace(/\D/g, '');
@@ -773,7 +801,42 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
       )}
 
       {/* Rodapé */}
-      <div className="px-4 pb-4 mt-auto">
+      <div className="px-4 pb-4 mt-auto space-y-2">
+        {/* Botão Emitir Documento */}
+        <div className="relative">
+          <button
+            onClick={() => setEmitirOpen(v => !v)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm shadow-blue-500/20"
+          >
+            <FileText size={13} /> Emitir Documento
+            {emitirOpen ? <ChevronUp size={12} className="ml-auto" /> : <ChevronDown size={12} className="ml-auto" />}
+          </button>
+          {emitirOpen && (
+            <>
+              {/* Overlay para fechar ao clicar fora */}
+              <div className="fixed inset-0 z-40" onClick={() => setEmitirOpen(false)} />
+              <div className="absolute bottom-full mb-1 left-0 right-0 z-50 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <p className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                  Emitir para {contrato.clienteFantasia || contrato.clienteNome}
+                </p>
+                {TIPOS_DOCUMENTO_EMITIR.map(tipo => {
+                  const Icon = tipo.icon;
+                  return (
+                    <button
+                      key={tipo.id}
+                      onClick={() => handleEmitirDocumento(tipo)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 transition border-t border-slate-100 dark:border-slate-700 first:border-0"
+                    >
+                      <Icon size={14} className="text-blue-500 shrink-0" />
+                      {tipo.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
         <button onClick={onAgenda}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
           <Calendar size={12} /> Ver na Agenda
