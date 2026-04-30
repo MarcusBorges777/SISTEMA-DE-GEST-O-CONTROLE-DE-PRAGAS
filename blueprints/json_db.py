@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from blueprints.auth_db import current_user_summary
+from blueprints.auth_db import current_user_summary, require_role
 
 json_db_bp = Blueprint('json_db', __name__, url_prefix='/api/db')
 
@@ -21,6 +21,7 @@ def _attach_audit(data: dict, is_create: bool = True) -> dict:
 # ── Clientes ──────────────────────────────────────────────────────────────
 
 @json_db_bp.get('/clientes')
+@require_role('admin', 'atendimento', 'tecnico')
 def listar_clientes():
     q = request.args.get('q', '').strip()
     clientes = _db().get_clientes(query=q or None)
@@ -28,6 +29,7 @@ def listar_clientes():
 
 
 @json_db_bp.post('/clientes')
+@require_role('admin', 'atendimento')
 def criar_ou_atualizar_cliente():
     data = request.get_json(force=True) or {}
     if not data.get('cnpj') and not data.get('nome'):
@@ -39,6 +41,7 @@ def criar_ou_atualizar_cliente():
 
 
 @json_db_bp.put('/clientes/<cliente_id>')
+@require_role('admin', 'atendimento')
 def atualizar_cliente(cliente_id):
     data = request.get_json(force=True) or {}
     _attach_audit(data, is_create=False)
@@ -49,12 +52,14 @@ def atualizar_cliente(cliente_id):
 
 
 @json_db_bp.delete('/clientes/<cliente_id>')
+@require_role('admin')
 def deletar_cliente(cliente_id):
     _db().delete_cliente(cliente_id)
     return jsonify({'ok': True})
 
 
 @json_db_bp.get('/clientes/<cliente_id>/historico')
+@require_role('admin', 'atendimento', 'tecnico')
 def historico_cliente(cliente_id):
     historico = _db().get_historico_cliente(cliente_id)
     return jsonify(historico)
@@ -63,6 +68,7 @@ def historico_cliente(cliente_id):
 # ── Agenda ────────────────────────────────────────────────────────────────
 
 @json_db_bp.get('/agenda')
+@require_role('admin', 'atendimento', 'tecnico')
 def listar_agenda():
     cliente_id = request.args.get('clienteId')
     items = _db().get_agenda(cliente_id=cliente_id or None)
@@ -70,6 +76,7 @@ def listar_agenda():
 
 
 @json_db_bp.post('/agenda')
+@require_role('admin', 'atendimento')
 def criar_agendamento():
     data = request.get_json(force=True) or {}
     is_create = not data.get('id')
@@ -79,6 +86,7 @@ def criar_agendamento():
 
 
 @json_db_bp.put('/agenda/<ag_id>')
+@require_role('admin', 'atendimento')
 def atualizar_agendamento(ag_id):
     data = request.get_json(force=True) or {}
     _attach_audit(data, is_create=False)
@@ -89,12 +97,14 @@ def atualizar_agendamento(ag_id):
 
 
 @json_db_bp.delete('/agenda/<ag_id>')
+@require_role('admin', 'atendimento')
 def deletar_agendamento(ag_id):
     _db().delete_agendamento(ag_id)
     return jsonify({'ok': True})
 
 
 @json_db_bp.delete('/agenda/serie/<recorrencia_id>')
+@require_role('admin', 'atendimento')
 def deletar_serie(recorrencia_id):
     _db().delete_serie_recorrente(recorrencia_id)
     return jsonify({'ok': True})
@@ -103,6 +113,7 @@ def deletar_serie(recorrencia_id):
 # ── Documentos ────────────────────────────────────────────────────────────
 
 @json_db_bp.get('/documentos')
+@require_role('admin', 'atendimento', 'tecnico')
 def listar_documentos():
     cliente_id = request.args.get('clienteId')
     tipo = request.args.get('tipo')
@@ -111,6 +122,7 @@ def listar_documentos():
 
 
 @json_db_bp.post('/documentos')
+@require_role('admin', 'atendimento')
 def registrar_documento():
     data = request.get_json(force=True) or {}
     if not data.get('tipo'):
@@ -123,11 +135,13 @@ def registrar_documento():
 # ── Configurações ─────────────────────────────────────────────────────────
 
 @json_db_bp.get('/config')
+@require_role('admin', 'atendimento', 'tecnico')
 def get_config():
     return jsonify(_db().get_configuracoes())
 
 
 @json_db_bp.post('/config/proximo-numero')
+@require_role('admin', 'atendimento')
 def proximo_numero():
     data = request.get_json(force=True) or {}
     tipo = data.get('tipo', '')
@@ -140,6 +154,7 @@ def proximo_numero():
 # ── Contatos de Garantia ──────────────────────────────────────────────────
 
 @json_db_bp.post('/contatos-garantia')
+@require_role('admin', 'atendimento', 'tecnico')
 def registrar_contato_garantia():
     data = request.get_json(force=True) or {}
     if not data.get('laudoNumero'):
@@ -152,6 +167,7 @@ def registrar_contato_garantia():
 
 
 @json_db_bp.get('/contatos-garantia')
+@require_role('admin', 'atendimento', 'tecnico')
 def listar_contatos_garantia():
     laudo = request.args.get('laudoNumero')
     items = _db().get_contatos_garantia(laudo_numero=laudo or None)
@@ -159,6 +175,7 @@ def listar_contatos_garantia():
 
 
 @json_db_bp.delete('/contatos-garantia/<contato_id>')
+@require_role('admin')
 def deletar_contato_garantia(contato_id):
     _db().deletar_contato_garantia(contato_id)
     return jsonify({'ok': True})
@@ -167,12 +184,14 @@ def deletar_contato_garantia(contato_id):
 # ── Contratos (clientes recorrentes) ──────────────────────────────────────
 
 @json_db_bp.get('/contratos')
+@require_role('admin', 'atendimento')
 def listar_contratos():
     ativos = request.args.get('ativos') == '1'
     return jsonify(_db().get_contratos(ativos_apenas=ativos))
 
 
 @json_db_bp.get('/contratos/<contrato_id>')
+@require_role('admin', 'atendimento')
 def obter_contrato(contrato_id):
     contrato = _db().get_contrato_by_id(contrato_id)
     if not contrato:
@@ -181,6 +200,7 @@ def obter_contrato(contrato_id):
 
 
 @json_db_bp.post('/contratos')
+@require_role('admin', 'atendimento')
 def criar_contrato():
     data = request.get_json(force=True) or {}
     _attach_audit(data, is_create=True)
@@ -192,6 +212,7 @@ def criar_contrato():
 
 
 @json_db_bp.put('/contratos/<contrato_id>')
+@require_role('admin', 'atendimento')
 def atualizar_contrato(contrato_id):
     data = request.get_json(force=True) or {}
     _attach_audit(data, is_create=False)
@@ -202,6 +223,7 @@ def atualizar_contrato(contrato_id):
 
 
 @json_db_bp.delete('/contratos/<contrato_id>')
+@require_role('admin')
 def deletar_contrato(contrato_id):
     _db().deletar_contrato(contrato_id)
     return jsonify({'ok': True})

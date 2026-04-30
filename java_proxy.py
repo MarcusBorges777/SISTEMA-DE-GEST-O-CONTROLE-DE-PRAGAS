@@ -7,6 +7,7 @@ Redireciona requisições de geração de documentos para o backend Java
 
 import requests
 import logging
+import os
 from flask import jsonify
 from typing import Dict, Any, Optional
 
@@ -29,12 +30,17 @@ class JavaDocumentProxy:
 
         try:
             logger.info(f"Enviando requisição para Java: {url}")
+            headers = {"Content-Type": "application/json"}
+            internal_token = os.environ.get("JAVA_INTERNAL_TOKEN")
+            if internal_token:
+                headers["X-Internal-Token"] = internal_token
+
             response = requests.post(
                 url,
                 json=data,
                 params=params or {},
                 timeout=self.timeout,
-                headers={"Content-Type": "application/json"}
+                headers=headers
             )
             response.raise_for_status()
             return response

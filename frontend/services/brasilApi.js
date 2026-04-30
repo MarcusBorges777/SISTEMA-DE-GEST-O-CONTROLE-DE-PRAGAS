@@ -6,6 +6,7 @@ const BASE_URL = 'https://brasilapi.com.br/api';
 
 // Cache em memoria para evitar chamadas repetidas na mesma sessao
 const memoryCache = {};
+const DEFAULT_TIMEOUT_MS = 8000;
 
 function getCacheKey(endpoint) {
   return `brasilapi_${endpoint}`;
@@ -23,12 +24,39 @@ function setSessionCache(key, data) {
   memoryCache[key] = { data, timestamp: Date.now() };
 }
 
+function combineSignals(signalA, signalB) {
+  if (!signalA) return signalB;
+  if (AbortSignal.any) return AbortSignal.any([signalA, signalB]);
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signalA.addEventListener('abort', abort, { once: true });
+  signalB.addEventListener('abort', abort, { once: true });
+  if (signalA.aborted || signalB.aborted) controller.abort();
+  return controller.signal;
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const signal = combineSignals(options.signal, controller.signal);
+  try {
+    return await fetch(url, { ...options, signal });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('Consulta demorou demais. Preencha manualmente.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Buscar dados de empresa por CNPJ
  * @param {string} cnpj - CNPJ com ou sem formatacao (14 digitos)
  * @returns {Promise<Object>} Dados da empresa
  */
-export async function buscarCNPJ(cnpj) {
+export async function buscarCNPJ(cnpj, options = {}) {
   const cnpjLimpo = cnpj.replace(/[^\d]/g, '');
   if (cnpjLimpo.length !== 14) {
     throw new Error('CNPJ deve conter 14 dígitos');
@@ -38,7 +66,7 @@ export async function buscarCNPJ(cnpj) {
   const cached = getFromSessionCache(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(`${BASE_URL}/cnpj/v1/${cnpjLimpo}`);
+  const response = await fetchWithTimeout(`${BASE_URL}/cnpj/v1/${cnpjLimpo}`, options);
   if (!response.ok) {
     if (response.status === 404 || response.status === 400)
       throw new Error('CNPJ inválido ou não encontrado. Preencha manualmente.');
@@ -126,7 +154,7 @@ export async function buscarCEP(cep) {
   const cached = getFromSessionCache(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(`${BASE_URL}/cep/v2/${cepLimpo}`);
+  const response = await fetchWithTimeout(`${BASE_URL}/cep/v2/${cepLimpo}`);
   if (!response.ok) {
     if (response.status === 404) throw new Error('CEP não encontrado');
     throw new Error(`Erro ao consultar CEP: ${response.status}`);
@@ -156,7 +184,7 @@ export async function buscarDDD(ddd) {
   const cached = getFromSessionCache(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(`${BASE_URL}/ddd/v1/${ddd}`);
+  const response = await fetchWithTimeout(`${BASE_URL}/ddd/v1/${ddd}`);
   if (!response.ok) {
     throw new Error(`Erro ao consultar DDD: ${response.status}`);
   }
@@ -175,7 +203,7 @@ export async function buscarMunicipiosMG() {
   const cached = getFromSessionCache(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(`${BASE_URL}/ibge/municipios/v1/MG?providers=dados-abertos-br,gov`);
+  const response = await fetchWithTimeout(`${BASE_URL}/ibge/municipios/v1/MG?providers=dados-abertos-br,gov`);
   if (!response.ok) {
     throw new Error(`Erro ao consultar municípios: ${response.status}`);
   }
@@ -197,7 +225,7 @@ export async function buscarFeriados(ano = 2026) {
 
   // Tenta buscar da API, com fallback para lista estatica
   try {
-    const response = await fetch(`${BASE_URL}/feriados/v1/${ano}`);
+    const response = await fetchWithTimeout(`${BASE_URL}/feriados/v1/${ano}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     setSessionCache(cacheKey, data);

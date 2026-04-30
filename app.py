@@ -18,6 +18,7 @@ import hashlib
 import traceback
 import shutil
 import secrets
+from urllib.parse import urlparse
 
 # Imports de terceiros
 from dateutil.relativedelta import relativedelta
@@ -166,7 +167,7 @@ RATE_LIMITS = {
 # ==================== SEGURANÇA: PROTEÇÃO GLOBAL DE ROTAS ====================
 # Rotas públicas que NÃO exigem autenticação
 ROTAS_PUBLICAS = {
-    'login', 'logout', 'reset_admin', 'static',
+    'login', 'logout', 'static',
     # Endpoints da nova auth db.json
     'api_login', 'api_logout', 'api_me',
 }
@@ -193,6 +194,16 @@ def seguranca_global():
 
     # Extrair nome da função (suporta 'blueprint.func' e 'func')
     func_name = endpoint.split('.')[-1] if '.' in endpoint else endpoint
+
+    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE') and request.path.startswith('/api/'):
+        origin = request.headers.get('Origin') or request.headers.get('Referer')
+        if origin:
+            parsed = urlparse(origin)
+            dev_loopback = parsed.hostname in ('localhost', '127.0.0.1')
+            if parsed.netloc and parsed.netloc != request.host and not dev_loopback:
+                return jsonify({'erro': 'Origem da requisicao nao autorizada'}), 403
+        if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+            return jsonify({'erro': 'Requisicao sem protecao CSRF'}), 403
 
     # Rate limiting em rotas sensíveis
     if func_name in RATE_LIMITS and request.method == 'POST':
@@ -758,12 +769,13 @@ def criar_tabelas():
     try:
         admin_existe = db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
         if admin_existe == 0:
-            senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
+            senha_temporaria = secrets.token_urlsafe(18)
+            senha_hash = generate_password_hash(senha_temporaria, method='pbkdf2:sha256')
             db.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
                           VALUES (?, ?, ?, ?)''',
                        ('Administrador', 'admin@sistema.com', senha_hash, 'admin'))
             db.commit()
-            print("[OK] Usuario admin padrao criado (admin@sistema.com / admin123)")
+            print(f"[OK] Usuario admin padrao criado (admin@sistema.com / {senha_temporaria})")
         else:
             print(f"[INFO] {admin_existe} usuario(s) encontrado(s) no sistema")
     except Exception as e:
@@ -3647,3 +3659,4 @@ if __name__ == '__main__':
     )
 
 # Reload 1767837493.9213495
+

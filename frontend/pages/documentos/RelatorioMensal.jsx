@@ -405,7 +405,7 @@ export default function RelatorioMensal() {
     if (!clientData.cnpj) return;
     fetchProximoNumero(clientData.cnpj, 'relatorio_mensal').then(num => {
       if (num) setNumeroDoc(num);
-    });
+    }).catch(() => {});
   }, [clientData.cnpj]);
 
   // ── Salvar ───────────────────────────────────────────────────────────────────

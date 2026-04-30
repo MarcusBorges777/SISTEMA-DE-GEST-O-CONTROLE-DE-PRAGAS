@@ -128,7 +128,7 @@ export default function Orcamentos() {
     if (!clientData.cnpj) return;
     fetchProximoNumero(clientData.cnpj, 'orcamento').then(num => {
       if (num) setOrcamentoNumero(num);
-    });
+    }).catch(() => {});
   }, [clientData.cnpj]);
 
   useEffect(() => {

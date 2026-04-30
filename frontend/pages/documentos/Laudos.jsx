@@ -277,7 +277,7 @@ export default function Laudos() {
     if (!cnpj) return;
     fetchProximoNumero(cnpj, 'laudo').then(num => {
       if (num) setFormData(prev => ({ ...prev, laudoNumero: num }));
-    });
+    }).catch(() => {});
   }, [formData.cliente?.cnpj]);
 
   const getCompatibleProducts = () => {

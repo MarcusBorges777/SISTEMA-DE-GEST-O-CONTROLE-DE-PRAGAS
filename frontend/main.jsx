@@ -6,6 +6,9 @@ import { SidebarProvider } from './contexts/SidebarContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
 import { AuthProvider } from './contexts/AuthContext';
 import App from './App';
+import { installSecureFetch } from './services/secureFetch';
+
+installSecureFetch();
 
 const container = document.getElementById('root');
 const root = createRoot(container);

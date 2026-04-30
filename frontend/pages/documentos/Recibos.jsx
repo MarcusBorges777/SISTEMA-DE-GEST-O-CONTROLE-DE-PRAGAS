@@ -133,7 +133,7 @@ export default function Recibos() {
     if (!clientData.cnpj) return;
     fetchProximoNumero(clientData.cnpj, 'recibo').then(num => {
       if (num) setReciboNumero(num);
-    });
+    }).catch(() => {});
   }, [clientData.cnpj]);
 
   useEffect(() => {

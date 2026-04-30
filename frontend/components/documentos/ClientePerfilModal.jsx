@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from '../shared/Modal';
 import { saveCliente, getClientes } from '../../services/clienteCache';
 import { Building2, MapPin, Tag, Phone, Mail, Pencil, Check, X } from 'lucide-react';
@@ -15,6 +15,7 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef(null);
 
   useEffect(() => {
     if (cliente) {
@@ -32,6 +33,8 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
     setSaved(false);
   }, [cliente]);
 
+  useEffect(() => () => clearTimeout(savedTimerRef.current), []);
+
   if (!cliente) return null;
 
   const handleChange = (field, value) =>
@@ -43,7 +46,8 @@ export function ClientePerfilModal({ cliente, onClose, onUpdate }) {
     setSaved(true);
     setEditing(false);
     if (onUpdate) getClientes().then(onUpdate).catch(() => {});
-    setTimeout(() => setSaved(false), 2000);
+    clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
   };
 
   const handleCancelar = () => {

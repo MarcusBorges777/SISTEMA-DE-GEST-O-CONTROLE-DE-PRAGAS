@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Authentication and User Management Blueprint."""
 import traceback
+import secrets
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session, redirect, url_for, flash, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -42,7 +43,7 @@ def logout():
     return redirect(url_for('.login'))
 
 
-@auth_bp.route('/reset-admin')
+@auth_bp.route('/reset-admin', methods=['POST'])
 def reset_admin():
     """Rota de emergencia para resetar o usuario admin padrao.
     So funciona se nao existem usuarios OU se o usuario logado e admin."""
@@ -57,7 +58,8 @@ def reset_admin():
 
         # Verificar se admin existe
         admin = conn.execute('SELECT id FROM usuarios WHERE email = ?', ('admin@sistema.com',)).fetchone()
-        senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
+        senha_temporaria = secrets.token_urlsafe(18)
+        senha_hash = generate_password_hash(senha_temporaria, method='pbkdf2:sha256')
         if admin:
             conn.execute('UPDATE usuarios SET senha_hash = ?, ativo = 1, perfil = ? WHERE email = ?',
                          (senha_hash, 'admin', 'admin@sistema.com'))
@@ -66,7 +68,7 @@ def reset_admin():
                             VALUES (?, ?, ?, ?)''',
                          ('Administrador', 'admin@sistema.com', senha_hash, 'admin'))
         conn.commit()
-        flash('Admin resetado com sucesso! Email: admin@sistema.com | Senha: admin123', 'sucesso')
+        flash(f'Admin resetado. Email: admin@sistema.com | Senha temporaria: {senha_temporaria}', 'sucesso')
     except Exception as e:
         flash(f'Erro ao resetar admin: {e}', 'erro')
     return redirect(url_for('.login'))

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from './Modal';
 import { documentoApi, agendaApi } from '../../services/dbService';
@@ -100,6 +100,7 @@ function TabCadastro({ cliente, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm]       = useState({});
   const [saved, setSaved]     = useState(false);
+  const savedTimerRef         = useRef(null);
 
   useEffect(() => {
     setForm({
@@ -115,6 +116,8 @@ function TabCadastro({ cliente, onUpdate }) {
     setSaved(false);
   }, [cliente]);
 
+  useEffect(() => () => clearTimeout(savedTimerRef.current), []);
+
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
 
   const handleSalvar = async () => {
@@ -123,7 +126,8 @@ function TabCadastro({ cliente, onUpdate }) {
     setSaved(true);
     setEditing(false);
     if (onUpdate) getClientes().then(onUpdate).catch(() => {});
-    setTimeout(() => setSaved(false), 2500);
+    clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 2500);
   };
 
   const inputCls = 'w-full text-sm text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 focus:border-brand-400 focus:outline-none bg-transparent py-1 transition-colors';
@@ -430,6 +434,7 @@ export function ClienteCRMModal({ cliente, onClose, onUpdate, onVerAgenda, onGer
 
   useEffect(() => {
     if (!cliente) return;
+    let alive = true;
     setTab('cadastro');
     setDocs([]);
     setEventos([]);
@@ -451,6 +456,7 @@ export function ClienteCRMModal({ cliente, onClose, onUpdate, onVerAgenda, onGer
       agendaApi.getAll().catch(() => []),
       fetchArquivos().catch(() => []),
     ]).then(([docsData, agendaData, arquivosData]) => {
+      if (!alive) return;
 
       // ── Filtro de documentos db.json ─────────────────────────────
       const allDocs = Array.isArray(docsData) ? docsData : [];
@@ -487,7 +493,13 @@ export function ClienteCRMModal({ cliente, onClose, onUpdate, onVerAgenda, onGer
         return palavras.some(p => fname.includes(p));
       }));
 
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (alive) setLoading(false);
+    });
+
+    return () => {
+      alive = false;
+    };
   }, [cliente]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────

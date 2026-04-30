@@ -63,6 +63,7 @@ export function useCnpjAutofill({ onFill, onClear } = {}) {
     lastDigits.current = digits;
 
     cancelled.current = false;
+    const controller = new AbortController();
 
     async function buscar() {
       // ── 1. BUSCA LOCAL (db.json via backend) ─────────────────────────────
@@ -102,7 +103,7 @@ export function useCnpjAutofill({ onFill, onClear } = {}) {
       setStatus({ text: 'Consultando Receita Federal...', type: 'loading' });
 
       try {
-        const dados = await buscarCNPJ(digits);
+        const dados = await buscarCNPJ(digits, { signal: controller.signal });
         if (cancelled.current) return;
         setStatus({ text: 'Dados preenchidos automaticamente pela Receita Federal.', type: 'success' });
         onFill?.({
@@ -125,7 +126,10 @@ export function useCnpjAutofill({ onFill, onClear } = {}) {
 
     buscar();
 
-    return () => { cancelled.current = true; };
+    return () => {
+      cancelled.current = true;
+      controller.abort();
+    };
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleChange(e) {

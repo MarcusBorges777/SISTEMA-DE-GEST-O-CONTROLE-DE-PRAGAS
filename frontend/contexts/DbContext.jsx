@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { clienteApi, agendaApi } from '../services/dbService';
 
 const DbContext = createContext(null);
@@ -107,7 +107,7 @@ export function DbProvider({ children }) {
     loadAgenda();
   }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     // state
     clientes,
     agenda,
@@ -125,7 +125,11 @@ export function DbProvider({ children }) {
     updateAgendamento,
     deleteAgendamento,
     deleteSerie,
-  };
+  }), [
+    clientes, agenda, loadingClientes, loadingAgenda,
+    loadClientes, createCliente, updateCliente, deleteCliente, searchClientes,
+    loadAgenda, createAgendamento, updateAgendamento, deleteAgendamento, deleteSerie,
+  ]);
 
   return <DbContext.Provider value={value}>{children}</DbContext.Provider>;
 }

@@ -2,6 +2,7 @@
 """Database service - Database connections and table management."""
 import sqlite3
 import json
+import secrets
 from pathlib import Path
 from flask import g
 from werkzeug.security import generate_password_hash
@@ -214,12 +215,13 @@ def criar_tabelas():
     try:
         admin_existe = db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
         if admin_existe == 0:
-            senha_hash = generate_password_hash('admin123', method='pbkdf2:sha256')
+            senha_temporaria = secrets.token_urlsafe(18)
+            senha_hash = generate_password_hash(senha_temporaria, method='pbkdf2:sha256')
             db.execute('''INSERT INTO usuarios (nome, email, senha_hash, perfil)
                           VALUES (?, ?, ?, ?)''',
                        ('Administrador', 'admin@sistema.com', senha_hash, 'admin'))
             db.commit()
-            print("[OK] Usuario admin padrao criado (admin@sistema.com / admin123)")
+            print(f"[OK] Usuario admin padrao criado (admin@sistema.com / {senha_temporaria})")
         else:
             print(f"[INFO] {admin_existe} usuario(s) encontrado(s) no sistema")
     except Exception as e:
@@ -278,3 +280,4 @@ def limpar_arquivos_temporarios():
                 caminho.unlink()
             except (OSError, PermissionError) as e:
                 pass  # Arquivo pode estar em uso ou sem permissão
+

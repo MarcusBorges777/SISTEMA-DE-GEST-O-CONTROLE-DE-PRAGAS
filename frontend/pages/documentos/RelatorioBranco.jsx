@@ -106,7 +106,7 @@ export default function RelatorioBranco() {
     if (!clientData.cnpj) return;
     fetchProximoNumero(clientData.cnpj, 'relatorio_branco').then(num => {
       if (num) setNumeroDoc(num);
-    });
+    }).catch(() => {});
   }, [clientData.cnpj]);
 
   const handleSalvarCliente = async () => {
