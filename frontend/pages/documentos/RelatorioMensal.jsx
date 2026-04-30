@@ -106,8 +106,8 @@ function TabelaPortaIscas({ portaIscas, qtdPortaIscas }) {
 
   return (
     <div className="mb-3">
-      <h4 className="text-[10px] font-bold text-[#254191] uppercase tracking-widest border-b border-blue-200 pb-1 mb-2 flex items-center leading-none gap-1">
-        <Package size={11} className="shrink-0" /> Monitoramento de Porta-iscas
+      <h4 className="text-[10px] font-bold text-[#254191] uppercase tracking-widest border-b border-blue-200 pb-1 mb-2 flex items-center gap-1">
+        Monitoramento de Porta-iscas
         {temQtd && (
           <span className="ml-2 text-[9px] font-semibold text-gray-600 normal-case">
             — Total instalados: <strong className="text-[#254191]">{qtdPortaIscas}</strong>
@@ -151,8 +151,8 @@ function TabelaPortaIscas({ portaIscas, qtdPortaIscas }) {
 function TabelaProdutos({ produtos, produtosOptions, onAdd, onRemove, onUpdate }) {
   return (
     <div className="mb-2">
-      <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px] mb-2 border-b-2 border-blue-600 pb-1">
-        <Bug size={14} className="shrink-0" /> Detalhamento do Controle de Vetores e Pragas
+      <div className="text-[#254191] font-bold uppercase text-[10px] mb-2 border-b-2 border-blue-600 pb-1">
+        Detalhamento do Controle de Vetores e Pragas
       </div>
       <table className="w-full text-left border-collapse border border-gray-100 text-[9px]">
         <thead className="bg-blue-50 text-[#254191] uppercase font-black text-[8px]">
@@ -858,8 +858,7 @@ export default function RelatorioMensal() {
               <div key={bloco.id}>
                 {/* Cabeçalho + checkboxes */}
                 <div className="flex justify-between items-end mb-1 border-b-2 border-blue-600 pb-1">
-                  <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px]">
-                    {React.createElement(tipoInfo?.icon || Bug, { size: 14, className: 'shrink-0' })}
+                  <div className="text-[#254191] font-bold uppercase text-[10px]">
                     {tipoInfo?.titulo}
                   </div>
                   <div className="flex gap-4 text-[9px] font-bold text-gray-700">

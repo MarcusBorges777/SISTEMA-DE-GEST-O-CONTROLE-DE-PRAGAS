@@ -245,8 +245,8 @@ export default function Orcamentos() {
   // ─── RENDER: SEÇÃO CLIENTE — texto estático (idêntico ao Laudos) ─────────────
   const renderClientSection = () => (
     <section className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 w-full shadow-sm mb-4 print:bg-blue-50 print:border-blue-100">
-      <h3 className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
-        <Shield size={12} className="shrink-0" /> Cliente / Contratante
+      <h3 className="text-[#254191] font-bold uppercase text-[9px] mb-2 border-b border-blue-200 pb-1 italic">
+        Cliente / Contratante
       </h3>
       <div className="text-[10px] space-y-1 text-gray-700">
         <div className="grid grid-cols-2 gap-4">
