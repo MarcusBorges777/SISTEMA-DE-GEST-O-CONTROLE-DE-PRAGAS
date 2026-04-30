@@ -106,8 +106,8 @@ function TabelaPortaIscas({ portaIscas, qtdPortaIscas }) {
 
   return (
     <div className="mb-3">
-      <h4 className="text-[10px] font-bold text-[#254191] uppercase tracking-widest border-b border-blue-200 pb-1 mb-2 flex items-center gap-1">
-        <Package size={11} /> Monitoramento de Porta-iscas
+      <h4 className="text-[10px] font-bold text-[#254191] uppercase tracking-widest border-b border-blue-200 pb-1 mb-2 flex items-center leading-none gap-1">
+        <Package size={11} className="shrink-0" /> Monitoramento de Porta-iscas
         {temQtd && (
           <span className="ml-2 text-[9px] font-semibold text-gray-600 normal-case">
             — Total instalados: <strong className="text-[#254191]">{qtdPortaIscas}</strong>
@@ -151,8 +151,8 @@ function TabelaPortaIscas({ portaIscas, qtdPortaIscas }) {
 function TabelaProdutos({ produtos, produtosOptions, onAdd, onRemove, onUpdate }) {
   return (
     <div className="mb-2">
-      <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px] mb-2 border-b-2 border-blue-600 pb-1">
-        <Bug size={14} /> Detalhamento do Controle de Vetores e Pragas
+      <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px] mb-2 border-b-2 border-blue-600 pb-1">
+        <Bug size={14} className="shrink-0" /> Detalhamento do Controle de Vetores e Pragas
       </div>
       <table className="w-full text-left border-collapse border border-gray-100 text-[9px]">
         <thead className="bg-blue-50 text-[#254191] uppercase font-black text-[8px]">
@@ -858,8 +858,8 @@ export default function RelatorioMensal() {
               <div key={bloco.id}>
                 {/* Cabeçalho + checkboxes */}
                 <div className="flex justify-between items-end mb-1 border-b-2 border-blue-600 pb-1">
-                  <div className="flex items-center gap-2 text-[#254191] font-bold uppercase text-[10px]">
-                    {React.createElement(tipoInfo?.icon || Bug, { size: 14 })}
+                  <div className="flex items-center gap-2 leading-none text-[#254191] font-bold uppercase text-[10px]">
+                    {React.createElement(tipoInfo?.icon || Bug, { size: 14, className: 'shrink-0' })}
                     {tipoInfo?.titulo}
                   </div>
                   <div className="flex gap-4 text-[9px] font-bold text-gray-700">
@@ -1038,29 +1038,90 @@ export default function RelatorioMensal() {
       {renderPaginaArmadilhas()}
 
       <style>{`
-        .a4-page { width: 210mm; height: 297mm; min-height: 297mm; position: relative; }
+        .a4-page {
+          width: 210mm;
+          height: 297mm;
+          min-height: 297mm;
+          position: relative;
+        }
+
+        .text-shadow-sm {
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
+        }
+
         @media print {
-          @page { size: A4; margin: 0; }
+          @page {
+            size: A4;
+            margin: 0;
+          }
+
+          /* Reset absoluto — body, html, root não podem ter altura de viewport */
           html, body, #root, #root > div {
-            height: auto !important; min-height: 0 !important; overflow: visible !important;
-            background: white !important; margin: 0 !important; padding: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
+
+          /* Zera margin-left do wrapper do sidebar (inline style tem precedência — precisa !important) */
+          div[style*="margin-left"],
+          div[style*="marginLeft"] {
+            margin-left: 0 !important;
+          }
+
+          /* Remove padding do main */
           main { padding: 0 !important; }
+
+          /* Esconde sidebar e drawer */
           nav, aside { display: none !important; }
+
+          /* Garante que o header do documento A4 seja exibido na impressão */
+          #a4-document header {
+            display: flex !important;
+          }
+
+          /* Logo: esconde o botão de upload (no-print) e exibe a versão de impressão */
           #a4-document .no-print { display: none !important; }
-          .no-print { display: none !important; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          #a4-document .print\\:flex { display: flex !important; }
+
+          /* Wrapper do componente */
           #a4-document {
-            height: auto !important; min-height: 0 !important; padding: 0 !important;
-            margin: 0 !important; gap: 0 !important; display: block !important; background: white !important;
+            height: auto !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            gap: 0 !important;
+            display: block !important;
+            background: white !important;
           }
+
+          .no-print { display: none !important; }
+
           .a4-page {
-            box-shadow: none !important; border: none !important; margin: 0 !important;
-            padding: 15mm !important; width: 210mm !important; height: 297mm !important;
-            max-height: 297mm !important; overflow: hidden !important;
-            box-sizing: border-box !important; page-break-inside: avoid; page-break-after: always;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 15mm !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid;
+            page-break-after: always;
           }
-          .a4-page:last-of-type, .a4-page:last-child { page-break-after: avoid !important; }
+
+          /* Última página visível NÃO cria folha em branco */
+          .a4-page:last-of-type,
+          .a4-page:last-child {
+            page-break-after: avoid !important;
+          }
+
+          .print\\:page-break {
+            page-break-before: always !important;
+          }
         }
       `}</style>
     </div>
