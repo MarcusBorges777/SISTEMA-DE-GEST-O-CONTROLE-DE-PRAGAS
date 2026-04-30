@@ -149,6 +149,28 @@ export default function Laudos() {
   }, [location.state]);
 
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
+  // Pre-fill de cliente vindo de Contratos ("Emitir Documento")
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('__prefill_cliente');
+      if (!raw) return;
+      sessionStorage.removeItem('__prefill_cliente');
+      const c = JSON.parse(raw);
+      setFormData(prev => ({
+        ...prev,
+        cliente: {
+          ...prev.cliente,
+          nome:              c.nome     || '',
+          fantasia:          c.fantasia || '',
+          cnpj:              c.cnpj     || '',
+          endereco:          c.endereco || '',
+          atividadeEconomica: c.atividade || '',
+        },
+      }));
+      if (c.cnpj) setCnpjExternal(c.cnpj);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('__editar_documento');

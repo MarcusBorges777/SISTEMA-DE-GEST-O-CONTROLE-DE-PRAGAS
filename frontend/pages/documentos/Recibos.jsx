@@ -77,6 +77,18 @@ export default function Recibos() {
   // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
   useEffect(() => { getClientes().then(setClientesSalvos).catch(() => {}); }, []);
 
+  // Pre-fill de cliente vindo de Contratos ("Emitir Documento")
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('__prefill_cliente');
+      if (!raw) return;
+      sessionStorage.removeItem('__prefill_cliente');
+      const c = JSON.parse(raw);
+      setClientData(prev => ({ ...prev, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '' }));
+      if (c.cnpj) setCnpjExternal(c.cnpj);
+    } catch {}
+  }, []);
+
   // Pré-preencher a partir de edição iniciada em Arquivos.jsx
   useEffect(() => {
     try {

@@ -272,6 +272,18 @@ export default function RelatorioMensal() {
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : null).then(d => { if (d?.logo) setLogo(d.logo); }).catch(() => {});
   }, []);
+  // Pre-fill de cliente vindo de Contratos ("Emitir Documento")
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('__prefill_cliente');
+      if (!raw) return;
+      sessionStorage.removeItem('__prefill_cliente');
+      const c = JSON.parse(raw);
+      setClientData(prev => ({ ...prev, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '' }));
+      if (c.cnpj) setCnpjExternal(c.cnpj);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('__editar_documento');
