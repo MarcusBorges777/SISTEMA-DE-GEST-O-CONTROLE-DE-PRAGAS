@@ -618,7 +618,9 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
       }));
     } catch {}
 
-    navigate('/documentos', { state: { tab: tipo.tab } });
+    // Passa o tab na URL para que Documentos.jsx inicialize já no tab certo,
+    // evitando que outro componente monte primeiro e consuma o sessionStorage
+    navigate(`/documentos?tab=${tipo.tab}`, { state: { tab: tipo.tab } });
   };
 
   // Filtra eventos da agenda vinculados a este contrato ou ao CNPJ do cliente
