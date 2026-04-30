@@ -11,12 +11,13 @@ import {
   Briefcase, Plus, Edit2, Trash2, Calendar, Clock, Search,
   X, Check, Loader2, Building2, Phone, MapPin, FolderOpen,
   AlertCircle, RefreshCw, FileText, ChevronDown, ChevronUp,
-  ClipboardList, Receipt, DollarSign, BarChart2,
+  ClipboardList, Receipt, DollarSign, BarChart2, Users,
 } from 'lucide-react';
 import { contratoApi, clienteApi } from '../services/dbService';
 import { criarAgendamentoComRecorrencia, excluirSerieRecorrente, getAgendamentos } from '../services/agendaService';
 import { useToast } from '../components/shared/Toast';
 import { ClientePickerModal } from '../components/documentos/ClientePickerModal';
+import { ClienteCRMModal } from '../components/shared/ClienteCRMModal';
 import { useProdutos } from '../contexts/ProdutosContext';
 
 const PEST_OPTIONS = [
@@ -153,6 +154,7 @@ export default function Contratos() {
   const [erroForm, setErroForm]   = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
   const [agenda, setAgenda]       = useState([]);
+  const [clientePerfil, setClientePerfil] = useState(null);
 
   const carregar = async () => {
     setLoading(true);
@@ -473,6 +475,7 @@ export default function Contratos() {
               onEditar={() => abrirEditar(c)}
               onExcluir={() => setConfirmDel(c)}
               onAgenda={() => navigate('/agenda', { state: { cliente: { nome: c.clienteNome, cnpj: c.clienteCnpj } } })}
+              onVerPerfil={() => setClientePerfil({ nome: c.clienteNome, fantasia: c.clienteFantasia, cnpj: c.clienteCnpj, endereco: c.clienteEndereco, telefone: c.clienteTelefone, atividade: '', email: '' })}
             />
           ))}
         </div>
@@ -506,6 +509,12 @@ export default function Contratos() {
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={handleSelectCliente}
+      />
+
+      <ClienteCRMModal
+        cliente={clientePerfil}
+        onClose={() => setClientePerfil(null)}
+        onVerAgenda={(c) => { setClientePerfil(null); navigate('/agenda', { state: { cliente: { nome: c.nome, cnpj: c.cnpj } } }); }}
       />
 
       {confirmDel && (
@@ -576,7 +585,7 @@ const STATUS_COLOR = {
 
 // ─── Card de contrato ────────────────────────────────────────────────────────
 
-function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
+function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda, onVerPerfil }) {
   const navigate = useNavigate();
   const proxima = calcularProximaVisita(contrato);
   const [expandido, setExpandido] = useState(false);
@@ -866,10 +875,16 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda }) {
           )}
         </div>
 
-        <button onClick={onAgenda}
-          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
-          <Calendar size={12} /> Ver na Agenda
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={onVerPerfil}
+            className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-900/40 transition border border-brand-100 dark:border-brand-800/30">
+            <Users size={12} /> Perfil 360°
+          </button>
+          <button onClick={onAgenda}
+            className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            <Calendar size={12} /> Agenda
+          </button>
+        </div>
       </div>
     </div>
   );
