@@ -3,6 +3,7 @@ import { Edit3, ChevronDown, ChevronUp, Plus, Search, FileText } from 'lucide-re
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import DocumentHeader from '../../components/documentos/DocumentHeader';
@@ -100,6 +101,14 @@ export default function RelatorioBranco() {
     if (file) { const r = new FileReader(); r.onloadend = () => setLogo(r.result); r.readAsDataURL(file); }
   };
 
+  // Número por cliente: busca do servidor quando CNPJ é preenchido
+  useEffect(() => {
+    if (!clientData.cnpj) return;
+    fetchProximoNumero(clientData.cnpj, 'relatorio_branco').then(num => {
+      if (num) setNumeroDoc(num);
+    });
+  }, [clientData.cnpj]);
+
   const handleSalvarCliente = async () => {
     if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) return;
     await saveCliente({
@@ -126,6 +135,7 @@ export default function RelatorioBranco() {
         tipo: 'relatorio_branco',
         numeroDoc,
         nomeEmpresa,
+        cnpj: clientData.cnpj,
         metadados: { __tipo: 'relatorio_branco', clientData, numeroDoc, titulo, data, conteudoLivre },
       });
       if (result.sucesso) {

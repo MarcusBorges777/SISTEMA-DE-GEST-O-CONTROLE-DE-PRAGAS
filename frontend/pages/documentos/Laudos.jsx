@@ -7,6 +7,7 @@ import { CnpjInput } from '../../components/shared/CnpjInput';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
@@ -269,6 +270,15 @@ export default function Laudos() {
       setFormData(prev => ({ ...prev, laudoNumero: String(savedSequence).padStart(4, '0') }));
     }
   }, []);
+
+  // Número por cliente: busca do servidor quando CNPJ é preenchido
+  useEffect(() => {
+    const cnpj = formData.cliente?.cnpj;
+    if (!cnpj) return;
+    fetchProximoNumero(cnpj, 'laudo').then(num => {
+      if (num) setFormData(prev => ({ ...prev, laudoNumero: num }));
+    });
+  }, [formData.cliente?.cnpj]);
 
   const getCompatibleProducts = () => {
     const pests = formData.selectedPests || [];
@@ -579,6 +589,7 @@ export default function Laudos() {
         tipo: 'laudo',
         numeroDoc: formDataAtualizado.laudoNumero || '0001',
         nomeEmpresa,
+        cnpj: formDataAtualizado.cliente?.cnpj,
         metadados: {
           __tipo: 'laudo',
           formData: formDataAtualizado,

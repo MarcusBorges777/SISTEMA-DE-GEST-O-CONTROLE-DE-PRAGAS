@@ -729,6 +729,11 @@ def criar_tabelas():
         data_geracao DATETIME DEFAULT CURRENT_TIMESTAMP,
         status TEXT DEFAULT 'ativo'
     )''')
+    # Migração: adicionar cliente_cnpj se não existir
+    try:
+        db.execute('ALTER TABLE documentos_salvos ADD COLUMN cliente_cnpj TEXT')
+    except Exception:
+        pass  # coluna já existe
 
     # Tabela de usuarios do sistema
     db.execute('''CREATE TABLE IF NOT EXISTS usuarios (
@@ -1996,6 +2001,15 @@ def api_excluir_arquivo():
         if sidecar.exists():
             shutil.move(str(sidecar), str(lixeira / (ts + '_' + sidecar.name)))
 
+        # Marcar como deletado no banco para regressão do número por cliente
+        try:
+            db = get_db()
+            db.execute("UPDATE documentos_salvos SET status = 'deletado' WHERE caminho = ?",
+                       (str(arquivo_path),))
+            db.commit()
+        except Exception:
+            pass
+
         return jsonify({
             "message": "Arquivo movido para Lixeira com sucesso!",
             "arquivo": arquivo_path.name
@@ -3196,6 +3210,8 @@ def salvar_pdf():
         tipo = request.form.get('tipo', 'laudo').upper()
         numero_doc = request.form.get('numero_doc', '0001').zfill(4)
         nome_empresa = request.form.get('nome_empresa', 'Empresa').strip()
+        import re as _re2
+        cliente_cnpj = _re2.sub(r'\D', '', request.form.get('cliente_cnpj', ''))
         mes_ano = request.form.get('mes_ano', datetime.now().strftime('%m-%y'))
 
         # Sanitizar nome da empresa para uso em nome de arquivo
@@ -3253,9 +3269,9 @@ def salvar_pdf():
 
         # Registrar no banco
         db = get_db()
-        db.execute('''INSERT INTO documentos_salvos (nome_arquivo, tipo, caminho, numero_doc, nome_empresa)
-            VALUES (?, ?, ?, ?, ?)''',
-            (nome_arquivo, tipo, str(caminho_final), numero_doc, nome_empresa))
+        db.execute('''INSERT INTO documentos_salvos (nome_arquivo, tipo, caminho, numero_doc, nome_empresa, cliente_cnpj)
+            VALUES (?, ?, ?, ?, ?, ?)''',
+            (nome_arquivo, tipo, str(caminho_final), numero_doc, nome_empresa, cliente_cnpj))
         db.commit()
 
         return jsonify({'success': True, 'nome_arquivo': nome_arquivo, 'caminho': str(caminho_final)})
@@ -3331,6 +3347,27 @@ def historico_cliente():
     except Exception as e:
         traceback.print_exc()
         return jsonify({'encontrado': False, 'erro': str(e)}), 500
+
+
+@app.route('/api/documentos/proximo-numero')
+def proximo_numero_doc():
+    """Retorna o próximo número de documento para um cliente+tipo específico.
+    Conta apenas documentos ativos (não excluídos) para que exclusões
+    façam o número regredir automaticamente.
+    Query params: cnpj (só dígitos), tipo (LAUDO, RECIBO, ORCAMENTO, etc.)
+    """
+    import re as _re3
+    cnpj = _re3.sub(r'\D', '', request.args.get('cnpj', ''))
+    tipo = request.args.get('tipo', '').upper()
+    if not cnpj or not tipo:
+        return jsonify({'numero': None})
+    db = get_db()
+    row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM documentos_salvos WHERE cliente_cnpj = ? AND tipo = ? AND status = 'ativo'",
+        (cnpj, tipo)
+    ).fetchone()
+    cnt = row['cnt'] if row else 0
+    return jsonify({'numero': str(cnt + 1).zfill(4)})
 
 
 @app.route('/api/arquivo/esvaziar-lixeira', methods=['POST'])

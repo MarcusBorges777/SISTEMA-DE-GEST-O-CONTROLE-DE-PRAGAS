@@ -7,6 +7,7 @@ import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import DocumentHeader from '../../components/documentos/DocumentHeader';
@@ -399,6 +400,14 @@ export default function RelatorioMensal() {
     }));
   };
 
+  // Número por cliente: busca do servidor quando CNPJ é preenchido
+  useEffect(() => {
+    if (!clientData.cnpj) return;
+    fetchProximoNumero(clientData.cnpj, 'relatorio_mensal').then(num => {
+      if (num) setNumeroDoc(num);
+    });
+  }, [clientData.cnpj]);
+
   // ── Salvar ───────────────────────────────────────────────────────────────────
   const handleSalvarCliente = async () => {
     if (!clientData.nome?.trim() || !clientData.cnpj?.trim()) return;
@@ -425,6 +434,7 @@ export default function RelatorioMensal() {
         tipo: 'relatorio_mensal',
         numeroDoc,
         nomeEmpresa,
+        cnpj: clientData.cnpj,
         metadados: { __tipo: 'relatorio_mensal', clientData, numeroDoc, data, blocos },
       });
       if (result.sucesso) {

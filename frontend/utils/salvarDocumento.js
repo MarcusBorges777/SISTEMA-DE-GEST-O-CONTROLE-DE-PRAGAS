@@ -6,7 +6,7 @@
  * Padrão de nome: "#0001 Razão Social 03-26.pdf"
  */
 
-export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa, mesAno, metadados }) {
+export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa, mesAno, metadados, cnpj }) {
   try {
     const html2canvas = (await import('html2canvas')).default;
     const { jsPDF } = await import('jspdf');
@@ -132,6 +132,7 @@ export async function salvarDocumento({ elementId, tipo, numeroDoc, nomeEmpresa,
     formData.append('numero_doc', String(numeroDoc).padStart(4, '0'));
     formData.append('nome_empresa', nomeEmpresa || 'Empresa');
     formData.append('mes_ano', mesAnoFinal);
+    formData.append('cliente_cnpj', (cnpj || '').replace(/\D/g, ''));
     if (metadados) {
       formData.append('metadados', JSON.stringify(metadados));
     }

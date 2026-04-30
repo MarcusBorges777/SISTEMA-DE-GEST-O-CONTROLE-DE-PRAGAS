@@ -8,6 +8,7 @@ import { getClientes, saveCliente } from '../../services/clienteCache';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
@@ -127,6 +128,14 @@ export default function Recibos() {
     try { localStorage.setItem('receiptNumber', reciboNumero); } catch {}
   }, [reciboNumero]);
 
+  // Número por cliente: busca do servidor quando CNPJ é preenchido
+  useEffect(() => {
+    if (!clientData.cnpj) return;
+    fetchProximoNumero(clientData.cnpj, 'recibo').then(num => {
+      if (num) setReciboNumero(num);
+    });
+  }, [clientData.cnpj]);
+
   useEffect(() => {
     const onAfterPrint = () => {
       setReciboNumero(prev => {
@@ -173,6 +182,7 @@ export default function Recibos() {
         tipo: 'recibo',
         numeroDoc: reciboNumero || '00001',
         nomeEmpresa,
+        cnpj: clientData.cnpj,
         metadados: {
           __tipo: 'recibo',
           clientData,

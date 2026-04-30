@@ -8,6 +8,7 @@ import { getClientes, saveCliente } from '../../services/clienteCache';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { salvarDocumento } from '../../utils/salvarDocumento';
+import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
@@ -122,6 +123,14 @@ export default function Orcamentos() {
     try { localStorage.setItem('lastQuoteNumber_orcamento', orcamentoNumero); } catch {}
   }, [orcamentoNumero]);
 
+  // Número por cliente: busca do servidor quando CNPJ é preenchido
+  useEffect(() => {
+    if (!clientData.cnpj) return;
+    fetchProximoNumero(clientData.cnpj, 'orcamento').then(num => {
+      if (num) setOrcamentoNumero(num);
+    });
+  }, [clientData.cnpj]);
+
   useEffect(() => {
     const onAfterPrint = () => {
       setOrcamentoNumero(prev => {
@@ -152,6 +161,7 @@ export default function Orcamentos() {
         tipo: 'orcamento',
         numeroDoc: orcamentoNumero || '00001',
         nomeEmpresa,
+        cnpj: clientData.cnpj,
         metadados: {
           __tipo: 'orcamento',
           clientData,
