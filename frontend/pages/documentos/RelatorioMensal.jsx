@@ -769,19 +769,13 @@ export default function RelatorioMensal() {
               {React.createElement(tipoInfo?.icon || Bug, { size: 14 })}
               {tipoInfo?.titulo}
             </div>
-            <div className="flex gap-4 text-[9px] font-bold text-gray-700">
-              <div className="flex items-center gap-1">
-                <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
-                  {['quimico','ambos'].includes(bloco.controlType) && <CheckCircle2 size={10} className="text-white" />}
-                </div>
-                <span className="uppercase">Controle Químico</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className={`w-3.5 h-3.5 border border-blue-800 flex items-center justify-center ${['nao_quimico','ambos'].includes(bloco.controlType) ? 'bg-blue-800' : 'bg-white'}`}>
-                  {['nao_quimico','ambos'].includes(bloco.controlType) && <CheckCircle2 size={10} className="text-white" />}
-                </div>
-                <span className="uppercase">Controle Não Químico</span>
-              </div>
+            <div className="flex gap-2">
+              <span className={`text-[8px] font-black uppercase tracking-tight px-2 py-0.5 rounded ${['quimico','ambos'].includes(bloco.controlType) ? 'bg-[#254191] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                Controle Químico
+              </span>
+              <span className={`text-[8px] font-black uppercase tracking-tight px-2 py-0.5 rounded ${['nao_quimico','ambos'].includes(bloco.controlType) ? 'bg-[#254191] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                Controle Não Químico
+              </span>
             </div>
           </div>
 
