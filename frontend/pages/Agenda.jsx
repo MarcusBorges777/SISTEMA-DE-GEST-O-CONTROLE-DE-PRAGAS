@@ -66,6 +66,15 @@ const STATUS_STYLE = {
   'Emitido':   { bg: 'bg-purple-100 dark:bg-purple-900/30',   text: 'text-purple-700 dark:text-purple-300',   dot: 'bg-purple-500' },
 };
 
+function isEventoDocumentoExcluido(evento) {
+  return evento?.tipo !== 'servico' && (
+    evento?.status === 'lixeira' ||
+    evento?.status === 'deletado' ||
+    evento?.isDeleted === true ||
+    evento?.deletado === true
+  );
+}
+
 // ─── Modal de detalhes ────────────────────────────────────────────────────────
 
 function EventoDetalheModal({ evento, onClose, onEditar, onStatusRapido, onExcluir, onExcluirSerie }) {
@@ -340,6 +349,7 @@ function CalendarioMensal({ mes, eventosPorDia, onEventoClick, onMesChange }) {
                         {visivel.map(ev => {
                           // Para 'servico' usa a cor da categoriaServico (Contrato/Dedet+Caixa/etc).
                           // Para documentos (laudo/recibo/orcamento) usa a cor de TIPO_CORES.
+                          const excluido = isEventoDocumentoExcluido(ev);
                           const cor = ev.tipo === 'servico'
                             ? getCategoriaCor(ev.categoriaServico)
                             : ((TIPO_CORES && TIPO_CORES[ev.tipo]) || { light: 'bg-blue-100 text-blue-700' });
@@ -347,8 +357,14 @@ function CalendarioMensal({ mes, eventosPorDia, onEventoClick, onMesChange }) {
                             <button
                               key={ev.id}
                               onClick={() => onEventoClick(ev)}
-                              className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate leading-tight ${cor.light} hover:opacity-80 transition`}
+                              className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate leading-tight hover:opacity-80 transition
+                                ${excluido
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 line-through opacity-60 border border-dashed border-red-200 dark:border-red-900/50'
+                                  : cor.light
+                                }`}
+                              title={excluido ? 'Excluido / Lixeira' : undefined}
                             >
+                              {excluido ? '[Lixeira] ' : ''}
                               {ev.hora ? `${ev.hora.slice(0, 5)} ` : ''}
                               {ev.clienteNome || TIPO_LABEL[ev.tipo] || ev.tipo}
                             </button>
@@ -516,13 +532,14 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                 const st    = STATUS_STYLE[ev.status] || STATUS_STYLE['Agendado'];
                 const isDoc = ev.tipo !== 'servico';
                 const cat   = ev.tipo === 'servico' ? getCategoriaCor(ev.categoriaServico) : null;
+                const excluido = isEventoDocumentoExcluido(ev);
 
                 return (
                   <div
                     key={ev.id}
                     className={`rounded-2xl border p-4 shadow-sm transition-shadow cursor-pointer
-                      ${ev.deletado
-                        ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 opacity-60'
+                      ${excluido
+                        ? 'bg-slate-50 dark:bg-slate-900/50 border-dashed border-red-200 dark:border-red-900/50 opacity-55 grayscale'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-md'
                       }`}
                     onClick={() => onEventoClick(ev)}
@@ -537,9 +554,9 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                             {cat.label}
                           </span>
                         )}
-                        {ev.deletado ? (
+                        {excluido ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                            Excluído
+                            Excluido / Lixeira
                           </span>
                         ) : (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>
@@ -554,7 +571,7 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                       )}
                     </div>
 
-                    <p className={`font-bold text-sm leading-tight ${ev.deletado ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-white'}`}>{ev.clienteNome || '—'}</p>
+                    <p className={`font-bold text-sm leading-tight ${excluido ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-white'}`}>{ev.clienteNome || '—'}</p>
                     {ev.clienteFantasia && <p className="text-xs text-slate-400 truncate">{ev.clienteFantasia}</p>}
 
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1.5">
@@ -847,6 +864,11 @@ export default function Agenda() {
 
   const recarregar = useCallback(async () => setEventos(await getAgendamentos()), []);
   useEffect(() => { recarregar(); }, [recarregar]);
+  useEffect(() => {
+    const handleAgendaRefresh = () => recarregar();
+    window.addEventListener('agenda:refresh', handleAgendaRefresh);
+    return () => window.removeEventListener('agenda:refresh', handleAgendaRefresh);
+  }, [recarregar]);
 
   // ── Deep link: chegou com cliente via navigate state ──
   useEffect(() => {
@@ -901,7 +923,6 @@ export default function Agenda() {
   const eventosPorDia = useMemo(() => {
     const map = {};
     eventosFiltrados
-      .filter(ev => !ev.deletado)
       .forEach(ev => {
         if (!ev.data) return;
         if (!map[ev.data]) map[ev.data] = [];

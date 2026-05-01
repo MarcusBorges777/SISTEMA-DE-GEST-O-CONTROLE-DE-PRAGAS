@@ -369,11 +369,13 @@ export default function Arquivos() {
       addToast('Arquivo excluído', 'success');
       loadArquivos();
 
-      // Marcar evento correspondente na Agenda como deletado
+      // Marcar evento correspondente na Agenda como lixeira para o calendario filtrar.
       try {
         // Determinar tipo do documento pelo arquivo
         const tipoArq = (deleteModal.tipo || deleteModal.origem || filename || '').toLowerCase();
-        const tipoAgenda = ['laudo', 'recibo', 'orcamento'].find(t => tipoArq.includes(t));
+        const tipoAgenda = tipoArq.includes('orcamento') || tipoArq.includes('orçamento')
+          ? 'orcamento'
+          : ['laudo', 'recibo'].find(t => tipoArq.includes(t));
 
         // Extrair número do documento: última sequência numérica antes da extensão
         // Ex: "Laudo_Empresa_2026-04-22_0001.pdf" → "0001"
@@ -382,13 +384,18 @@ export default function Arquivos() {
         if (numMatch && tipoAgenda) {
           const num = numMatch[1].replace(/^0+/, '') || '0'; // sem zeros à esquerda
           const eventos = await getAgendamentos();
-          const alvo = eventos.find(e =>
+          const relacionados = eventos.filter(e =>
             e.tipo === tipoAgenda &&
             e.numeroDoc !== undefined &&
             (String(e.numeroDoc).replace(/^0+/, '') || '0') === num
           );
-          if (alvo) await atualizarAgendamento(alvo.id, { deletado: true });
+          await Promise.all(relacionados.map(e => atualizarAgendamento(e.id, {
+            status: 'lixeira',
+            isDeleted: true,
+            observacao: 'Documento movido para lixeira',
+          })));
         }
+        window.dispatchEvent(new CustomEvent('agenda:refresh', { detail: { reason: 'arquivo-excluido' } }));
       } catch { /* silencioso — não bloqueia exclusão */ }
     } catch {
       addToast('Erro ao excluir arquivo', 'error');
