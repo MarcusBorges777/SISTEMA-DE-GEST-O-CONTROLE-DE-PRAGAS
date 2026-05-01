@@ -2,6 +2,7 @@
 // Todos os métodos são agora async.
 
 import { clienteApi } from './dbService';
+import { formatCpfCnpj } from '../utils/formatters';
 
 function cnpjDigits(cnpj) {
   return (cnpj || '').replace(/[^\d]/g, '');
@@ -18,12 +19,14 @@ export async function getClientes() {
 export async function saveCliente(cliente) {
   if (!cliente || (!cliente.cnpj && !cliente.nome)) return;
   try {
+    const atividadeEconomica = cliente.atividadeEconomica || cliente.atividade || '';
     return await clienteApi.upsert({
       nome:      cliente.nome || '',
       fantasia:  cliente.fantasia || '',
-      cnpj:      cliente.cnpj || '',
+      cnpj:      formatCpfCnpj(cliente.cnpj || ''),
       endereco:  cliente.endereco || '',
-      atividade: cliente.atividade || '',
+      atividadeEconomica,
+      atividade: atividadeEconomica,
       email:     cliente.email || '',
       telefone:  cliente.telefone || '',
     });

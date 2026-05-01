@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { saveCliente, getClientes } from '../../services/clienteCache';
+import { formatCpfCnpj } from '../../utils/formatters';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -106,9 +107,10 @@ function TabCadastro({ cliente, onUpdate }) {
     setForm({
       nome:      cliente.nome      || '',
       fantasia:  cliente.fantasia  || '',
-      cnpj:      cliente.cnpj      || '',
+      cnpj:      formatCpfCnpj(cliente.cnpj || ''),
       endereco:  cliente.endereco  || '',
-      atividade: cliente.atividade || '',
+      atividadeEconomica: cliente.atividadeEconomica || cliente.atividade || '',
+      atividade: cliente.atividadeEconomica || cliente.atividade || '',
       email:     cliente.email     || '',
       telefone:  cliente.telefone  || '',
     });
@@ -177,8 +179,8 @@ function TabCadastro({ cliente, onUpdate }) {
         <div>
           <p className={labelCls}>CNPJ / CPF</p>
           {editing
-            ? <input value={form.cnpj} onChange={e => set('cnpj', e.target.value)} className={inputCls} maxLength={18} placeholder="CNPJ ou CPF" />
-            : <p className="text-sm font-mono text-slate-700 dark:text-slate-200">{form.cnpj || '—'}</p>}
+            ? <input value={form.cnpj} onChange={e => set('cnpj', formatCpfCnpj(e.target.value))} className={inputCls} maxLength={18} placeholder="CNPJ ou CPF" />
+            : <p className="text-sm font-mono text-slate-700 dark:text-slate-200">{form.cnpj ? formatCpfCnpj(form.cnpj) : '—'}</p>}
         </div>
         <div className="sm:col-span-2">
           <p className={labelCls}>Endereço</p>
@@ -191,9 +193,9 @@ function TabCadastro({ cliente, onUpdate }) {
         <div className="sm:col-span-2">
           <p className={labelCls}>Atividade / Segmento</p>
           {editing
-            ? <input value={form.atividade} onChange={e => set('atividade', e.target.value)} className={inputCls} placeholder="Ex: Restaurante, Escola, Residência" />
-            : form.atividade
-              ? <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300 italic"><Tag size={14} className="text-slate-400 mt-0.5 shrink-0" /><span>{form.atividade}</span></div>
+            ? <input value={form.atividadeEconomica || ''} onChange={e => setForm(p => ({ ...p, atividadeEconomica: e.target.value, atividade: e.target.value }))} className={inputCls} placeholder="Ex: 8122-2/00 - Imunizacao e controle de pragas urbanas" />
+            : (form.atividadeEconomica || form.atividade)
+              ? <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300 italic"><Tag size={14} className="text-slate-400 mt-0.5 shrink-0" /><span>{form.atividadeEconomica || form.atividade}</span></div>
               : <p className="text-sm text-slate-400 italic">Não informado</p>}
         </div>
         <div>

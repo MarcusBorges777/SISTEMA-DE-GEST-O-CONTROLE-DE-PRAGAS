@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, CheckCircle2, XCircle, User, MapPin, Briefcase } from 'lucide-react';
 import { buscarCNPJ, buscarCEP } from '../../services/brasilApi';
 import { searchClientes, saveCliente } from '../../services/clienteCache';
+import { formatCpfCnpj } from '../../utils/formatters';
 
 /**
  * Secao de dados do cliente com autocomplete e autofill
@@ -52,16 +53,18 @@ export default function ClienteSection({ clientData, onChange, onClientLoaded, m
   const selectSuggestion = (cliente) => {
     onChange('nome', cliente.nome);
     onChange('fantasia', cliente.fantasia);
-    onChange('cnpj', cliente.cnpj);
+    onChange('cnpj', formatCpfCnpj(cliente.cnpj));
     onChange('endereco', cliente.endereco);
-    onChange('atividade', cliente.atividade);
+    onChange('atividade', cliente.atividadeEconomica || cliente.atividade);
+    onChange('atividadeEconomica', cliente.atividadeEconomica || cliente.atividade);
     setShowSuggestions(false);
     if (onClientLoaded) onClientLoaded(cliente);
   };
 
   // Autofill CNPJ
   const handleCnpjChange = async (value) => {
-    onChange('cnpj', value);
+    const cnpjFormatado = formatCpfCnpj(value);
+    onChange('cnpj', cnpjFormatado);
     const cnpjLimpo = value.replace(/[^\d]/g, '');
 
     if (cnpjLimpo.length === 14) {
@@ -73,15 +76,17 @@ export default function ClienteSection({ clientData, onChange, onClientLoaded, m
         onChange('nome', data.nome);
         onChange('fantasia', data.fantasia);
         onChange('endereco', data.endereco);
-        onChange('atividade', data.atividade);
+        onChange('atividade', data.atividadeEconomica || data.atividade);
+        onChange('atividadeEconomica', data.atividadeEconomica || data.atividade);
         setCnpjStatus('success');
         // Salvar no db.json (fire-and-forget: não bloqueia o autofill)
         saveCliente({
           nome: data.nome,
           fantasia: data.fantasia,
-          cnpj: value,
+          cnpj: cnpjFormatado,
           endereco: data.endereco,
-          atividade: data.atividade
+          atividadeEconomica: data.atividadeEconomica || data.atividade,
+          atividade: data.atividadeEconomica || data.atividade
         }).catch(() => {});
         if (onClientLoaded) onClientLoaded(data);
       } catch (err) {
@@ -127,12 +132,12 @@ export default function ClienteSection({ clientData, onChange, onClientLoaded, m
             <div className="space-y-1">
               <p className="font-black text-[#254191] uppercase text-xs leading-tight mb-1">{clientData.nome || 'NOME DO CLIENTE'}</p>
               <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">NOME FANTASIA:</span> {clientData.fantasia}</p>
-              <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {clientData.cnpj}</p>
+              <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">CNPJ:</span> {formatCpfCnpj(clientData.cnpj)}</p>
             </div>
             <div className="md:border-l md:border-blue-200 md:pl-4 space-y-2">
               <div>
                 <p className="font-bold uppercase text-[9px] tracking-tighter text-blue-800">Código / Atividade Econômica Principal:</p>
-                <p className="italic font-medium leading-tight">{clientData.atividade}</p>
+                <p className="italic font-medium leading-tight">{clientData.atividadeEconomica || clientData.atividade}</p>
               </div>
               <div className="pt-1 border-t border-blue-200">
                 <p><span className="font-bold uppercase text-[9px] tracking-tight text-blue-800">Endereço:</span> {clientData.endereco}</p>
@@ -213,7 +218,7 @@ export default function ClienteSection({ clientData, onChange, onClientLoaded, m
           </label>
           <input
             type="text"
-            value={clientData.cnpj || ''}
+            value={formatCpfCnpj(clientData.cnpj || '')}
             onChange={(e) => handleCnpjChange(e.target.value)}
             className={`w-full p-2.5 bg-white border rounded-md text-sm text-gray-800 focus:border-[#3b4b73] focus:ring-1 focus:ring-[#3b4b73] outline-none transition-all shadow-sm ${
               cnpjStatus === 'success' ? 'border-green-300' : cnpjStatus === 'error' ? 'border-red-300' : 'border-gray-200'
@@ -228,8 +233,11 @@ export default function ClienteSection({ clientData, onChange, onClientLoaded, m
           </label>
           <input
             type="text"
-            value={clientData.atividade || ''}
-            onChange={(e) => onChange('atividade', e.target.value)}
+            value={clientData.atividadeEconomica || clientData.atividade || ''}
+            onChange={(e) => {
+              onChange('atividadeEconomica', e.target.value);
+              onChange('atividade', e.target.value);
+            }}
             className="w-full p-2.5 bg-white border border-gray-200 rounded-md text-sm text-gray-800 focus:border-[#3b4b73] focus:ring-1 focus:ring-[#3b4b73] outline-none transition-all shadow-sm"
           />
         </div>

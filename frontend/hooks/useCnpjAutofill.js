@@ -14,28 +14,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { buscarCNPJ } from '../services/brasilApi';
 import { clienteApi } from '../services/dbService';
+import { formatCpfCnpj } from '../utils/formatters';
 
 // ─── Helpers de máscara ───────────────────────────────────────────────────────
 
-function maskCpf(d) {
-  return d
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
-}
-
-function maskCnpj(d) {
-  return d
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4')
-    .replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
-}
-
 export function applyMask(raw) {
-  const digits = raw.replace(/\D/g, '').slice(0, 14);
-  if (digits.length <= 11) return maskCpf(digits);
-  return maskCnpj(digits);
+  return formatCpfCnpj(raw);
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -81,9 +65,10 @@ export function useCnpjAutofill({ onFill, onClear } = {}) {
             id:        local.id        || null,
             nome:      local.nome      || '',
             fantasia:  local.fantasia  || '',
-            cnpj:      local.cnpj      || value,
+            cnpj:      formatCpfCnpj(local.cnpj || value),
             endereco:  local.endereco  || '',
-            atividade: local.atividade || '',
+            atividade: local.atividadeEconomica || local.atividade || '',
+            atividadeEconomica: local.atividadeEconomica || local.atividade || '',
             email:     local.email     || '',
             telefone:  local.telefone  || '',
           }, 'local');
@@ -110,9 +95,10 @@ export function useCnpjAutofill({ onFill, onClear } = {}) {
           id:        null,
           nome:      dados.nome      || '',
           fantasia:  dados.fantasia  || '',
-          cnpj:      dados.cnpj      || value,
+          cnpj:      formatCpfCnpj(dados.cnpj || value),
           endereco:  dados.endereco  || '',
-          atividade: dados.atividade || '',
+          atividade: dados.atividadeEconomica || dados.atividade || '',
+          atividadeEconomica: dados.atividadeEconomica || dados.atividade || '',
           email:     dados.email     || '',
           telefone:  dados.telefone  || '',
         }, 'api');
@@ -140,7 +126,7 @@ export function useCnpjAutofill({ onFill, onClear } = {}) {
   }
 
   function setExternal(formatted) {
-    setValue(formatted || '');
+    setValue(formatCpfCnpj(formatted || ''));
     lastDigits.current = '';
     setStatus(null);
   }

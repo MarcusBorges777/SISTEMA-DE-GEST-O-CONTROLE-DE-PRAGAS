@@ -1,3 +1,5 @@
+import { formatCNPJ } from '../utils/formatters';
+
 // Servico centralizado de chamadas a Brasil API
 // Base URL: https://brasilapi.com.br/api
 // Endpoints: CNPJ, CEP, DDD, IBGE Municipios, Feriados
@@ -80,7 +82,7 @@ export async function buscarCNPJ(cnpj, options = {}) {
     raw: data,
     nome: data.razao_social || '',
     fantasia: data.nome_fantasia || '',
-    cnpj: data.cnpj || cnpjLimpo,
+    cnpj: formatCNPJ(data.cnpj || cnpjLimpo),
     // Endereco completo formatado
     endereco: montarEndereco(data),
     // Campos de endereco separados para preenchimento de formularios
@@ -93,6 +95,7 @@ export async function buscarCNPJ(cnpj, options = {}) {
     cep: data.cep ? String(data.cep) : '',
     // Atividade / CNAE
     atividade: montarAtividade(data),
+    atividadeEconomica: montarAtividade(data),
     cnae_fiscal: data.cnae_fiscal || '',
     cnae_descricao: data.cnae_fiscal_descricao || '',
     // Contato

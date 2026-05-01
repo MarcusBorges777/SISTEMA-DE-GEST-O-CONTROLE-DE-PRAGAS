@@ -41,6 +41,13 @@ def _cnpj_digits(cnpj: str) -> str:
     return re.sub(r'[^\d]', '', cnpj or '')
 
 
+def _format_cnpj(cnpj: str) -> str:
+    digits = _cnpj_digits(cnpj)
+    if len(digits) == 14:
+        return f'{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:14]}'
+    return cnpj or ''
+
+
 def _empty_db_copy() -> dict:
     return {k: (dict(v) if isinstance(v, dict) else list(v)) for k, v in EMPTY_DB.items()}
 
@@ -154,9 +161,12 @@ class JsonDbService:
         def mutator(db):
             now = datetime.utcnow().isoformat()
             cnpj_digits = _cnpj_digits(data.get('cnpj', ''))
+            cnpj_formatado = _format_cnpj(data.get('cnpj', ''))
+            atividade_economica = data.get('atividadeEconomica') or data.get('atividade') or ''
+            normalized_data = {**data, 'cnpj': cnpj_formatado, 'atividadeEconomica': atividade_economica, 'atividade': atividade_economica}
             idx = None
             for i, c in enumerate(db['clientes']):
-                if data.get('id') and c['id'] == data['id']:
+                if normalized_data.get('id') and c['id'] == normalized_data['id']:
                     idx = i
                     break
                 if cnpj_digits and _cnpj_digits(c.get('cnpj', '')) == cnpj_digits:
@@ -165,25 +175,26 @@ class JsonDbService:
 
             if idx is not None:
                 existing = db['clientes'][idx]
-                merged = {**existing, **data, 'deletado': False, 'atualizadoEm': now}
+                merged = {**existing, **normalized_data, 'deletado': False, 'atualizadoEm': now}
                 merged['id'] = existing['id']
                 merged['criadoEm'] = existing.get('criadoEm', now)
                 db['clientes'][idx] = merged
                 return merged
 
             entry = {
-                'id': data.get('id') or str(uuid.uuid4()),
-                'nome': data.get('nome', ''),
-                'fantasia': data.get('fantasia', ''),
-                'cnpj': data.get('cnpj', ''),
-                'telefone': data.get('telefone', ''),
-                'email': data.get('email', ''),
-                'endereco': data.get('endereco', ''),
-                'atividade': data.get('atividade', ''),
+                'id': normalized_data.get('id') or str(uuid.uuid4()),
+                'nome': normalized_data.get('nome', ''),
+                'fantasia': normalized_data.get('fantasia', ''),
+                'cnpj': normalized_data.get('cnpj', ''),
+                'telefone': normalized_data.get('telefone', ''),
+                'email': normalized_data.get('email', ''),
+                'endereco': normalized_data.get('endereco', ''),
+                'atividadeEconomica': normalized_data.get('atividadeEconomica', ''),
+                'atividade': normalized_data.get('atividadeEconomica', ''),
                 'deletado': False,
                 'criadoEm': now,
                 'atualizadoEm': now,
-                **{k: v for k, v in data.items() if k not in (
+                **{k: v for k, v in normalized_data.items() if k not in (
                     'id', 'criadoEm', 'atualizadoEm'
                 )},
             }
@@ -197,9 +208,16 @@ class JsonDbService:
             idx = next((i for i, c in enumerate(db['clientes']) if c['id'] == cliente_id), None)
             if idx is None:
                 return None
+            atividade_economica = data.get('atividadeEconomica') or data.get('atividade') or db['clientes'][idx].get('atividadeEconomica') or db['clientes'][idx].get('atividade') or ''
+            normalized_data = {
+                **data,
+                'cnpj': _format_cnpj(data.get('cnpj', db['clientes'][idx].get('cnpj', ''))),
+                'atividadeEconomica': atividade_economica,
+                'atividade': atividade_economica,
+            }
             db['clientes'][idx] = {
                 **db['clientes'][idx],
-                **data,
+                **normalized_data,
                 'id': cliente_id,
                 'atualizadoEm': datetime.utcnow().isoformat()
             }

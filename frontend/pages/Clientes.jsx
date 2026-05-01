@@ -20,6 +20,7 @@ import { getAgendamentos } from '../services/agendaService';
 import { api } from '../services/api';
 import { documentoApi } from '../services/dbService';
 import { ClienteCRMModal } from '../components/shared/ClienteCRMModal';
+import { formatCpfCnpj } from '../utils/formatters';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,28 +51,22 @@ const STATUS_COR = {
 };
 
 function formatDoc(value) {
-  const d = value.replace(/\D/g, '').slice(0, 14);
-  if (d.length <= 11) {
-    // CPF: 000.000.000-00
-    if (d.length <= 3) return d;
-    if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
-    if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
-    return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
-  }
-  // CNPJ: 00.000.000/0000-00
-  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
-  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+  return formatCpfCnpj(value);
 }
 
 // ─── Modal de formulário ──────────────────────────────────────────────────────
 
 const emptyForm = {
   nome: '', fantasia: '', cnpj: '',
-  telefone: '', email: '', endereco: '', atividade: '',
+  telefone: '', email: '', endereco: '', atividadeEconomica: '', atividade: '',
 };
 
 function ClienteModal({ cliente, onSalvar, onClose }) {
-  const [form, setForm]           = useState(cliente ? { ...emptyForm, ...cliente } : { ...emptyForm });
+  const [form, setForm]           = useState(() => {
+    const base = cliente ? { ...emptyForm, ...cliente } : { ...emptyForm };
+    const atividadeEconomica = base.atividadeEconomica || base.atividade || '';
+    return { ...base, cnpj: formatDoc(base.cnpj || ''), atividadeEconomica, atividade: atividadeEconomica };
+  });
   const [cnpjStatus, setCnpjStatus] = useState(null); // null | 'loading' | 'ok' | 'erro'
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
 
@@ -92,7 +87,8 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
             fantasia:  data.fantasia  || prev.fantasia,
             endereco:  data.endereco  || prev.endereco,
             telefone:  data.telefone  || prev.telefone,
-            atividade: data.atividade || prev.atividade,
+            atividadeEconomica: data.atividadeEconomica || data.atividade || prev.atividadeEconomica || prev.atividade,
+            atividade: data.atividadeEconomica || data.atividade || prev.atividadeEconomica || prev.atividade,
             email:     data.email     || prev.email,
           }));
           setCnpjStatus('ok');
@@ -111,7 +107,13 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.nome.trim()) return;
-    onSalvar(form);
+    const atividadeEconomica = form.atividadeEconomica || form.atividade || '';
+    onSalvar({
+      ...form,
+      cnpj: formatDoc(form.cnpj),
+      atividadeEconomica,
+      atividade: atividadeEconomica,
+    });
   };
 
   return (
@@ -201,7 +203,7 @@ function ClienteModal({ cliente, onSalvar, onClose }) {
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Atividade / Segmento</label>
-              <input value={form.atividade} onChange={e => set('atividade', e.target.value)} className={inputCls} placeholder="Ex: Restaurante, Escola, Residência" />
+              <input value={form.atividadeEconomica || ''} onChange={e => setForm(p => ({ ...p, atividadeEconomica: e.target.value, atividade: e.target.value }))} className={inputCls} placeholder="Ex: 8122-2/00 - Imunizacao e controle de pragas urbanas" />
             </div>
           </div>
 
@@ -314,7 +316,7 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{cliente.fantasia}</p>
           )}
           {cliente.cnpj && (
-            <p className="text-xs font-mono text-slate-400 mt-0.5">{cliente.cnpj}</p>
+            <p className="text-xs font-mono text-slate-400 mt-0.5">{formatDoc(cliente.cnpj)}</p>
           )}
         </button>
 
@@ -354,11 +356,11 @@ function ClienteCard({ cliente, onEditar, onExcluir, onGerarDoc, onVerAgenda, on
               </div>
               <div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">CNPJ / CPF</p>
-                <p className="text-xs font-mono text-slate-700 dark:text-slate-200">{cliente.cnpj || '—'}</p>
+                <p className="text-xs font-mono text-slate-700 dark:text-slate-200">{cliente.cnpj ? formatDoc(cliente.cnpj) : '—'}</p>
               </div>
               <div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">CNAE / Atividade</p>
-                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.atividade || '—'}</p>
+                <p className="text-xs text-slate-700 dark:text-slate-200 truncate">{cliente.atividadeEconomica || cliente.atividade || '—'}</p>
               </div>
             </div>
 
