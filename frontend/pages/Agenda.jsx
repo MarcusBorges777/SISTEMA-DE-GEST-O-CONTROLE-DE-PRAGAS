@@ -539,7 +539,7 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                     key={ev.id}
                     className={`rounded-2xl border p-4 shadow-sm transition-shadow cursor-pointer
                       ${excluido
-                        ? 'bg-slate-50 dark:bg-slate-900/50 border-dashed border-red-200 dark:border-red-900/50 opacity-55 grayscale'
+                        ? 'bg-slate-50 dark:bg-slate-900/50 border-dashed border-red-200 dark:border-red-900/50 opacity-50'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-md'
                       }`}
                     onClick={() => onEventoClick(ev)}
@@ -556,7 +556,7 @@ function TimelineView({ eventos, onEventoClick, onEditar, onExcluir, onStatusRap
                         )}
                         {excluido ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                            Excluido / Lixeira
+                            Excluído
                           </span>
                         ) : (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>
@@ -861,8 +861,17 @@ export default function Agenda() {
   const [modalOpen, setModalOpen]                 = useState(false);
   const [eventoEditar, setEventoEditar]           = useState(null);
   const [clienteInicial, setClienteInicial]       = useState(null);
+  const [refreshing, setRefreshing]               = useState(false);
 
-  const recarregar = useCallback(async () => setEventos(await getAgendamentos()), []);
+  const recarregar = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const lista = await getAgendamentos();
+      setEventos(Array.isArray(lista) ? [...lista] : []);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
   useEffect(() => { recarregar(); }, [recarregar]);
   useEffect(() => {
     const handleAgendaRefresh = () => recarregar();
@@ -923,6 +932,7 @@ export default function Agenda() {
   const eventosPorDia = useMemo(() => {
     const map = {};
     eventosFiltrados
+      .filter(ev => !isEventoDocumentoExcluido(ev))
       .forEach(ev => {
         if (!ev.data) return;
         if (!map[ev.data]) map[ev.data] = [];
@@ -1050,10 +1060,11 @@ export default function Agenda() {
         <div className="flex gap-2">
           <button
             onClick={recarregar}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+            disabled={refreshing}
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-60"
             title="Atualizar"
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={() => { setEventoEditar(null); setClienteInicial(null); setModalOpen(true); }}

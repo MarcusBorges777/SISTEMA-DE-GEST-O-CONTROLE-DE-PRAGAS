@@ -478,6 +478,24 @@ export default function Arquivos() {
     setEsvaziandoLixeira(true);
     try {
       await api.post('/api/arquivo/esvaziar-lixeira');
+      try {
+        const eventos = await getAgendamentos();
+        const documentosNaLixeira = eventos.filter(e =>
+          e.tipo !== 'servico' && (
+            e.status === 'lixeira' ||
+            e.status === 'deletado' ||
+            e.isDeleted === true ||
+            e.deletado === true
+          )
+        );
+        await Promise.all(documentosNaLixeira.map(e => atualizarAgendamento(e.id, {
+          status: 'deletado',
+          isDeleted: true,
+          deletado: true,
+          observacao: 'Documento removido permanentemente da lixeira',
+        })));
+        window.dispatchEvent(new CustomEvent('agenda:refresh', { detail: { reason: 'lixeira-esvaziada' } }));
+      } catch { /* silencioso — não bloqueia limpeza da lixeira */ }
       addToast('Lixeira esvaziada com sucesso!', 'success');
       loadArquivos();
     } catch {
