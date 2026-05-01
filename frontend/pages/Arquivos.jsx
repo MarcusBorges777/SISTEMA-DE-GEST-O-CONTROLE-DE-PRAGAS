@@ -44,6 +44,77 @@ function isLixeira(arquivo) {
     (arquivo.caminho || arquivo.origem || '').toLowerCase().includes('lixeira');
 }
 
+function normalizeText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function normalizeDocNumber(value) {
+  return String(value || '').replace(/\D/g, '').replace(/^0+/, '') || '0';
+}
+
+function getArquivoTexto(arquivo) {
+  return [
+    arquivo?.nome,
+    arquivo?.filename,
+    arquivo?.caminho,
+    arquivo?.origem,
+    arquivo?.tipo,
+  ].filter(Boolean).join(' ');
+}
+
+function getArquivoTipoAgenda(arquivo) {
+  const texto = normalizeText(getArquivoTexto(arquivo));
+  if (texto.includes('orcamento')) return 'orcamento';
+  if (texto.includes('recibo')) return 'recibo';
+  if (texto.includes('laudo')) return 'laudo';
+  if (texto.includes('relatorio mensal')) return 'relatorio_mensal';
+  if (texto.includes('relatorio')) return 'relatorio_mensal';
+  return null;
+}
+
+function getArquivoNumeros(arquivo) {
+  const texto = getArquivoTexto(arquivo);
+  const matches = texto.match(/\d{1,6}/g) || [];
+  return new Set(matches.map(normalizeDocNumber));
+}
+
+function isEventoRelacionadoAoArquivo(evento, arquivo) {
+  const tipoArquivo = getArquivoTipoAgenda(arquivo);
+  if (!tipoArquivo || evento?.tipo !== tipoArquivo) return false;
+
+  const numerosArquivo = getArquivoNumeros(arquivo);
+  const numeroEvento = normalizeDocNumber(evento.numeroDoc);
+  const numeroBate = numeroEvento !== '0' && numerosArquivo.has(numeroEvento);
+
+  const textoArquivo = normalizeText(getArquivoTexto(arquivo));
+  const nomesEvento = [
+    evento.clienteNome,
+    evento.clienteFantasia,
+    evento.clienteCnpj,
+  ].map(normalizeText).filter(v => v.length >= 5);
+  const clienteBate = nomesEvento.some(nome => textoArquivo.includes(nome.slice(0, Math.min(nome.length, 24))));
+
+  return numeroBate && (clienteBate || nomesEvento.length === 0);
+}
+
+async function atualizarEventosRelacionados(arquivosAlvo, campos) {
+  const listaArquivos = (Array.isArray(arquivosAlvo) ? arquivosAlvo : [arquivosAlvo]).filter(Boolean);
+  if (listaArquivos.length === 0) return 0;
+
+  const eventos = await getAgendamentos();
+  const relacionados = eventos.filter(evento =>
+    listaArquivos.some(arquivo => isEventoRelacionadoAoArquivo(evento, arquivo))
+  );
+
+  await Promise.all(relacionados.map(evento => atualizarAgendamento(evento.id, campos)));
+  return relacionados.length;
+}
+
 function getTipoBadge(arquivo) {
   const tipo = (arquivo.tipo || arquivo.origem || '').toLowerCase();
   if (tipo.includes('laudo'))     return { label: 'Laudo',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
@@ -371,6 +442,11 @@ export default function Arquivos() {
 
       // Marcar evento correspondente na Agenda como lixeira para o calendario filtrar.
       try {
+        await atualizarEventosRelacionados(deleteModal, {
+          status: 'lixeira',
+          isDeleted: true,
+          observacao: 'Documento movido para lixeira',
+        });
         // Determinar tipo do documento pelo arquivo
         const tipoArq = (deleteModal.tipo || deleteModal.origem || filename || '').toLowerCase();
         const tipoAgenda = tipoArq.includes('orcamento') || tipoArq.includes('orçamento')
@@ -476,9 +552,16 @@ export default function Arquivos() {
 
   const handleEsvaziarLixeira = async () => {
     setEsvaziandoLixeira(true);
+    const arquivosNaLixeira = arquivos.filter(isLixeira);
     try {
       await api.post('/api/arquivo/esvaziar-lixeira');
       try {
+        await atualizarEventosRelacionados(arquivosNaLixeira, {
+          status: 'deletado',
+          isDeleted: true,
+          deletado: true,
+          observacao: 'Documento removido permanentemente da lixeira',
+        });
         const eventos = await getAgendamentos();
         const documentosNaLixeira = eventos.filter(e =>
           e.tipo !== 'servico' && (
