@@ -71,6 +71,8 @@ function novoBloco(tipo) {
     locais: '',
     datas: '',
     proximaVisita: '',
+    garantiaMeses: 0,
+    proximosServicos: '',
     selectedPests: [],
     controlType: 'quimico', // 'quimico' | 'nao_quimico' | 'ambos'
   };
@@ -98,6 +100,15 @@ function novoBloco(tipo) {
 }
 
 const formatBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+
+function addMonthsISO(baseDateIso, monthsToAdd) {
+  const months = parseInt(monthsToAdd, 10) || 0;
+  if (!baseDateIso || months <= 0) return '';
+  const [year, month, day] = baseDateIso.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setMonth(date.getMonth() + months);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 // ── Tabela de porta-iscas (dentro da página A4) ───────────────────────────────
 function TabelaPortaIscas({ portaIscas, qtdPortaIscas }) {
@@ -227,7 +238,9 @@ function TabelaProdutos({ produtos, produtosOptions, onAdd, onRemove, onUpdate }
 
 // ── Seção de visitas/locais ───────────────────────────────────────────────────
 function InfoVisita({ bloco }) {
-  const temAlgum = bloco.periodicidade || bloco.locais || bloco.datas || bloco.proximaVisita;
+  const garantiaMeses = parseInt(bloco.garantiaMeses, 10) || 0;
+  const dataGarantia = addMonthsISO(bloco.dataExecucao, garantiaMeses);
+  const temAlgum = bloco.periodicidade || bloco.locais || bloco.datas || bloco.proximaVisita || garantiaMeses > 0 || bloco.proximosServicos;
   if (!temAlgum) return null;
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px] mb-3 bg-blue-50/30 border border-blue-100 rounded p-2 print-bg-light-blue">
@@ -235,6 +248,11 @@ function InfoVisita({ bloco }) {
       {bloco.locais        && <p><span className="font-bold text-[#254191]">Locais:</span> {bloco.locais}</p>}
       {bloco.datas         && <p><span className="font-bold text-[#254191]">Datas:</span> {bloco.datas}</p>}
       {bloco.proximaVisita && <p><span className="font-bold text-[#254191]">Próxima visita:</span> {bloco.proximaVisita}</p>}
+      {garantiaMeses > 0 && <p><span className="font-bold text-[#254191]">Garantia do bloco:</span> {garantiaMeses} {garantiaMeses === 1 ? 'mês' : 'meses'}</p>}
+      {dataGarantia && <p><span className="font-bold text-[#254191]">Vencimento da garantia:</span> {formatBR(dataGarantia)}</p>}
+      {bloco.proximosServicos && (
+        <p className="col-span-2"><span className="font-bold text-[#254191]">Próximos serviços:</span> {bloco.proximosServicos}</p>
+      )}
     </div>
   );
 }
@@ -310,6 +328,8 @@ export default function RelatorioMensal() {
           dataExecucao: dataHoje,
           datas:        '',
           proximaVisita: '',
+          proximosServicos: b.proximosServicos || '',
+          garantiaMeses: b.garantiaMeses || 0,
           // Manter: tipo, produtos, portaIscas, qtdPortaIscas, observacao,
           //         selectedPests, controlType, periodicidade, locais
         }));
@@ -551,6 +571,36 @@ export default function RelatorioMensal() {
             <label className="block text-xs font-bold text-gray-700 mb-1">Próxima visita</label>
             <input type="text" value={bloco.proximaVisita} onChange={e => atualizarBloco(bloco.id, { proximaVisita: e.target.value })}
               className="w-full p-2 border rounded text-xs outline-none" placeholder="ex: 31/03/2026" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Garantia deste serviço (meses)</label>
+            <input
+              type="number"
+              min="0"
+              max="60"
+              value={bloco.garantiaMeses ?? 0}
+              onChange={e => atualizarBloco(bloco.id, { garantiaMeses: parseInt(e.target.value, 10) || 0 })}
+              className="w-full p-2 border rounded text-xs outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Vencimento da garantia</label>
+            <input
+              type="text"
+              value={formatBR(addMonthsISO(bloco.dataExecucao, bloco.garantiaMeses))}
+              disabled
+              className="w-full p-2 border rounded text-xs bg-gray-100 text-gray-500 cursor-not-allowed"
+              placeholder="Sem garantia"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-gray-700 mb-1">Próximos serviços / recomendações</label>
+            <textarea
+              value={bloco.proximosServicos || ''}
+              onChange={e => atualizarBloco(bloco.id, { proximosServicos: e.target.value })}
+              className="w-full p-2 border rounded text-xs outline-none resize-y min-h-[70px]"
+              placeholder="Ex: Retorno preventivo mensal, reforço em porta-iscas, nova inspeção no setor de estoque..."
+            />
           </div>
         </div>
 
