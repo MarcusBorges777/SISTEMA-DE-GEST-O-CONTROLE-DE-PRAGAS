@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, CalendarX, CalendarCheck, RefreshCw, ChevronDown, ChevronUp, Phone } from 'lucide-react';
+import { AlertTriangle, Clock, CalendarX, CalendarCheck, RefreshCw, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { fetchGarantiasVencendo } from '../../services/api';
 import { groupGarantias } from '../../utils/garantias';
 
@@ -23,22 +23,23 @@ export default function GarantiaAlerts({ compact = false }) {
   useEffect(() => { loadData(); }, []);
 
   const total = data.vencidas.length + data.esta_semana.length + data.proximas.length;
-
-  if (!loading && total === 0) return null;
+  const hasAlerts = total > 0;
 
   // ── Versão compacta: mesmo tamanho dos StatCards ─────────────────────────
   if (compact) {
     return (
-      <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg p-4 text-white flex flex-col justify-between h-full">
+      <div className={`${hasAlerts ? 'bg-gradient-to-br from-orange-500 to-red-500' : 'bg-gradient-to-br from-emerald-500 to-teal-600'} rounded-2xl shadow-lg p-4 text-white flex flex-col justify-between h-full`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-              <AlertTriangle size={16} />
+              {hasAlerts ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
             </div>
             <div>
               <h3 className="font-bold text-sm leading-tight">Avisos de Garantia</h3>
-              <p className="text-orange-100 text-[11px] leading-tight">Vencidas ou próximas</p>
+              <p className="text-white/80 text-[11px] leading-tight">
+                {loading ? 'Verificando...' : hasAlerts ? 'Vencidas ou próximas' : 'Tudo em dia'}
+              </p>
             </div>
           </div>
           <button onClick={loadData}
@@ -51,15 +52,15 @@ export default function GarantiaAlerts({ compact = false }) {
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-white/15 rounded-xl p-2 text-center">
             <p className="text-xl font-bold leading-none">{loading ? '-' : data.vencidas.length}</p>
-            <p className="text-[10px] text-orange-100 mt-0.5">Vencidas</p>
+            <p className="text-[10px] text-white/80 mt-0.5">Vencidas</p>
           </div>
           <div className="bg-white/15 rounded-xl p-2 text-center">
             <p className="text-xl font-bold leading-none">{loading ? '-' : data.esta_semana.length}</p>
-            <p className="text-[10px] text-orange-100 mt-0.5">Esta Semana</p>
+            <p className="text-[10px] text-white/80 mt-0.5">Esta Semana</p>
           </div>
           <div className="bg-white/15 rounded-xl p-2 text-center">
             <p className="text-xl font-bold leading-none">{loading ? '-' : data.proximas.length}</p>
-            <p className="text-[10px] text-orange-100 mt-0.5">Próx. 30d</p>
+            <p className="text-[10px] text-white/80 mt-0.5">Próx. 30d</p>
           </div>
         </div>
       </div>
@@ -68,15 +69,17 @@ export default function GarantiaAlerts({ compact = false }) {
 
   // ── Versão completa (coluna lateral) ────────────────────────────────────
   return (
-    <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg p-6 text-white">
+    <div className={`${hasAlerts ? 'bg-gradient-to-br from-orange-500 to-red-500' : 'bg-gradient-to-br from-emerald-500 to-teal-600'} rounded-2xl shadow-lg p-6 text-white`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-            <AlertTriangle size={20} />
+            {hasAlerts ? <AlertTriangle size={20} /> : <ShieldCheck size={20} />}
           </div>
           <div>
             <h3 className="font-bold text-lg">Avisos de Garantia</h3>
-            <p className="text-orange-100 text-xs">Clientes com garantia vencida ou proxima</p>
+            <p className="text-white/80 text-xs">
+              {loading ? 'Verificando garantias...' : hasAlerts ? 'Clientes com garantia vencida ou proxima' : 'Nenhuma garantia vencida ou proxima'}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -95,21 +98,27 @@ export default function GarantiaAlerts({ compact = false }) {
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
           <p className="text-2xl font-bold">{loading ? '-' : data.vencidas.length}</p>
-          <p className="text-xs text-orange-100">Vencidas</p>
+          <p className="text-xs text-white/80">Vencidas</p>
         </div>
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
           <p className="text-2xl font-bold">{loading ? '-' : data.esta_semana.length}</p>
-          <p className="text-xs text-orange-100">Esta Semana</p>
+          <p className="text-xs text-white/80">Esta Semana</p>
         </div>
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
           <p className="text-2xl font-bold">{loading ? '-' : data.proximas.length}</p>
-          <p className="text-xs text-orange-100">Prox. 30 dias</p>
+          <p className="text-xs text-white/80">Prox. 30 dias</p>
         </div>
       </div>
 
       {/* Lista expandida */}
       {expanded && !loading && (
         <div className="space-y-2 max-h-64 overflow-y-auto">
+          {!hasAlerts && (
+            <div className="flex items-center gap-3 bg-white/10 rounded-lg p-2.5 text-sm">
+              <ShieldCheck size={14} className="text-emerald-100 flex-shrink-0" />
+              <span className="truncate flex-1">Nenhuma garantia vencida ou próxima no momento.</span>
+            </div>
+          )}
           {data.vencidas.map((item, i) => (
             <div key={`v-${i}`} className="flex items-center gap-3 bg-white/10 rounded-lg p-2.5 text-sm">
               <CalendarX size={14} className="text-red-200 flex-shrink-0" />
