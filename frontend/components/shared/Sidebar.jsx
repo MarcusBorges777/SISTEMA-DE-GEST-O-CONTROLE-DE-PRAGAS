@@ -58,13 +58,21 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center justify-center h-20 px-3 border-b border-slate-200 dark:border-slate-700">
-        {logoPath ? (
-          <img src={logoPath} alt="Logo" className={`object-contain flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10 rounded-lg' : 'w-full h-16 rounded-xl'}`} />
-        ) : (
-          <div className={`rounded-xl bg-brand-500 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${collapsed ? 'w-10 h-10' : 'w-14 h-14'}`}>
-            <Bug size={collapsed ? 20 : 28} className="text-white" />
-          </div>
-        )}
+        <div className={`flex items-center justify-center shrink-0 overflow-hidden rounded-xl ${collapsed ? 'w-10 h-10' : 'w-full h-16'}`}>
+          {logoPath ? (
+            <img
+              src={logoPath}
+              alt="Logo"
+              className="block w-full h-full object-contain"
+              width={collapsed ? 40 : 232}
+              height={collapsed ? 40 : 64}
+            />
+          ) : (
+            <div className="w-full h-full bg-brand-500 flex items-center justify-center">
+              <Bug size={collapsed ? 20 : 28} className="text-white" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Nav Items */}
