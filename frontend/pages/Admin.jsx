@@ -298,12 +298,24 @@ export default function Admin() {
   const [configGlobal, setConfigGlobal] = useState({ proximoLaudo: 1, proximoRecibo: 1, proximoOrcamento: 1, garantiaPadrao: 3 });
   const [clientesConfig, setClientesConfig] = useState([]);
   const [clienteConfigId, setClienteConfigId] = useState('');
+  const [clienteConfigBusca, setClienteConfigBusca] = useState('');
   const [configLoading, setConfigLoading] = useState(false);
 
   const clienteConfigSelecionado = useMemo(
     () => clientesConfig.find(c => c.id === clienteConfigId) || null,
     [clientesConfig, clienteConfigId]
   );
+
+  const clientesConfigFiltrados = useMemo(() => {
+    const termo = clienteConfigBusca.trim().toLowerCase();
+    const termoDigits = clienteConfigBusca.replace(/\D/g, '');
+    if (!termo && !termoDigits) return clientesConfig;
+    return clientesConfig.filter(cliente => {
+      const texto = `${cliente.nome || ''} ${cliente.fantasia || ''} ${cliente.cnpj || ''}`.toLowerCase();
+      const cnpjDigits = String(cliente.cnpj || '').replace(/\D/g, '');
+      return texto.includes(termo) || (termoDigits && cnpjDigits.includes(termoDigits));
+    });
+  }, [clientesConfig, clienteConfigBusca]);
 
   const aplicarConfigNoFormulario = (cfg = {}, fallback = configGlobal) => {
     setConfigNumeracao({
@@ -994,6 +1006,27 @@ export default function Admin() {
             <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-2">
               <Search size={13} /> Cliente da configuração
             </label>
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={clienteConfigBusca}
+                onChange={e => setClienteConfigBusca(e.target.value)}
+                placeholder="Pesquisar por nome, fantasia ou CNPJ"
+                disabled={configLoading}
+                className="w-full pl-9 pr-9 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+              {clienteConfigBusca && (
+                <button
+                  type="button"
+                  onClick={() => setClienteConfigBusca('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  aria-label="Limpar pesquisa de cliente"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             <select
               value={clienteConfigId}
               onChange={e => setClienteConfigId(e.target.value)}
@@ -1001,14 +1034,16 @@ export default function Admin() {
               className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400"
             >
               <option value="">Configuração Global do Sistema</option>
-              {clientesConfig.map(cliente => (
+              {clientesConfigFiltrados.map(cliente => (
                 <option key={cliente.id} value={cliente.id}>
                   {(cliente.fantasia || cliente.nome || 'Cliente sem nome')} {cliente.cnpj ? `- ${cliente.cnpj}` : ''}
                 </option>
               ))}
             </select>
             <p className="text-[11px] text-slate-400 mt-2">
-              Sem cliente selecionado, os valores salvos valem para todos. Com cliente selecionado, eles ficam gravados apenas no perfil dele.
+              {clienteConfigBusca
+                ? `${clientesConfigFiltrados.length} cliente(s) encontrado(s).`
+                : 'Sem cliente selecionado, os valores salvos valem para todos. Com cliente selecionado, eles ficam gravados apenas no perfil dele.'}
             </p>
           </div>
 
