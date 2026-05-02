@@ -5,7 +5,7 @@ function digits(value) {
 }
 
 function padNumero(numero, tipo) {
-  const width = tipo === 'laudo' ? 4 : 5;
+  const width = ['recibo', 'orcamento'].includes(tipo) ? 5 : 4;
   return String(parseInt(numero, 10) || 1).padStart(width, '0');
 }
 
@@ -23,19 +23,6 @@ async function obterNumero(clienteOrCnpj, tipo, incrementar = false) {
   const ref = refCliente(clienteOrCnpj);
   if (!ref.clienteId && !ref.cnpj) return null;
   if (!ref.clienteId && ref.cnpj.length < 11) return null;
-  if (!['laudo', 'recibo', 'orcamento'].includes(tipo)) {
-    try {
-      const resp = await fetch(
-        `/api/documentos/proximo-numero?cnpj=${ref.cnpj}&tipo=${String(tipo || '').toUpperCase()}`,
-        { credentials: 'same-origin' }
-      );
-      if (!resp.ok) return null;
-      const data = await resp.json();
-      return { ...data, numeroFormatado: data.numero || null };
-    } catch {
-      return null;
-    }
-  }
   try {
     const data = await configApi.proximoNumero(tipo, { ...ref, incrementar });
     return {

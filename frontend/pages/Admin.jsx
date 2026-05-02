@@ -293,9 +293,16 @@ export default function Admin() {
     }
   };
 
-  const [configNumeracao, setConfigNumeracao] = useState({ laudos: '', recibos: '', orcamentos: '' });
+  const [configNumeracao, setConfigNumeracao] = useState({ laudos: '', recibos: '', orcamentos: '', relatorioMensal: '', relatorioBranco: '' });
   const [defaultGarantia, setDefaultGarantia] = useState('3');
-  const [configGlobal, setConfigGlobal] = useState({ proximoLaudo: 1, proximoRecibo: 1, proximoOrcamento: 1, garantiaPadrao: 3 });
+  const [configGlobal, setConfigGlobal] = useState({
+    proximoLaudo: 1,
+    proximoRecibo: 1,
+    proximoOrcamento: 1,
+    proximoRelatorioMensal: 1,
+    proximoRelatorioBranco: 1,
+    garantiaPadrao: 3,
+  });
   const [clientesConfig, setClientesConfig] = useState([]);
   const [clienteConfigId, setClienteConfigId] = useState('');
   const [clienteConfigBusca, setClienteConfigBusca] = useState('');
@@ -322,6 +329,8 @@ export default function Admin() {
       laudos:     String(cfg.proximoLaudo     ?? fallback.proximoLaudo     ?? 1),
       recibos:    String(cfg.proximoRecibo    ?? fallback.proximoRecibo    ?? 1),
       orcamentos: String(cfg.proximoOrcamento ?? fallback.proximoOrcamento ?? 1),
+      relatorioMensal: String(cfg.proximoRelatorioMensal ?? fallback.proximoRelatorioMensal ?? 1),
+      relatorioBranco: String(cfg.proximoRelatorioBranco ?? fallback.proximoRelatorioBranco ?? 1),
     });
     setDefaultGarantia(String(cfg.garantiaPadrao ?? fallback.garantiaPadrao ?? 3));
   };
@@ -334,6 +343,8 @@ export default function Admin() {
         proximoLaudo: cfg.proximoLaudo ?? 1,
         proximoRecibo: cfg.proximoRecibo ?? 1,
         proximoOrcamento: cfg.proximoOrcamento ?? 1,
+        proximoRelatorioMensal: cfg.proximoRelatorioMensal ?? 1,
+        proximoRelatorioBranco: cfg.proximoRelatorioBranco ?? 1,
         garantiaPadrao: cfg.garantiaPadrao ?? 3,
       };
       setConfigGlobal(global);
@@ -361,8 +372,10 @@ export default function Admin() {
     const l = parseInt(configNumeracao.laudos, 10);
     const r = parseInt(configNumeracao.recibos, 10);
     const o = parseInt(configNumeracao.orcamentos, 10);
+    const rm = parseInt(configNumeracao.relatorioMensal, 10);
+    const rb = parseInt(configNumeracao.relatorioBranco, 10);
     const g = parseInt(defaultGarantia, 10);
-    if (isNaN(l) || isNaN(r) || isNaN(o) || l < 1 || r < 1 || o < 1) {
+    if (isNaN(l) || isNaN(r) || isNaN(o) || isNaN(rm) || isNaN(rb) || l < 1 || r < 1 || o < 1 || rm < 1 || rb < 1) {
       addToast('Digite valores numéricos válidos (mínimo 1)', 'error');
       return;
     }
@@ -374,6 +387,8 @@ export default function Admin() {
       proximoLaudo: l,
       proximoRecibo: r,
       proximoOrcamento: o,
+      proximoRelatorioMensal: rm,
+      proximoRelatorioBranco: rb,
       garantiaPadrao: g,
     };
     setConfigLoading(true);
@@ -388,6 +403,8 @@ export default function Admin() {
         localStorage.setItem('laudoSequence', String(l));
         localStorage.setItem('receiptNumber', String(r));
         localStorage.setItem('lastQuoteNumber_orcamento', String(o));
+        localStorage.setItem('relatorioMensalNumero', String(rm));
+        localStorage.setItem('relatorioBrancoNumero', String(rb));
         localStorage.setItem('defaultGarantiaMeses', String(g));
         addToast('Configurações globais salvas com sucesso!', 'success');
       }
@@ -1047,11 +1064,13 @@ export default function Admin() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
             {[
               { key: 'laudos',     label: 'Próximo Laudo',     color: 'blue' },
               { key: 'recibos',    label: 'Próximo Recibo',    color: 'emerald' },
               { key: 'orcamentos', label: 'Próximo Orçamento', color: 'amber' },
+              { key: 'relatorioMensal', label: 'Próximo Rel. Mensal', color: 'purple' },
+              { key: 'relatorioBranco', label: 'Próximo Rel. Livre', color: 'red' },
             ].map(({ key, label, color }) => (
               <div key={key} className={`bg-${color}-50 dark:bg-${color}-900/20 border border-${color}-200 dark:border-${color}-700/50 rounded-xl p-4`}>
                 <label className={`flex items-center gap-1.5 text-xs font-bold text-${color}-700 dark:text-${color}-300 uppercase tracking-wide mb-3`}>

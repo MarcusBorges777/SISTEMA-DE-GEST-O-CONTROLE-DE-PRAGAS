@@ -14,6 +14,8 @@ EMPTY_DB = {
         "proximoLaudo": 1,
         "proximoOrcamento": 1,
         "proximoRecibo": 1,
+        "proximoRelatorioMensal": 1,
+        "proximoRelatorioBranco": 1,
         "garantiaPadrao": 3
     },
     "clientes": [],
@@ -367,6 +369,8 @@ class JsonDbService:
             'proximoLaudo': 1,
             'proximoOrcamento': 1,
             'proximoRecibo': 1,
+            'proximoRelatorioMensal': 1,
+            'proximoRelatorioBranco': 1,
             'garantiaPadrao': 3,
         }
 
@@ -375,11 +379,13 @@ class JsonDbService:
             'laudo': 'proximoLaudo',
             'orcamento': 'proximoOrcamento',
             'recibo': 'proximoRecibo',
+            'relatorio_mensal': 'proximoRelatorioMensal',
+            'relatorio_branco': 'proximoRelatorioBranco',
         }.get(tipo)
 
     def _normalizar_config(self, data: dict, base: dict | None = None) -> dict:
         cfg = {**self._config_defaults(), **(base or {})}
-        for campo in ('proximoLaudo', 'proximoOrcamento', 'proximoRecibo'):
+        for campo in ('proximoLaudo', 'proximoOrcamento', 'proximoRecibo', 'proximoRelatorioMensal', 'proximoRelatorioBranco'):
             if campo in data and data.get(campo) not in (None, ''):
                 cfg[campo] = max(1, int(data.get(campo) or 1))
         if 'garantiaPadrao' in data and data.get('garantiaPadrao') not in (None, ''):
