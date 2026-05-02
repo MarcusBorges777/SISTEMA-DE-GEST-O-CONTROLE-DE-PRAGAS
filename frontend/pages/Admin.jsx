@@ -3,7 +3,8 @@ import {
   Shield, Users, Users2, Database, Palette, Upload, Trash2, Image as ImageIcon,
   Bug, FileImage, Award, Loader2, Package, FolderOpen, Plus, Edit2,
   X, Check, FlaskConical, ChevronDown, Save, AlertCircle, CheckCircle2, Trash,
-  SlidersHorizontal, Hash, UserPlus, UserCheck, Zap, ArrowRight, Search
+  SlidersHorizontal, Hash, UserPlus, UserCheck, Zap, ArrowRight, Search,
+  ClipboardList, FileText, Target
 } from 'lucide-react';
 import { api, fetchImagensEmpresa, uploadImagemEmpresa, removerImagemEmpresa } from '../services/api';
 import { getTecnicos, salvarTecnicos, getEquipes, salvarEquipes } from '../services/agendaService';
@@ -26,6 +27,28 @@ const EMPTY_PRODUTO = {
   id: '', nome: '', grupo: '', principio: '', registro: '',
   concentracao: '', diluente: '', equipamento: '', antidoto: '', targets: []
 };
+
+const RELATORIO_FILTROS = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'mensal', label: 'Relatórios Mensais' },
+  { id: 'livre', label: 'Relatórios Livres' },
+  { id: 'desinsetizacao', label: 'Desinsetização' },
+  { id: 'armadilha_luminosa', label: 'Armadilhas Luminosas' },
+  { id: 'feromonio', label: 'Armadilhas de Feromônios' },
+  { id: 'desratizacao_quimica', label: 'Desratização' },
+];
+
+const RELATORIO_NUMERACAO = [
+  { key: 'relatorioMensal', label: 'Próximo Relatório Mensal', filtro: 'mensal', color: 'purple' },
+  { key: 'relatorioBranco', label: 'Próximo Relatório Livre', filtro: 'livre', color: 'red' },
+];
+
+const RELATORIO_MENSAL_SERVICOS = [
+  { id: 'desinsetizacao', label: 'Desinsetização', icon: Bug, desc: 'Controle de insetos rasteiros e voadores.' },
+  { id: 'armadilha_luminosa', label: 'Armadilhas Luminosas', icon: Zap, desc: 'Monitoramento e captura com armadilhas UV.' },
+  { id: 'feromonio', label: 'Armadilhas de Feromônios', icon: Target, desc: 'Monitoramento por atração feromonal.' },
+  { id: 'desratizacao_quimica', label: 'Desratização', icon: Shield, desc: 'Controle químico de roedores.' },
+];
 
 export default function Admin() {
   const { addToast } = useToast();
@@ -306,6 +329,7 @@ export default function Admin() {
   const [clientesConfig, setClientesConfig] = useState([]);
   const [clienteConfigId, setClienteConfigId] = useState('');
   const [clienteConfigBusca, setClienteConfigBusca] = useState('');
+  const [relatorioConfigFiltro, setRelatorioConfigFiltro] = useState('todos');
   const [configLoading, setConfigLoading] = useState(false);
 
   const clienteConfigSelecionado = useMemo(
@@ -323,6 +347,20 @@ export default function Admin() {
       return texto.includes(termo) || (termoDigits && cnpjDigits.includes(termoDigits));
     });
   }, [clientesConfig, clienteConfigBusca]);
+
+  const relatoriosNumeracaoVisiveis = useMemo(() => {
+    if (relatorioConfigFiltro === 'todos') return RELATORIO_NUMERACAO;
+    if (RELATORIO_MENSAL_SERVICOS.some(item => item.id === relatorioConfigFiltro)) {
+      return RELATORIO_NUMERACAO.filter(item => item.filtro === 'mensal');
+    }
+    return RELATORIO_NUMERACAO.filter(item => item.filtro === relatorioConfigFiltro);
+  }, [relatorioConfigFiltro]);
+
+  const servicosRelatorioMensalVisiveis = useMemo(() => {
+    if (relatorioConfigFiltro === 'livre') return [];
+    if (relatorioConfigFiltro === 'todos' || relatorioConfigFiltro === 'mensal') return RELATORIO_MENSAL_SERVICOS;
+    return RELATORIO_MENSAL_SERVICOS.filter(item => item.id === relatorioConfigFiltro);
+  }, [relatorioConfigFiltro]);
 
   const aplicarConfigNoFormulario = (cfg = {}, fallback = configGlobal) => {
     setConfigNumeracao({
@@ -1064,13 +1102,11 @@ export default function Admin() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {[
               { key: 'laudos',     label: 'Próximo Laudo',     color: 'blue' },
               { key: 'recibos',    label: 'Próximo Recibo',    color: 'emerald' },
               { key: 'orcamentos', label: 'Próximo Orçamento', color: 'amber' },
-              { key: 'relatorioMensal', label: 'Próximo Rel. Mensal', color: 'purple' },
-              { key: 'relatorioBranco', label: 'Próximo Rel. Livre', color: 'red' },
             ].map(({ key, label, color }) => (
               <div key={key} className={`bg-${color}-50 dark:bg-${color}-900/20 border border-${color}-200 dark:border-${color}-700/50 rounded-xl p-4`}>
                 <label className={`flex items-center gap-1.5 text-xs font-bold text-${color}-700 dark:text-${color}-300 uppercase tracking-wide mb-3`}>
@@ -1088,6 +1124,78 @@ export default function Admin() {
                 </p>
               </div>
             ))}
+          </div>
+
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <ClipboardList size={17} className="text-violet-600 dark:text-violet-300" />
+                  <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Relatórios</h3>
+                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  Configurações separadas para relatórios e filtro dos tipos internos do Relatório Mensal.
+                </p>
+              </div>
+              <select
+                value={relatorioConfigFiltro}
+                onChange={e => setRelatorioConfigFiltro(e.target.value)}
+                className="w-full sm:w-64 px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400"
+              >
+                {RELATORIO_FILTROS.map(filtro => (
+                  <option key={filtro.id} value={filtro.id}>{filtro.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              {relatoriosNumeracaoVisiveis.map(({ key, label, color }) => (
+                <div key={key} className={`bg-${color}-50 dark:bg-${color}-900/20 border border-${color}-200 dark:border-${color}-700/50 rounded-xl p-4`}>
+                  <label className={`flex items-center gap-1.5 text-xs font-bold text-${color}-700 dark:text-${color}-300 uppercase tracking-wide mb-3`}>
+                    <Hash size={12} /> {label}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={configNumeracao[key]}
+                    onChange={e => setConfigNumeracao(prev => ({ ...prev, [key]: e.target.value }))}
+                    className={`w-full px-3 py-2.5 text-center text-lg font-black text-${color}-700 dark:text-${color}-300 bg-white dark:bg-slate-800 border border-${color}-200 dark:border-${color}-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-${color}-400`}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-2 text-center">
+                    Será formatado como {String(parseInt(configNumeracao[key]) || 1).padStart(4, '0')}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {servicosRelatorioMensalVisiveis.length > 0 && (
+              <div className="rounded-xl border border-violet-100 dark:border-violet-800/60 bg-violet-50/40 dark:bg-violet-900/10 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText size={15} className="text-violet-600 dark:text-violet-300" />
+                  <h4 className="text-xs font-bold text-violet-800 dark:text-violet-200 uppercase tracking-wide">
+                    Dentro do Relatório Mensal
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  {servicosRelatorioMensalVisiveis.map(({ id, label, icon: Icon, desc }) => (
+                    <div key={id} className="bg-white dark:bg-slate-800 border border-violet-100 dark:border-violet-800/50 rounded-xl p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 flex items-center justify-center">
+                          <Icon size={15} />
+                        </span>
+                        <h5 className="text-xs font-black text-slate-800 dark:text-white leading-tight">{label}</h5>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">usa Nº Rel. Mensal</span>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">garantia própria</span>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">próximos serviços</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
