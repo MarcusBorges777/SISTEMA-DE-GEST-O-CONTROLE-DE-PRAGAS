@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ChevronDown, ChevronUp, Plus, Trash2, Search, Bug,
-  Droplets, Zap, Target, ClipboardList, Package, CheckCircle2,
+  Droplets, Zap, Target, ClipboardList, Package, CheckCircle2, Upload,
 } from 'lucide-react';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
@@ -242,7 +242,9 @@ function InfoVisita({ bloco }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function RelatorioMensal() {
   const fileInputRef = useRef(null);
+  const alvaraInputRef = useRef(null);
   const [logo, setLogo] = useState(null);
+  const [alvaraImage, setAlvaraImage] = useState(null);
   const [showEditor, setShowEditor] = useState(true);
   const [salvandoPdf, setSalvandoPdf] = useState(false);
   const [tipoMenuAberto, setTipoMenuAberto] = useState(false);
@@ -271,7 +273,10 @@ export default function RelatorioMensal() {
   useEffect(() => { getClientes().then(setClientesSalvos).catch(() => {}); }, []);
   useEffect(() => {
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() : null).then(d => { if (d?.logo) setLogo(d.logo); }).catch(() => {});
+      .then(r => r.ok ? r.json() : null).then(d => {
+        if (d?.logo) setLogo(d.logo);
+        if (d?.alvara) setAlvaraImage(d.alvara);
+      }).catch(() => {});
   }, []);
   // Pre-fill de cliente + histórico vindo de Contratos ("Emitir Documento")
   useEffect(() => {
@@ -418,6 +423,15 @@ export default function RelatorioMensal() {
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) { const r = new FileReader(); r.onloadend = () => setLogo(r.result); r.readAsDataURL(file); }
+  };
+
+  const handleAlvaraUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const r = new FileReader();
+      r.onloadend = () => setAlvaraImage(r.result);
+      r.readAsDataURL(file);
+    }
   };
 
   const handlePrint     = () => window.print();
@@ -1033,6 +1047,53 @@ export default function RelatorioMensal() {
       {blocosRoedores.map((b) => renderPaginaRoedor(b))}
       {blocosDesinset.map((b) => renderPaginaDesinsetizacao(b))}
       {renderPaginaArmadilhas()}
+
+      {!alvaraImage && (
+        <div className="a4-page relative bg-white shadow-2xl flex flex-col items-center justify-center overflow-hidden no-print">
+          <div
+            onClick={() => alvaraInputRef.current?.click()}
+            className="w-full h-full flex flex-col items-center justify-center border-4 border-dashed border-gray-200 m-[15mm] rounded-2xl cursor-pointer hover:bg-blue-50/50 transition-colors group p-10 text-center"
+            style={{ width: 'calc(100% - 30mm)', height: 'calc(100% - 30mm)' }}
+          >
+            <input
+              type="file"
+              ref={alvaraInputRef}
+              onChange={handleAlvaraUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            <div className="bg-white p-6 rounded-full shadow-sm mb-6 group-hover:scale-110 transition-transform">
+              <Upload size={64} className="text-blue-300 group-hover:text-blue-600 transition-colors" />
+            </div>
+            <h2 className="text-3xl font-black text-gray-400 group-hover:text-blue-800 uppercase tracking-tight transition-colors">Anexar AlvarÃ¡ SanitÃ¡rio</h2>
+            <p className="text-gray-400 mt-4 text-base max-w-md">
+              Clique para adicionar uma imagem <strong className="text-gray-600">(JPG ou PNG)</strong> do seu AlvarÃ¡ SanitÃ¡rio escaneado.
+            </p>
+            <p className="text-red-400 mt-4 text-xs font-bold uppercase tracking-widest">
+              * Esta pÃ¡gina nÃ£o serÃ¡ impressa se estiver vazia.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {alvaraImage && (
+        <div className="a4-page relative bg-white shadow-2xl flex flex-col items-center justify-center print:shadow-none print:m-0 overflow-hidden print:page-break">
+          <div className="absolute inset-0 w-full h-full group p-2 print:p-0 bg-white">
+            <img
+              src={alvaraImage}
+              alt="AlvarÃ¡ SanitÃ¡rio Anexado"
+              className="w-full h-full object-contain object-center"
+            />
+            <button
+              onClick={() => setAlvaraImage(null)}
+              className="absolute top-6 right-6 z-10 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all no-print flex items-center gap-2 font-bold text-sm transform hover:scale-105"
+              title="Remover AlvarÃ¡"
+            >
+              <Trash2 size={16} /> Remover Anexo
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .a4-page {
