@@ -5,10 +5,11 @@ import {
   Image as ImageIcon, Upload,
 } from 'lucide-react';
 import { getClientes, saveCliente } from '../../services/clienteCache';
+import { configApi } from '../../services/dbService';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { salvarDocumento } from '../../utils/salvarDocumento';
-import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
+import { fetchConfigDocumento, incrementarProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
@@ -85,7 +86,7 @@ export default function Recibos() {
       if (!raw) return;
       sessionStorage.removeItem('__prefill_cliente');
       const c = JSON.parse(raw);
-      setClientData(prev => ({ ...prev, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '' }));
+      setClientData(prev => ({ ...prev, id: c.id, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '', configuracoes: c.configuracoes }));
       if (c.cnpj) setCnpjExternal(c.cnpj);
       // Importar itens do último recibo deste cliente
       if (c.historico?.items && Array.isArray(c.historico.items) && c.historico.items.length > 0) {
@@ -131,8 +132,10 @@ export default function Recibos() {
   // Número por cliente: busca do servidor quando CNPJ é preenchido
   useEffect(() => {
     if (!clientData.cnpj) return;
-    fetchProximoNumero(clientData.cnpj, 'recibo').then(num => {
-      if (num) setReciboNumero(num);
+    fetchConfigDocumento(clientData, 'recibo').then(data => {
+      if (!data) return;
+      if (data.numeroFormatado) setReciboNumero(data.numeroFormatado);
+      if (data.garantiaPadrao !== undefined) setGarantiaMeses(String(data.garantiaPadrao));
     }).catch(() => {});
   }, [clientData.cnpj]);
 
@@ -195,6 +198,14 @@ export default function Recibos() {
         },
       });
       if (result.sucesso) {
+        configApi.atualizarGarantiaCliente({
+          clienteId: clientData.id,
+          cnpj: clientData.cnpj,
+          garantiaPadrao: novaGarantia,
+        }).catch(() => {});
+        incrementarProximoNumero(clientData, 'recibo').then(num => {
+          if (num) setReciboNumero(num);
+        }).catch(() => {});
         registrarRecibo(clientData.cnpj, total);
         registrarDocumentoNaAgenda(
           'recibo',
@@ -454,8 +465,9 @@ export default function Recibos() {
           setCnpjExternal(c.cnpj || '');
           setClientData(prev => ({
             ...prev,
-            nome: c.nome, fantasia: c.fantasia, cnpj: c.cnpj,
+            id: c.id, nome: c.nome, fantasia: c.fantasia, cnpj: c.cnpj,
             endereco: c.endereco, atividade: c.atividade,
+            configuracoes: c.configuracoes,
           }));
         }}
         onVerPerfil={(c) => { setPickerOpen(false); setPerfilCliente(c); }}

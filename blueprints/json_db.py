@@ -140,6 +140,40 @@ def get_config():
     return jsonify(_db().get_configuracoes())
 
 
+@json_db_bp.put('/config')
+@require_role('admin')
+def update_config():
+    data = request.get_json(force=True) or {}
+    return jsonify(_db().update_configuracoes(data))
+
+
+@json_db_bp.put('/clientes/<cliente_id>/config')
+@require_role('admin')
+def update_cliente_config(cliente_id):
+    data = request.get_json(force=True) or {}
+    entry = _db().update_cliente_configuracoes(cliente_id, data)
+    if entry is None:
+        return jsonify({'erro': 'Cliente nÃ£o encontrado'}), 404
+    return jsonify(entry)
+
+
+@json_db_bp.post('/clientes/garantia-padrao')
+@require_role('admin', 'atendimento')
+def atualizar_garantia_cliente():
+    data = request.get_json(force=True) or {}
+    garantia = data.get('garantiaPadrao', data.get('garantiaMeses', None))
+    if garantia is None:
+        return jsonify({'erro': 'garantiaPadrao obrigatÃ³ria'}), 400
+    entry = _db().atualizar_garantia_cliente(
+        garantia=int(garantia or 0),
+        cliente_id=data.get('clienteId') or None,
+        cnpj=data.get('cnpj') or None,
+    )
+    if entry is None:
+        return jsonify({'ok': False, 'erro': 'Cliente nÃ£o encontrado'}), 404
+    return jsonify({'ok': True, 'cliente': entry})
+
+
 @json_db_bp.post('/config/proximo-numero')
 @require_role('admin', 'atendimento')
 def proximo_numero():
@@ -147,8 +181,13 @@ def proximo_numero():
     tipo = data.get('tipo', '')
     if tipo not in ('laudo', 'orcamento', 'recibo', 'relatorio_mensal', 'relatorio_branco'):
         return jsonify({'erro': 'tipo deve ser laudo, orcamento, recibo, relatorio_mensal ou relatorio_branco'}), 400
-    numero = _db().proximo_numero(tipo)
-    return jsonify({'numero': numero, 'tipo': tipo})
+    result = _db().resolver_config_documento(
+        tipo,
+        cliente_id=data.get('clienteId') or None,
+        cnpj=data.get('cnpj') or None,
+        incrementar=bool(data.get('incrementar')),
+    )
+    return jsonify({'tipo': tipo, **result})
 
 
 # ── Contatos de Garantia ──────────────────────────────────────────────────

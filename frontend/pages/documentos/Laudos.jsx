@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { contratoApi } from '../../services/dbService';
+import { configApi, contratoApi } from '../../services/dbService';
 import { Mail, Phone, Globe, Shield, Droplets, Bug, ClipboardCheck, Calendar, Info, CheckCircle2, Upload, AlertTriangle, Edit3, ChevronDown, ChevronUp, X, Plus, Minus, Trash2, FileText, Archive, Save, Search } from 'lucide-react';
 import { useCnpjAutofill } from '../../hooks/useCnpjAutofill';
 import { CnpjInput } from '../../components/shared/CnpjInput';
 import { useEmpresa } from '../../contexts/EmpresaContext';
 import { useProdutos } from '../../contexts/ProdutosContext';
 import { salvarDocumento } from '../../utils/salvarDocumento';
-import { fetchProximoNumero } from '../../utils/proximoNumeroDoc';
+import { fetchConfigDocumento, incrementarProximoNumero } from '../../utils/proximoNumeroDoc';
 import { BotoesDocumento } from '../../components/documentos/BotoesDocumento';
 import { ClientePickerModal } from '../../components/documentos/ClientePickerModal';
 import { ClientePerfilModal } from '../../components/documentos/ClientePerfilModal';
@@ -165,11 +165,13 @@ export default function Laudos() {
         ...prev,
         cliente: {
           ...prev.cliente,
+          id:                 c.id,
           nome:               c.nome      || '',
           fantasia:           c.fantasia  || '',
           cnpj:               c.cnpj      || '',
           endereco:           c.endereco  || '',
           atividadeEconomica: c.atividade || '',
+          configuracoes:      c.configuracoes,
         },
         // Importar pragas e observação do último laudo
         selectedPests: hist?.selectedPests || prev.selectedPests,
@@ -275,8 +277,13 @@ export default function Laudos() {
   useEffect(() => {
     const cnpj = formData.cliente?.cnpj;
     if (!cnpj) return;
-    fetchProximoNumero(cnpj, 'laudo').then(num => {
-      if (num) setFormData(prev => ({ ...prev, laudoNumero: num }));
+    fetchConfigDocumento(formData.cliente, 'laudo').then(data => {
+      if (!data) return;
+      setFormData(prev => ({
+        ...prev,
+        laudoNumero: data.numeroFormatado || prev.laudoNumero,
+        garantiaMeses: data.garantiaPadrao ?? prev.garantiaMeses,
+      }));
     }).catch(() => {});
   }, [formData.cliente?.cnpj]);
 
@@ -603,6 +610,14 @@ export default function Laudos() {
         },
       });
       if (result.sucesso) {
+        configApi.atualizarGarantiaCliente({
+          clienteId: formDataAtualizado.cliente?.id,
+          cnpj: formDataAtualizado.cliente?.cnpj,
+          garantiaPadrao: garantiaMeses,
+        }).catch(() => {});
+        incrementarProximoNumero(formDataAtualizado.cliente, 'laudo').then(num => {
+          if (num) setFormData(prev => ({ ...prev, laudoNumero: num }));
+        }).catch(() => {});
         registrarDocumentoNaAgenda(
           'laudo',
           formDataAtualizado.cliente,
@@ -1117,10 +1132,12 @@ export default function Laudos() {
           setFormData(prev => ({
             ...prev,
             cliente: {
+              id: c.id,
               nome: c.nome,
               fantasia: c.fantasia,
               cnpj: c.cnpj,
               endereco: c.endereco,
+              configuracoes: c.configuracoes,
               atividadeEconomica: c.atividade,
             }
           }));

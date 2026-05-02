@@ -125,10 +125,31 @@ export const contratoApi = {
 export const configApi = {
   get: () => req(`${BASE}/config`),
 
-  proximoNumero: (tipo) =>
+  save: (data) =>
+    req(`${BASE}/config`, {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(data),
+    }),
+
+  saveClienteConfig: (clienteId, configuracoes) =>
+    req(`${BASE}/clientes/${clienteId}/config`, {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(configuracoes),
+    }),
+
+  atualizarGarantiaCliente: ({ clienteId, cnpj, garantiaPadrao }) =>
+    req(`${BASE}/clientes/garantia-padrao`, {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ clienteId, cnpj, garantiaPadrao }),
+    }),
+
+  proximoNumero: (tipo, { clienteId, cnpj, incrementar = false } = {}) =>
     req(`${BASE}/config/proximo-numero`, {
       method: 'POST',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ tipo }),
+      body: JSON.stringify({ tipo, clienteId, cnpj, incrementar }),
     }),
 };

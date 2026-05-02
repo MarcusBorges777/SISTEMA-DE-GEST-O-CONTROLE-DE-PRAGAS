@@ -13,7 +13,8 @@ EMPTY_DB = {
     "configuracoes": {
         "proximoLaudo": 1,
         "proximoOrcamento": 1,
-        "proximoRecibo": 1
+        "proximoRecibo": 1,
+        "garantiaPadrao": 3
     },
     "clientes": [],
     "agenda": [],
@@ -361,25 +362,123 @@ class JsonDbService:
 
     # ── Configurações (auto-increment counters) ───────────────────────────
 
-    def proximo_numero(self, tipo: str) -> int:
-        """Atomically reads and increments the document counter for tipo."""
-        campo_map = {
+    def _config_defaults(self) -> dict:
+        return {
+            'proximoLaudo': 1,
+            'proximoOrcamento': 1,
+            'proximoRecibo': 1,
+            'garantiaPadrao': 3,
+        }
+
+    def _numero_campo(self, tipo: str) -> str | None:
+        return {
             'laudo': 'proximoLaudo',
             'orcamento': 'proximoOrcamento',
             'recibo': 'proximoRecibo',
-        }
-        campo = campo_map.get(tipo)
-        if not campo:
-            return 1
+        }.get(tipo)
+
+    def _normalizar_config(self, data: dict, base: dict | None = None) -> dict:
+        cfg = {**self._config_defaults(), **(base or {})}
+        for campo in ('proximoLaudo', 'proximoOrcamento', 'proximoRecibo'):
+            if campo in data and data.get(campo) not in (None, ''):
+                cfg[campo] = max(1, int(data.get(campo) or 1))
+        if 'garantiaPadrao' in data and data.get('garantiaPadrao') not in (None, ''):
+            cfg['garantiaPadrao'] = max(0, int(data.get('garantiaPadrao') or 0))
+        return cfg
+
+    def _cliente_index_by_ref(self, db: dict, cliente_id: str = None, cnpj: str = None) -> int | None:
+        digits = _cnpj_digits(cnpj or '')
+        for i, cliente in enumerate(db.get('clientes', [])):
+            if cliente.get('deletado'):
+                continue
+            if cliente_id and cliente.get('id') == cliente_id:
+                return i
+            if digits and _cnpj_digits(cliente.get('cnpj', '')) == digits:
+                return i
+        return None
+
+    def get_configuracoes(self) -> dict:
+        cfg = self.read().get('configuracoes', {})
+        return self._normalizar_config({}, cfg)
+
+    def update_configuracoes(self, data: dict) -> dict:
         def mutator(db):
-            atual = db['configuracoes'].get(campo, 1)
-            db['configuracoes'][campo] = atual + 1
-            return atual
+            atual = db.setdefault('configuracoes', {})
+            atualizado = self._normalizar_config(data, atual)
+            db['configuracoes'] = atualizado
+            return atualizado
 
         return self._mutate(mutator)
 
-    def get_configuracoes(self) -> dict:
-        return self.read()['configuracoes']
+    def update_cliente_configuracoes(self, cliente_id: str, data: dict) -> dict | None:
+        def mutator(db):
+            idx = self._cliente_index_by_ref(db, cliente_id=cliente_id)
+            if idx is None:
+                return None
+            atual = db['clientes'][idx].get('configuracoes') or {}
+            atualizado = self._normalizar_config(data, atual)
+            db['clientes'][idx]['configuracoes'] = atualizado
+            db['clientes'][idx]['atualizadoEm'] = datetime.utcnow().isoformat()
+            return db['clientes'][idx]
+
+        return self._mutate(mutator)
+
+    def atualizar_garantia_cliente(self, garantia: int, cliente_id: str = None, cnpj: str = None) -> dict | None:
+        def mutator(db):
+            idx = self._cliente_index_by_ref(db, cliente_id=cliente_id, cnpj=cnpj)
+            if idx is None:
+                return None
+            atual = db['clientes'][idx].get('configuracoes') or {}
+            cfg = dict(atual)
+            cfg['garantiaPadrao'] = max(0, int(garantia or 0))
+            db['clientes'][idx]['configuracoes'] = cfg
+            db['clientes'][idx]['atualizadoEm'] = datetime.utcnow().isoformat()
+            return db['clientes'][idx]
+
+        return self._mutate(mutator)
+
+    def resolver_config_documento(self, tipo: str, cliente_id: str = None, cnpj: str = None, incrementar: bool = False) -> dict:
+        campo = self._numero_campo(tipo)
+        if not campo:
+            return {'numero': 1, 'scope': 'global'}
+
+        def mutator(db):
+            global_cfg = self._normalizar_config({}, db.setdefault('configuracoes', {}))
+            db['configuracoes'] = global_cfg
+            idx = self._cliente_index_by_ref(db, cliente_id=cliente_id, cnpj=cnpj)
+            cliente = db['clientes'][idx] if idx is not None else None
+            cliente_cfg = cliente.get('configuracoes') if cliente else None
+            usar_cliente = isinstance(cliente_cfg, dict) and campo in cliente_cfg and cliente_cfg.get(campo) not in (None, '')
+
+            if usar_cliente:
+                atual = max(1, int(cliente_cfg.get(campo) or 1))
+                if incrementar:
+                    cliente_cfg[campo] = atual + 1
+                    cliente['configuracoes'] = self._normalizar_config(cliente_cfg, cliente_cfg)
+                    cliente['atualizadoEm'] = datetime.utcnow().isoformat()
+                garantia = cliente.get('configuracoes', {}).get('garantiaPadrao', global_cfg.get('garantiaPadrao', 3))
+                return {
+                    'numero': atual,
+                    'scope': 'cliente',
+                    'clienteId': cliente.get('id'),
+                    'garantiaPadrao': garantia,
+                }
+
+            atual = max(1, int(global_cfg.get(campo) or 1))
+            if incrementar:
+                global_cfg[campo] = atual + 1
+                db['configuracoes'] = global_cfg
+            garantia = global_cfg.get('garantiaPadrao', 3)
+            if cliente and isinstance(cliente.get('configuracoes'), dict):
+                garantia = cliente['configuracoes'].get('garantiaPadrao', garantia)
+            return {
+                'numero': atual,
+                'scope': 'global',
+                'clienteId': cliente.get('id') if cliente else None,
+                'garantiaPadrao': garantia,
+            }
+
+        return self._mutate(mutator)
 
     # ── Usuários (auth + RBAC) ────────────────────────────────────────────
 

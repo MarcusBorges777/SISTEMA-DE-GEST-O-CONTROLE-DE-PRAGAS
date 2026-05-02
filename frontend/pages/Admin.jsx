@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Shield, Users, Users2, Database, Palette, Upload, Trash2, Image as ImageIcon,
   Bug, FileImage, Award, Loader2, Package, FolderOpen, Plus, Edit2,
   X, Check, FlaskConical, ChevronDown, Save, AlertCircle, CheckCircle2, Trash,
-  SlidersHorizontal, Hash, UserPlus, UserCheck, Zap, ArrowRight
+  SlidersHorizontal, Hash, UserPlus, UserCheck, Zap, ArrowRight, Search
 } from 'lucide-react';
 import { api, fetchImagensEmpresa, uploadImagemEmpresa, removerImagemEmpresa } from '../services/api';
 import { getTecnicos, salvarTecnicos, getEquipes, salvarEquipes } from '../services/agendaService';
 import { useToast } from '../components/shared/Toast';
 import { useProdutos } from '../contexts/ProdutosContext';
+import { configApi } from '../services/dbService';
+import { getClientes } from '../services/clienteCache';
 
 const PEST_OPTIONS = [
   { id: 'baratas', label: 'Baratas' }, { id: 'formigas', label: 'Formigas' },
@@ -293,17 +295,57 @@ export default function Admin() {
 
   const [configNumeracao, setConfigNumeracao] = useState({ laudos: '', recibos: '', orcamentos: '' });
   const [defaultGarantia, setDefaultGarantia] = useState('3');
+  const [configGlobal, setConfigGlobal] = useState({ proximoLaudo: 1, proximoRecibo: 1, proximoOrcamento: 1, garantiaPadrao: 3 });
+  const [clientesConfig, setClientesConfig] = useState([]);
+  const [clienteConfigId, setClienteConfigId] = useState('');
+  const [configLoading, setConfigLoading] = useState(false);
+
+  const clienteConfigSelecionado = useMemo(
+    () => clientesConfig.find(c => c.id === clienteConfigId) || null,
+    [clientesConfig, clienteConfigId]
+  );
+
+  const aplicarConfigNoFormulario = (cfg = {}, fallback = configGlobal) => {
+    setConfigNumeracao({
+      laudos:     String(cfg.proximoLaudo     ?? fallback.proximoLaudo     ?? 1),
+      recibos:    String(cfg.proximoRecibo    ?? fallback.proximoRecibo    ?? 1),
+      orcamentos: String(cfg.proximoOrcamento ?? fallback.proximoOrcamento ?? 1),
+    });
+    setDefaultGarantia(String(cfg.garantiaPadrao ?? fallback.garantiaPadrao ?? 3));
+  };
+
+  const loadConfiguracoes = async () => {
+    setConfigLoading(true);
+    try {
+      const [cfg, clientes] = await Promise.all([configApi.get(), getClientes()]);
+      const global = {
+        proximoLaudo: cfg.proximoLaudo ?? 1,
+        proximoRecibo: cfg.proximoRecibo ?? 1,
+        proximoOrcamento: cfg.proximoOrcamento ?? 1,
+        garantiaPadrao: cfg.garantiaPadrao ?? 3,
+      };
+      setConfigGlobal(global);
+      setClientesConfig(Array.isArray(clientes) ? clientes : []);
+      const selecionado = (clientes || []).find(c => c.id === clienteConfigId);
+      aplicarConfigNoFormulario(selecionado?.configuracoes || global, global);
+    } catch (e) {
+      addToast('Erro ao carregar configuracoes', 'error');
+      aplicarConfigNoFormulario(configGlobal, configGlobal);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setConfigNumeracao({
-      laudos:     localStorage.getItem('laudoSequence')               || '1',
-      recibos:    localStorage.getItem('receiptNumber')               || '1',
-      orcamentos: localStorage.getItem('lastQuoteNumber_orcamento')   || '1',
-    });
-    setDefaultGarantia(localStorage.getItem('defaultGarantiaMeses') || '3');
-  }, []);
+    if (activeSection === 'configuracoes') loadConfiguracoes();
+  }, [activeSection]);
 
-  const handleSalvarNumeracao = () => {
+  useEffect(() => {
+    if (activeSection !== 'configuracoes') return;
+    aplicarConfigNoFormulario(clienteConfigSelecionado?.configuracoes || configGlobal, configGlobal);
+  }, [clienteConfigId]);
+
+  const handleSalvarNumeracao = async () => {
     const l = parseInt(configNumeracao.laudos, 10);
     const r = parseInt(configNumeracao.recibos, 10);
     const o = parseInt(configNumeracao.orcamentos, 10);
@@ -316,11 +358,32 @@ export default function Admin() {
       addToast('Garantia padrão inválida (mínimo 0)', 'error');
       return;
     }
-    localStorage.setItem('laudoSequence',             String(l));
-    localStorage.setItem('receiptNumber',             String(r));
-    localStorage.setItem('lastQuoteNumber_orcamento', String(o));
-    localStorage.setItem('defaultGarantiaMeses',      String(g));
-    addToast('Configurações salvas com sucesso!', 'success');
+    const payload = {
+      proximoLaudo: l,
+      proximoRecibo: r,
+      proximoOrcamento: o,
+      garantiaPadrao: g,
+    };
+    setConfigLoading(true);
+    try {
+      if (clienteConfigSelecionado?.id) {
+        const atualizado = await configApi.saveClienteConfig(clienteConfigSelecionado.id, payload);
+        setClientesConfig(prev => prev.map(c => c.id === atualizado.id ? atualizado : c));
+        addToast('Configurações do cliente salvas com sucesso!', 'success');
+      } else {
+        const atualizado = await configApi.save(payload);
+        setConfigGlobal(atualizado);
+        localStorage.setItem('laudoSequence', String(l));
+        localStorage.setItem('receiptNumber', String(r));
+        localStorage.setItem('lastQuoteNumber_orcamento', String(o));
+        localStorage.setItem('defaultGarantiaMeses', String(g));
+        addToast('Configurações globais salvas com sucesso!', 'success');
+      }
+    } catch (e) {
+      addToast(e.message || 'Erro ao salvar configurações', 'error');
+    } finally {
+      setConfigLoading(false);
+    }
   };
 
   // ── Handlers Técnicos ──────────────────────────────────────────────────────
@@ -912,9 +975,40 @@ export default function Admin() {
       {activeSection === 'configuracoes' && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 space-y-6">
           <div>
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Numeração de Documentos</h3>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Numeração de Documentos</h3>
+              <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                clienteConfigSelecionado
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+              }`}>
+                {clienteConfigSelecionado ? 'Configuração por Cliente' : 'Configuração Global'}
+              </span>
+            </div>
             <p className="text-xs text-slate-400 dark:text-slate-500">
               Define o próximo número a ser usado ao gerar um documento. Ao salvar, a alteração vale imediatamente na próxima abertura do editor.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 p-4">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-2">
+              <Search size={13} /> Cliente da configuração
+            </label>
+            <select
+              value={clienteConfigId}
+              onChange={e => setClienteConfigId(e.target.value)}
+              disabled={configLoading}
+              className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              <option value="">Configuração Global do Sistema</option>
+              {clientesConfig.map(cliente => (
+                <option key={cliente.id} value={cliente.id}>
+                  {(cliente.fantasia || cliente.nome || 'Cliente sem nome')} {cliente.cnpj ? `- ${cliente.cnpj}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Sem cliente selecionado, os valores salvos valem para todos. Com cliente selecionado, eles ficam gravados apenas no perfil dele.
             </p>
           </div>
 
@@ -969,8 +1063,9 @@ export default function Admin() {
 
           <button
             onClick={handleSalvarNumeracao}
+            disabled={configLoading}
             className="flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm rounded-xl transition shadow-md shadow-brand-500/25">
-            <Save size={16} /> Salvar Configurações
+            {configLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar Configurações
           </button>
         </div>
       )}
