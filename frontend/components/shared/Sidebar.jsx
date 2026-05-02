@@ -26,18 +26,48 @@ const ROLE_LABELS = {
   tecnico:     'Técnico',
 };
 
+const LOGO_CACHE_KEY = 'dedetizadora_sidebar_logo';
+
 export default function Sidebar() {
   const { collapsed, toggle } = useSidebar();
   const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
-  const [logoPath, setLogoPath] = useState(null);
+  const [logoPath, setLogoPath] = useState(() => {
+    try { return localStorage.getItem(LOGO_CACHE_KEY) || null; } catch { return null; }
+  });
+  const [logoReady, setLogoReady] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.logo) setLogoPath(data.logo); })
+      .then(data => {
+        if (!alive || !data?.logo) return;
+        try { localStorage.setItem(LOGO_CACHE_KEY, data.logo); } catch {}
+        setLogoReady(false);
+        setLogoPath(data.logo);
+      })
       .catch(() => {});
+    return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    if (!logoPath) {
+      setLogoReady(false);
+      return;
+    }
+    let alive = true;
+    const img = new Image();
+    img.onload = () => { if (alive) setLogoReady(true); };
+    img.onerror = () => {
+      if (!alive) return;
+      setLogoReady(false);
+      setLogoPath(null);
+      try { localStorage.removeItem(LOGO_CACHE_KEY); } catch {}
+    };
+    img.src = logoPath;
+    return () => { alive = false; };
+  }, [logoPath]);
 
   // Filtra itens conforme role do usuário
   const visibleItems = navItems.filter(it => !it.roles || hasRole(...it.roles));
@@ -58,20 +88,23 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center justify-center h-20 px-3 border-b border-slate-200 dark:border-slate-700">
-        <div className={`flex items-center justify-center shrink-0 overflow-hidden rounded-xl ${collapsed ? 'w-10 h-10' : 'w-full h-16'}`}>
+        <div className={`relative flex items-center justify-center shrink-0 overflow-hidden rounded-xl ${collapsed ? 'w-10 h-10' : 'w-full h-16'}`}>
+          {(!logoPath || !logoReady) && (
+            <div className="absolute inset-0 bg-brand-500 flex items-center justify-center">
+              <Bug size={collapsed ? 20 : 28} className="text-white" />
+            </div>
+          )}
           {logoPath ? (
             <img
               src={logoPath}
               alt="Logo"
-              className="block w-full h-full object-contain"
+              className={`relative z-10 block w-full h-full object-contain transition-opacity duration-150 ${logoReady ? 'opacity-100' : 'opacity-0'}`}
               width={collapsed ? 40 : 232}
               height={collapsed ? 40 : 64}
+              decoding="async"
+              draggable="false"
             />
-          ) : (
-            <div className="w-full h-full bg-brand-500 flex items-center justify-center">
-              <Bug size={collapsed ? 20 : 28} className="text-white" />
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
