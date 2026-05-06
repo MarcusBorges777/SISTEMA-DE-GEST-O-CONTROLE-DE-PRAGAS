@@ -312,7 +312,7 @@ export default function RelatorioMensal() {
         fantasia:  c.fantasia  || '',
         cnpj:      c.cnpj      || '',
         endereco:  c.endereco  || '',
-        atividade: c.atividade || '',
+        atividade: c.atividadeEconomica || c.atividade || '',
         configuracoes: c.configuracoes,
       }));
       if (c.cnpj) setCnpjExternal(c.cnpj);

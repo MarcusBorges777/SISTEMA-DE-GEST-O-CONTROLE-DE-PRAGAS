@@ -62,7 +62,7 @@ export default function RelatorioBranco() {
       if (!raw) return;
       sessionStorage.removeItem('__prefill_cliente');
       const c = JSON.parse(raw);
-      setClientData(prev => ({ ...prev, id: c.id, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '', configuracoes: c.configuracoes }));
+      setClientData(prev => ({ ...prev, id: c.id, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividadeEconomica || c.atividade || '', configuracoes: c.configuracoes }));
       if (c.cnpj) setCnpjExternal(c.cnpj);
     } catch {}
   }, []);

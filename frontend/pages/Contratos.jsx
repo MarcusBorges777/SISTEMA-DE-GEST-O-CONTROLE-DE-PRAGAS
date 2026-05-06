@@ -623,7 +623,7 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda, onVerPe
     const atividadeContrato = getAtividadeCliente(contrato);
     if (!atividadeContrato && (contrato.clienteId || cnpjDigits)) {
       try {
-        const clientes = await clienteApi.getAll(cnpjDigits || contrato.clienteNome || '');
+        const clientes = await clienteApi.getAll(cnpjDigits || '');
         const lista = Array.isArray(clientes) ? clientes : [];
         clienteDb = lista.find(c => contrato.clienteId && c.id === contrato.clienteId)
           || lista.find(c => cnpjDigits && (c.cnpj || '').replace(/\D/g, '') === cnpjDigits)
@@ -644,6 +644,7 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda, onVerPe
         cnpj:      contrato.clienteCnpj    || '',
         endereco:  contrato.clienteEndereco || '',
         atividade,
+        atividadeEconomica: atividade,
         configuracoes: contrato.configuracoes || clienteDb?.configuracoes,
         historico, // metadados do último doc deste tipo para este cliente
       }));

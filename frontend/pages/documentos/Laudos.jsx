@@ -170,7 +170,7 @@ export default function Laudos() {
           fantasia:           c.fantasia  || '',
           cnpj:               c.cnpj      || '',
           endereco:           c.endereco  || '',
-          atividadeEconomica: c.atividade || '',
+          atividadeEconomica: c.atividadeEconomica || c.atividade || '',
           configuracoes:      c.configuracoes,
         },
         // Importar pragas e observação do último laudo

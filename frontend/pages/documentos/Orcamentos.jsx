@@ -82,7 +82,7 @@ export default function Orcamentos() {
       if (!raw) return;
       sessionStorage.removeItem('__prefill_cliente');
       const c = JSON.parse(raw);
-      setClientData(prev => ({ ...prev, id: c.id, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividade || '', configuracoes: c.configuracoes }));
+      setClientData(prev => ({ ...prev, id: c.id, nome: c.nome || '', fantasia: c.fantasia || '', cnpj: c.cnpj || '', endereco: c.endereco || '', atividade: c.atividadeEconomica || c.atividade || '', configuracoes: c.configuracoes }));
       if (c.cnpj) setCnpjExternal(c.cnpj);
       // Importar itens do último orçamento deste cliente
       if (c.historico?.items && Array.isArray(c.historico.items) && c.historico.items.length > 0) {

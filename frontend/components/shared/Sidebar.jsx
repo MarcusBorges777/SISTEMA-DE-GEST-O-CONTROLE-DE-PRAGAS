@@ -46,7 +46,6 @@ export default function Sidebar() {
         if (!alive) return;
         const nextLogo = data?.logo || DEFAULT_LOGO_PATH;
         try { localStorage.setItem(LOGO_CACHE_KEY, nextLogo); } catch {}
-        setLogoReady(false);
         setLogoPath(nextLogo);
       })
       .catch(() => {
