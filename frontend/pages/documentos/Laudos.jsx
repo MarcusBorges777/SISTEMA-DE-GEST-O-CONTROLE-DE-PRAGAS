@@ -18,6 +18,7 @@ import { registrarDocumentoNaAgenda } from '../../services/agendaService';
 export default function Laudos() {
   const [logo, setLogo] = useState(null);
   const fileInputRef = useRef(null);
+  const editandoDocumentoRef = useRef(false);
   const [showEditor, setShowEditor] = useState(true);
   
   // Controle de quais documentos emitir
@@ -193,6 +194,7 @@ export default function Laudos() {
       const meta = JSON.parse(raw);
       if (meta.__tipo !== 'laudo') return;
       sessionStorage.removeItem('__editar_documento');
+      editandoDocumentoRef.current = true;
       if (meta.formData) {
         setFormData(prev => ({ ...prev, ...meta.formData }));
         if (meta.formData.cliente?.cnpj) setCnpjExternal(meta.formData.cliente.cnpj);
@@ -207,6 +209,7 @@ export default function Laudos() {
   // --- EMPRESA CONTEXT: auto-fill do cliente ---
   const { empresa: empresaCtx } = useEmpresa();
   useEffect(() => {
+    if (editandoDocumentoRef.current) return;
     if (!empresaCtx) return;
     setFormData(prev => ({
       ...prev,

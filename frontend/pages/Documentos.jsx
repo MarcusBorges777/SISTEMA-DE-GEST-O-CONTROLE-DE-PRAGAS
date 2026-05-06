@@ -25,6 +25,13 @@ export default function Documentos() {
   const location = useLocation();
   const { empresa, setEmpresa } = useEmpresa();
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams, activeTab]);
+
   // Bridge: se chegou com location.state.cliente, preencher empresa e mudar aba
   useEffect(() => {
     if (!location.state) return;

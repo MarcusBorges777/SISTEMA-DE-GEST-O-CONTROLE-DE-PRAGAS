@@ -2147,6 +2147,20 @@ def resolver_caminho_arquivo(caminho_query='', filename=''):
         return encontrar_arquivo_em_diretorios(nome_final)
     return None
 
+@app.route('/api/download')
+def download_arquivo_query():
+    """Download via navegador usando apenas ?caminho=..."""
+    try:
+        caminho_resolvido = resolver_caminho_arquivo(
+            request.args.get('caminho', ''),
+            request.args.get('filename', '') or request.args.get('nome', '')
+        )
+        if not caminho_resolvido:
+            return jsonify({"error": "Arquivo nÃ£o encontrado"}), 404
+        return send_file(str(caminho_resolvido), as_attachment=True, download_name=caminho_resolvido.name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/download/<path:filename>')
 @app.route('/api/download/<path:filename>')
 def download_arquivo(filename):

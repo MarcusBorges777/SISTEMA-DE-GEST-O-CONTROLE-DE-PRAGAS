@@ -548,6 +548,14 @@ export default function Arquivos() {
     }
   };
 
+  const handleDownload = (arquivo) => {
+    const filename = arquivo.nome || arquivo.filename || '';
+    const params = new URLSearchParams();
+    if (arquivo.caminho) params.set('caminho', arquivo.caminho);
+    if (filename) params.set('filename', filename);
+    window.location.href = `/api/download?${params.toString()}`;
+  };
+
   // Abre o documento no editor (busca sidecar JSON e navega)
   const handleAbrirEditor = async (arquivo) => {
     const caminho = arquivo.caminho;
@@ -567,11 +575,14 @@ export default function Arquivos() {
     try {
       const resp = await api.get(`/api/documentos/metadados?caminho=${encodeURIComponent(caminho)}`);
       const meta = await enriquecerClienteMeta(resp.data || {});
+      const tabFinal = meta.__tipo || tab;
       sessionStorage.setItem('__editar_documento', JSON.stringify({
         ...meta,
         __caminho_original: caminho,
-        __tipo: meta.__tipo || tab,
+        __tipo: tabFinal,
       }));
+      navigate(`/documentos?tab=${tabFinal}`);
+      return;
     } catch {
       // Sem sidecar — abre o editor vazio com apenas o tipo pré-selecionado
       sessionStorage.removeItem('__editar_documento');
@@ -920,10 +931,10 @@ export default function Arquivos() {
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
                       <Eye size={15} />
                     </button>
-                    <a href={`/api/download/${encodeURIComponent(filename)}${arquivo.caminho ? '?caminho=' + encodeURIComponent(arquivo.caminho) : ''}`} title="Baixar"
+                    <button onClick={() => handleDownload(arquivo)} title="Baixar"
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition">
                       <Download size={15} />
-                    </a>
+                    </button>
                     {!lixeira && (
                       <button onClick={() => handleAbrirEditor(arquivo)} title="Editar no editor"
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition">
