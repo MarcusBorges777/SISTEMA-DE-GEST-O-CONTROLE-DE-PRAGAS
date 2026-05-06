@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { Bug, Calculator, Receipt, ClipboardList, FileText } from 'lucide-react';
 import { buscarFeriados } from '../services/brasilApi';
 import { useEmpresa, normalizeCliente } from '../contexts/EmpresaContext';
-import Laudos from './documentos/Laudos';
-import Orcamentos from './documentos/Orcamentos';
-import Recibos from './documentos/Recibos';
-import RelatorioMensal from './documentos/RelatorioMensal';
-import RelatorioBranco from './documentos/RelatorioBranco';
+
+const Laudos = lazy(() => import('./documentos/Laudos'));
+const Orcamentos = lazy(() => import('./documentos/Orcamentos'));
+const Recibos = lazy(() => import('./documentos/Recibos'));
+const RelatorioMensal = lazy(() => import('./documentos/RelatorioMensal'));
+const RelatorioBranco = lazy(() => import('./documentos/RelatorioBranco'));
 
 const TABS = [
   { id: 'laudo', label: 'Laudo', icon: Bug, description: 'Tecnico + Higienizacao' },
@@ -77,11 +78,13 @@ export default function Documentos() {
 
       {/* Conteudo da Tab Ativa */}
       <main className="w-full flex flex-col items-center">
-        {activeTab === 'laudo' && <Laudos feriados={feriados} />}
-        {activeTab === 'orcamento' && <Orcamentos feriados={feriados} />}
-        {activeTab === 'recibo' && <Recibos feriados={feriados} />}
-        {activeTab === 'relatorio_mensal' && <RelatorioMensal feriados={feriados} />}
-        {activeTab === 'relatorio_branco' && <RelatorioBranco feriados={feriados} />}
+        <Suspense fallback={<div className="py-10 text-sm font-semibold text-slate-400">Carregando documento...</div>}>
+          {activeTab === 'laudo' && <Laudos feriados={feriados} />}
+          {activeTab === 'orcamento' && <Orcamentos feriados={feriados} />}
+          {activeTab === 'recibo' && <Recibos feriados={feriados} />}
+          {activeTab === 'relatorio_mensal' && <RelatorioMensal feriados={feriados} />}
+          {activeTab === 'relatorio_branco' && <RelatorioBranco feriados={feriados} />}
+        </Suspense>
       </main>
 
       {/* Print Styles */}

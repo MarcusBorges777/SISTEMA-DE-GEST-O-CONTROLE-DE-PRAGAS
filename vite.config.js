@@ -15,6 +15,12 @@ export default defineConfig(({ command }) => ({
         entryFileNames: 'assets/main.js',
         chunkFileNames: 'assets/[name].js',
         assetFileNames: 'assets/[name].[ext]',
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          icons: ['lucide-react'],
+          pdf: ['jspdf'],
+          canvas: ['html2canvas'],
+        },
       },
     },
   },

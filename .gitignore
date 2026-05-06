@@ -39,6 +39,7 @@ desktop.ini
 
 # === Java / Maven ===
 tools/apache-maven-3.9.12/
+tools/*.zip
 target/
 *.class
 *.jar
@@ -48,5 +49,9 @@ target/
 # === Projeto ===
 _docs_archive/
 uploads_pdf/*.pdf
+uploads/tmpclaude*
+database/backup/tmpclaude*
+output/cache_pdf/
+output/documentos/
 *.log
 *.bat
