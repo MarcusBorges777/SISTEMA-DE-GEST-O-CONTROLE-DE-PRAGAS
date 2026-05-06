@@ -7,7 +7,7 @@ import {
   Bell, ChevronDown, ChevronUp, User, Calendar, Bug, CalendarDays, ArrowUpDown
 } from 'lucide-react';
 import { fetchArquivos, api } from '../services/api';
-import { documentoApi } from '../services/dbService';
+import { clienteApi, documentoApi } from '../services/dbService';
 import { useToast } from '../components/shared/Toast';
 import { getAgendamentos, atualizarAgendamento } from '../services/agendaService';
 import DocumentPreview from '../components/dashboard/DocumentPreview';
@@ -75,6 +75,57 @@ function getArquivoTipoAgenda(arquivo) {
   if (texto.includes('relatorio mensal')) return 'relatorio_mensal';
   if (texto.includes('relatorio')) return 'relatorio_mensal';
   return null;
+}
+
+function getAtividadeCliente(cliente = {}) {
+  return cliente.atividadeEconomica || cliente.atividade || cliente.cnae || '';
+}
+
+function getClienteFromMeta(meta = {}) {
+  return meta.formData?.cliente || meta.clientData || meta.cliente || {};
+}
+
+async function enriquecerClienteMeta(meta = {}) {
+  const clienteAtual = getClienteFromMeta(meta);
+  const precisaCompletar = !clienteAtual.cnpj || !getAtividadeCliente(clienteAtual);
+  if (!precisaCompletar) return meta;
+
+  const termo = clienteAtual.cnpj || clienteAtual.nome || clienteAtual.fantasia || '';
+  if (!termo) return meta;
+
+  try {
+    const clientes = await clienteApi.getAll(termo);
+    const lista = Array.isArray(clientes) ? clientes : [];
+    const digits = String(clienteAtual.cnpj || '').replace(/\D/g, '');
+    const nomeNorm = normalizeText(clienteAtual.nome || clienteAtual.fantasia);
+    const encontrado = lista.find(c => digits && String(c.cnpj || '').replace(/\D/g, '') === digits)
+      || lista.find(c => nomeNorm && normalizeText(`${c.nome || ''} ${c.fantasia || ''}`).includes(nomeNorm.slice(0, 24)))
+      || lista[0];
+    if (!encontrado) return meta;
+
+    const clienteCompleto = {
+      ...clienteAtual,
+      id: clienteAtual.id || encontrado.id,
+      nome: clienteAtual.nome || encontrado.nome || '',
+      fantasia: clienteAtual.fantasia || encontrado.fantasia || '',
+      cnpj: clienteAtual.cnpj || encontrado.cnpj || '',
+      telefone: clienteAtual.telefone || encontrado.telefone || '',
+      endereco: clienteAtual.endereco || encontrado.endereco || '',
+      atividade: getAtividadeCliente(clienteAtual) || getAtividadeCliente(encontrado),
+      atividadeEconomica: getAtividadeCliente(clienteAtual) || getAtividadeCliente(encontrado),
+      configuracoes: clienteAtual.configuracoes || encontrado.configuracoes,
+    };
+
+    if (meta.formData?.cliente) {
+      return { ...meta, formData: { ...meta.formData, cliente: clienteCompleto } };
+    }
+    if (meta.clientData) {
+      return { ...meta, clientData: clienteCompleto };
+    }
+    return { ...meta, cliente: clienteCompleto };
+  } catch {
+    return meta;
+  }
 }
 
 function getArquivoNumeros(arquivo) {
@@ -510,13 +561,16 @@ export default function Arquivos() {
     let tab = 'laudo';
     if (tipo.includes('recibo')) tab = 'recibo';
     else if (tipo.includes('orcamento')) tab = 'orcamento';
+    else if (tipo.includes('branco') || tipo.includes('livre')) tab = 'relatorio_branco';
+    else if (tipo.includes('relatorio')) tab = 'relatorio_mensal';
 
     try {
       const resp = await api.get(`/api/documentos/metadados?caminho=${encodeURIComponent(caminho)}`);
+      const meta = await enriquecerClienteMeta(resp.data || {});
       sessionStorage.setItem('__editar_documento', JSON.stringify({
-        ...resp.data,
+        ...meta,
         __caminho_original: caminho,
-        __tipo: tab,
+        __tipo: meta.__tipo || tab,
       }));
     } catch {
       // Sem sidecar — abre o editor vazio com apenas o tipo pré-selecionado

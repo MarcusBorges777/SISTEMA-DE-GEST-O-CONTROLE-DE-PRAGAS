@@ -18,7 +18,7 @@ import hashlib
 import traceback
 import shutil
 import secrets
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 # Imports de terceiros
 from dateutil.relativedelta import relativedelta
@@ -2119,11 +2119,43 @@ def encontrar_arquivo_em_diretorios(filename):
 
     return None
 
+def resolver_caminho_arquivo(caminho_query='', filename=''):
+    """Resolve arquivo vindo da UI aceitando path absoluto, URL encoded ou fallback por nome."""
+    candidatos = []
+    for valor in [caminho_query, filename]:
+        if not valor:
+            continue
+        atual = str(valor).strip().strip('"')
+        for _ in range(2):
+            atual = unquote(atual)
+        candidatos.extend([
+            atual,
+            atual.replace('/', os.sep),
+            atual.replace('\\', os.sep),
+        ])
+
+    for candidato in candidatos:
+        try:
+            path = Path(candidato)
+            if path.exists() and path.is_file():
+                return path
+        except Exception:
+            continue
+
+    nome_final = Path(unquote(filename or caminho_query or '')).name
+    if nome_final:
+        return encontrar_arquivo_em_diretorios(nome_final)
+    return None
+
 @app.route('/download/<path:filename>')
 @app.route('/api/download/<path:filename>')
 def download_arquivo(filename):
     """Permite download de arquivo — aceita ?caminho= para path absoluto"""
     try:
+        caminho_resolvido = resolver_caminho_arquivo(request.args.get('caminho', ''), filename)
+        if caminho_resolvido:
+            return send_file(str(caminho_resolvido), as_attachment=True, download_name=caminho_resolvido.name)
+
         caminho_query = request.args.get('caminho', '').strip()
         if caminho_query:
             caminho_arquivo = Path(caminho_query)
@@ -2143,6 +2175,10 @@ def download_arquivo(filename):
 def visualizar_arquivo(filename):
     """Permite visualizar arquivo — aceita ?caminho= para path absoluto"""
     try:
+        caminho_resolvido = resolver_caminho_arquivo(request.args.get('caminho', ''), filename)
+        if caminho_resolvido:
+            return send_file(str(caminho_resolvido), as_attachment=False)
+
         caminho_query = request.args.get('caminho', '').strip()
         if caminho_query:
             caminho_arquivo = Path(caminho_query)
@@ -3418,7 +3454,9 @@ def get_metadados_documento():
         caminho = request.args.get('caminho', '').strip()
         if not caminho:
             return jsonify({'error': 'Parâmetro caminho obrigatório'}), 400
-        pdf_path = Path(caminho)
+        pdf_path = resolver_caminho_arquivo(caminho, Path(caminho).name)
+        if not pdf_path:
+            return jsonify({'error': 'Documento nÃ£o encontrado'}), 404
         json_path = pdf_path.with_suffix('.json')
         if not json_path.exists():
             return jsonify({'error': 'Metadados não encontrados para este documento'}), 404
