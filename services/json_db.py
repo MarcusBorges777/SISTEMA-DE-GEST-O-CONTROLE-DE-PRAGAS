@@ -683,14 +683,30 @@ class JsonDbService:
     def deletar_contrato(self, contrato_id: str):
         def mutator(db):
             now = datetime.utcnow().isoformat()
+            contrato_encontrado = None
             for contrato in db.get('contratos', []):
                 if contrato.get('id') == contrato_id:
                     contrato['ativo'] = False
                     contrato['deletado'] = True
                     contrato['deletadoEm'] = now
                     contrato['atualizadoEm'] = now
-                    return contrato
-            return None
+                    contrato_encontrado = contrato
+                    break
+
+            if not contrato_encontrado:
+                return None
+
+            agendamentos_excluidos = 0
+            for agendamento in db.get('agenda', []):
+                if agendamento.get('contratoId') == contrato_id and not agendamento.get('deletado'):
+                    agendamento['deletado'] = True
+                    agendamento['deletadoEm'] = now
+                    agendamento['contratoDeletado'] = True
+                    agendamento['atualizadoEm'] = now
+                    agendamentos_excluidos += 1
+
+            contrato_encontrado['agendamentosExcluidos'] = agendamentos_excluidos
+            return contrato_encontrado
 
         return self._mutate(mutator)
 

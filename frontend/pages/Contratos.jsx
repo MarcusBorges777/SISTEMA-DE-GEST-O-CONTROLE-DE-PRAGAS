@@ -380,8 +380,12 @@ export default function Contratos() {
   const excluir = async () => {
     if (!confirmDel) return;
     try {
-      await contratoApi.delete(confirmDel.id);
+      const resp = await contratoApi.delete(confirmDel.id);
+      const totalAgenda = resp?.agendamentosExcluidos || 0;
       addToast('Contrato excluído', 'success');
+      if (totalAgenda > 0) {
+        addToast(`${totalAgenda} serviÃ§o(s) removido(s) da agenda`, 'success');
+      }
       setConfirmDel(null);
       carregar();
     } catch (e) {
@@ -531,7 +535,7 @@ export default function Contratos() {
               </div>
               <div>
                 <p className="font-bold text-slate-800 dark:text-white">Excluir contrato?</p>
-                <p className="text-xs text-slate-400">Os agendamentos vinculados não são removidos automaticamente.</p>
+                <p className="text-xs text-slate-400">Os serviços agendados por este contrato também serão removidos.</p>
               </div>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2 mb-5 truncate">

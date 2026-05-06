@@ -264,5 +264,10 @@ def atualizar_contrato(contrato_id):
 @json_db_bp.delete('/contratos/<contrato_id>')
 @require_role('admin')
 def deletar_contrato(contrato_id):
-    _db().deletar_contrato(contrato_id)
-    return jsonify({'ok': True})
+    contrato = _db().deletar_contrato(contrato_id)
+    if contrato is None:
+        return jsonify({'erro': 'Contrato nÃ£o encontrado'}), 404
+    return jsonify({
+        'ok': True,
+        'agendamentosExcluidos': contrato.get('agendamentosExcluidos', 0)
+    })
