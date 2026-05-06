@@ -27,27 +27,33 @@ const ROLE_LABELS = {
 };
 
 const LOGO_CACHE_KEY = 'dedetizadora_sidebar_logo';
+const DEFAULT_LOGO_PATH = '/static/media/logo.png';
 
 export default function Sidebar() {
   const { collapsed, toggle } = useSidebar();
   const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
   const [logoPath, setLogoPath] = useState(() => {
-    try { return localStorage.getItem(LOGO_CACHE_KEY) || null; } catch { return null; }
+    try { return localStorage.getItem(LOGO_CACHE_KEY) || DEFAULT_LOGO_PATH; } catch { return DEFAULT_LOGO_PATH; }
   });
-  const [logoReady, setLogoReady] = useState(false);
+  const [logoReady, setLogoReady] = useState(true);
 
   useEffect(() => {
     let alive = true;
     fetch('/api/config/logo-mascote', { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (!alive || !data?.logo) return;
-        try { localStorage.setItem(LOGO_CACHE_KEY, data.logo); } catch {}
+        if (!alive) return;
+        const nextLogo = data?.logo || DEFAULT_LOGO_PATH;
+        try { localStorage.setItem(LOGO_CACHE_KEY, nextLogo); } catch {}
         setLogoReady(false);
-        setLogoPath(data.logo);
+        setLogoPath(nextLogo);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!alive) return;
+        setLogoPath(prev => prev || DEFAULT_LOGO_PATH);
+        setLogoReady(true);
+      });
     return () => { alive = false; };
   }, []);
 
@@ -61,9 +67,12 @@ export default function Sidebar() {
     img.onload = () => { if (alive) setLogoReady(true); };
     img.onerror = () => {
       if (!alive) return;
-      setLogoReady(false);
-      setLogoPath(null);
-      try { localStorage.removeItem(LOGO_CACHE_KEY); } catch {}
+      if (logoPath !== DEFAULT_LOGO_PATH) {
+        setLogoPath(DEFAULT_LOGO_PATH);
+        try { localStorage.setItem(LOGO_CACHE_KEY, DEFAULT_LOGO_PATH); } catch {}
+      } else {
+        setLogoReady(false);
+      }
     };
     img.src = logoPath;
     return () => { alive = false; };
