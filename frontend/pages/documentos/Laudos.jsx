@@ -135,7 +135,7 @@ export default function Laudos() {
             cnpj:               contrato.clienteCnpj     || prev.cliente.cnpj,
             endereco:           contrato.clienteEndereco || prev.cliente.endereco,
             telefone:           contrato.clienteTelefone || prev.cliente.telefone,
-            atividadeEconomica: prev.cliente.atividadeEconomica || '',
+            atividadeEconomica: contrato.clienteAtividade || contrato.atividadeEconomica || contrato.atividade || prev.cliente.atividadeEconomica || '',
           },
           // Carrega pragas + garantia do template
           selectedPests: Array.isArray(contrato.pragas) && contrato.pragas.length > 0

@@ -641,6 +641,7 @@ class JsonDbService:
                 'clienteCnpj':     data.get('clienteCnpj', ''),
                 'clienteTelefone': data.get('clienteTelefone', ''),
                 'clienteEndereco': data.get('clienteEndereco', ''),
+                'clienteAtividade': data.get('clienteAtividade') or data.get('atividadeEconomica') or data.get('atividade') or '',
                 'dataInicio':      data.get('dataInicio', ''),
                 'duracaoMeses':    int(data.get('duracaoMeses', 12)),
                 'frequenciaMeses': int(data.get('frequenciaMeses', 1)),

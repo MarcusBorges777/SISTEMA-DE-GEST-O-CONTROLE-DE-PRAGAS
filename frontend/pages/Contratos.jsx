@@ -68,6 +68,9 @@ const fmtData = (iso) => {
   } catch { return iso; }
 };
 
+const getAtividadeCliente = (obj = {}) =>
+  obj.clienteAtividade || obj.atividadeEconomica || obj.atividade || '';
+
 // Calcula próxima visita: dataInicio + (visitas já realizadas × frequenciaMeses)
 function calcularProximaVisita(contrato) {
   if (!contrato.dataInicio) return null;
@@ -114,7 +117,7 @@ const SERVICO_DEFAULT = { id: 'dedetizacao', label: 'Dedetização', frequenciaM
 const EMPTY_FORM = {
   id: null,
   clienteId: '', clienteNome: '', clienteFantasia: '', clienteCnpj: '',
-  clienteTelefone: '', clienteEndereco: '',
+  clienteTelefone: '', clienteEndereco: '', clienteAtividade: '',
   dataInicio: new Date().toISOString().slice(0, 10),
   duracaoMeses: 12,
   frequenciaMeses: 1,      // mantido para compatibilidade (= menor freq dos serviços)
@@ -273,6 +276,7 @@ export default function Contratos() {
       clienteCnpj: c.cnpj || '',
       clienteTelefone: c.telefone || '',
       clienteEndereco: c.endereco || '',
+      clienteAtividade: getAtividadeCliente(c),
     }));
     setPickerOpen(false);
   };
@@ -344,6 +348,7 @@ export default function Contratos() {
               clienteCnpj: contratoSalvo.clienteCnpj,
               clienteTelefone: contratoSalvo.clienteTelefone,
               clienteEndereco: contratoSalvo.clienteEndereco,
+              clienteAtividade: getAtividadeCliente(contratoSalvo),
               tipoServico: servico.label,
               tecnico: contratoSalvo.tecnico,
               data: dataPrimeira,
@@ -475,7 +480,7 @@ export default function Contratos() {
               onEditar={() => abrirEditar(c)}
               onExcluir={() => setConfirmDel(c)}
               onAgenda={() => navigate('/agenda', { state: { cliente: { nome: c.clienteNome, cnpj: c.clienteCnpj } } })}
-              onVerPerfil={() => setClientePerfil({ nome: c.clienteNome, fantasia: c.clienteFantasia, cnpj: c.clienteCnpj, endereco: c.clienteEndereco, telefone: c.clienteTelefone, atividade: '', email: '' })}
+              onVerPerfil={() => setClientePerfil({ nome: c.clienteNome, fantasia: c.clienteFantasia, cnpj: c.clienteCnpj, endereco: c.clienteEndereco, telefone: c.clienteTelefone, atividade: getAtividadeCliente(c), email: '' })}
             />
           ))}
         </div>
@@ -599,6 +604,7 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda, onVerPe
 
     const cnpjDigits = (contrato.clienteCnpj || '').replace(/\D/g, '');
     let historico = null;
+    let clienteDb = null;
 
     // Buscar histórico do último documento desse tipo para o cliente
     if (cnpjDigits) {
@@ -614,15 +620,31 @@ function ContratoCard({ contrato, agenda, onEditar, onExcluir, onAgenda, onVerPe
       } catch {}
     }
 
+    const atividadeContrato = getAtividadeCliente(contrato);
+    if (!atividadeContrato && (contrato.clienteId || cnpjDigits)) {
+      try {
+        const clientes = await clienteApi.getAll(cnpjDigits || contrato.clienteNome || '');
+        const lista = Array.isArray(clientes) ? clientes : [];
+        clienteDb = lista.find(c => contrato.clienteId && c.id === contrato.clienteId)
+          || lista.find(c => cnpjDigits && (c.cnpj || '').replace(/\D/g, '') === cnpjDigits)
+          || lista[0]
+          || null;
+      } catch {}
+    }
+
+    const atividade = atividadeContrato || getAtividadeCliente(clienteDb);
+
     setCarregandoHistorico(false);
 
     try {
       sessionStorage.setItem('__prefill_cliente', JSON.stringify({
+        id:        contrato.clienteId       || clienteDb?.id || '',
         nome:      contrato.clienteNome     || '',
         fantasia:  contrato.clienteFantasia || '',
         cnpj:      contrato.clienteCnpj    || '',
         endereco:  contrato.clienteEndereco || '',
-        atividade: '',
+        atividade,
+        configuracoes: contrato.configuracoes || clienteDb?.configuracoes,
         historico, // metadados do último doc deste tipo para este cliente
       }));
     } catch {}
